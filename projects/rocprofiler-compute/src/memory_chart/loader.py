@@ -17,7 +17,11 @@ from typing import Any, NoReturn, Optional
 import config
 from membw_analysis.models import BOTTLENECK_LEVELS
 from utils.logger import console_warning
-from utils.utils_common import canonical_config_arch, load_panel_configs
+from utils.utils_common import (
+    canonical_config_arch,
+    load_panel_configs,
+    panel_tables,
+)
 
 LAYOUTS_DIR = config.rocprof_compute_home / "memory_chart" / "layouts"
 
@@ -170,12 +174,8 @@ class PanelConfigs:
 
 def is_memory_chart_panel(panel: dict[str, Any]) -> bool:
     """True when every table of a panel config is drawn as the memory chart."""
-    sources = panel.get("data source") or []
-    return bool(sources) and all(
-        table.get("cli_style") == "mem_chart"
-        for source in sources
-        for table in source.values()
-    )
+    tables = [table for _, table in panel_tables(panel)]
+    return bool(tables) and all(t.get("cli_style") == "mem_chart" for t in tables)
 
 
 def layout_files() -> list[Path]:
