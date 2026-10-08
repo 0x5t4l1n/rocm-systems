@@ -10,11 +10,11 @@ import subprocess
 import sys
 from pathlib import Path
 from threading import Thread
-from typing import Set
+from typing import Any, Iterator, Set
 from unittest.mock import Mock
 
 import config
-from memory_chart.loader import PanelConfigs
+from memory_chart.loader import Layout, PanelConfigs
 from utils import csv_compression
 
 ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -45,6 +45,24 @@ def memory_chart_archs() -> list[str]:
         for path in config.analysis_configs_dir.iterdir()
         if path.is_dir() and PanelConfigs.for_arch(path.name)
     )
+
+
+def stored_blocks(blocks: list[dict[str, Any]]) -> Iterator[dict[str, Any]]:
+    """Stored memory chart blocks with their nested blocks, each parent first."""
+    for block in blocks:
+        yield block
+        yield from stored_blocks(block.get("children", []))
+
+
+def unresolved_metrics(layout: Layout, stored: dict[str, Any]) -> set[str]:
+    """Names of the layout metrics stored without an id."""
+    names = [item.metric for block in layout.blocks() for item in block.items]
+    names += [arrow.metric for arrow in layout.arrows]
+    blocks = stored_blocks(stored["blocks"])
+    refs = [item["metric"] for b in blocks for item in b.get("content", [])]
+    refs += [arrow["metric"] for arrow in stored["arrows"]]
+    assert len(refs) == len(names), "the stored layout lost items or arrows"
+    return {name for name, ref in zip(names, refs) if ref is None}
 
 
 def check_resource_allocation():

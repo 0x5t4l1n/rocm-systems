@@ -6,6 +6,7 @@
 import json
 import re
 
+import common
 import pytest
 
 from memory_chart.extdata import FORMAT_VERSION, layout_extdata
@@ -29,12 +30,6 @@ def stored_layout(arch):
     )
 
 
-def walk_blocks(blocks):
-    for block in blocks:
-        yield block
-        yield from walk_blocks(block.get("children", []))
-
-
 def with_two_blocks_above_fabric(tmp_path):
     """gfx950's layout with a second block above the Data Fabric."""
     data = json.loads(Layouts.for_arch("gfx950").path.read_text(encoding="utf-8"))
@@ -52,7 +47,7 @@ def test_ids_and_references_use_optiqs_formats(path, arch):
     data = layout_extdata(
         load_layout(path), panel_metric_ids(PanelConfigs.for_arch(arch))
     )
-    blocks = list(walk_blocks(data["blocks"]))
+    blocks = list(common.stored_blocks(data["blocks"]))
     refs = [item["metric"] for b in blocks for item in b.get("content", [])]
     refs += [arrow["metric"] for arrow in data["arrows"]]
     assert data["version"] == FORMAT_VERSION
@@ -65,7 +60,7 @@ def test_each_reference_is_the_id_of_its_own_metric(path, arch):
     layout = load_layout(path)
     ids = panel_metric_ids(PanelConfigs.for_arch(arch))
     data = layout_extdata(layout, ids)
-    stored = {b["id"]: b for b in walk_blocks(data["blocks"])}
+    stored = {b["id"]: b for b in common.stored_blocks(data["blocks"])}
     for block in layout.blocks():
         refs = [item["metric"] for item in stored[block.id].get("content", [])]
         assert refs == [ids[item.metric] for item in block.items], block.id
@@ -75,7 +70,9 @@ def test_each_reference_is_the_id_of_its_own_metric(path, arch):
 
 
 def test_blocks_keep_their_column_order_and_nesting():
-    blocks = {b["id"]: b for b in walk_blocks(stored_layout("gfx1250")["blocks"])}
+    blocks = {
+        b["id"]: b for b in common.stored_blocks(stored_layout("gfx1250")["blocks"])
+    }
     sqc = blocks["sqc"]
     assert (sqc["column"], sqc["row"], sqc["order"]) == (1, 0, 1)
     assert [c["id"] for c in blocks["tcp"]["children"]] == ["lds", "gl0"]
@@ -95,6 +92,15 @@ def test_the_block_above_next_to_the_host_is_row_minus_one(tmp_path):
     data = layout_extdata(layout, panel_metric_ids(PanelConfigs.for_arch("gfx950")))
     rows = {b["id"]: b["row"] for b in data["blocks"]}
     assert (rows["extra"], rows["xgmi"]) == (-2, -1)
+
+
+def test_a_metric_without_an_id_is_stored_as_null():
+    layout = Layouts.for_arch("gfx950")
+    ids = panel_metric_ids(PanelConfigs.for_arch("gfx950"))
+    del ids["Flat Read"]
+    assert common.unresolved_metrics(layout, layout_extdata(layout, ids)) == {
+        "Flat Read"
+    }
 
 
 def test_arrows_carry_direction_category_and_group():
