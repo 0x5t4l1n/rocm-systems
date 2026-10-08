@@ -37,7 +37,7 @@ from utils.metrics.noise_clamper import (
     clear_noise_clamp_warnings,
     get_noise_clamp_warnings,
 )
-from utils.utils_common import panel_metric_ids
+from utils.utils_common import panel_metric_ids, panel_tables
 
 ISA_WORKLOAD_NAME = "vector_copy"
 ISA_WORKLOAD_SUB_NAME = "run"
@@ -235,11 +235,11 @@ def memory_chart_arch_config(panel):
     return schema.ArchConfig(panel_configs={panel["id"]: panel})
 
 
-def without_a_layout_metric(panel):
-    """A copy of a panel 300 config missing the first metric of its first table."""
+def without_metric(panel, name):
+    """A copy of a panel 300 config without the metric *name*."""
     panel = copy.deepcopy(panel)
-    table = next(iter(panel["data source"][0].values()))
-    table["metric"].pop(next(iter(table["metric"])))
+    for _, table in panel_tables(panel):
+        table["metric"].pop(name, None)
     return panel
 
 
@@ -3600,12 +3600,12 @@ def test_calc_roofline_data_includes_all_kernels(monkeypatch):
 
 
 # =============================================================================
-# Memory chart layout (Workload.memory_chart_extdata)
+# Memory chart rendering specification (Workload.memory_chart_render_extdata)
 # =============================================================================
 
 
 @pytest.mark.parametrize("gpu_arch", ["gfx942", "gfx1151"])
-def test_run_analysis_stores_the_workloads_memory_chart_layout(
+def test_run_analysis_stores_the_workloads_memory_chart_render_spec(
     db_session, tmp_path, gpu_arch
 ):
     panel = PanelConfigs.for_arch(Layouts.for_arch(gpu_arch).archs[0])
@@ -3615,38 +3615,33 @@ def test_run_analysis_stores_the_workloads_memory_chart_layout(
     # Ids come from the panel config, not from metric definitions, so chart
     # metrics without values (left out by --block) are still referenced
     assert db_session.query(orm.MetricDefinition).count() == 0
-    assert workload.memory_chart_extdata == layout_extdata(
+    assert workload.memory_chart_render_extdata == layout_extdata(
         Layouts.for_arch(gpu_arch), panel_metric_ids(panel)
     )
 
 
 @pytest.mark.parametrize(
-    ("gpu_arch", "arch_config"),
+    ("arch_config", "unresolved"),
     [
-        ("gfx1030", memory_chart_arch_config(PanelConfigs.for_arch("gfx942"))),
-        ("gfx942", schema.ArchConfig()),
+        (schema.ArchConfig(), Layouts.for_arch("gfx942").metrics()),
         (
-            "gfx942",
             memory_chart_arch_config(
-                without_a_layout_metric(PanelConfigs.for_arch("gfx942"))
+                without_metric(PanelConfigs.for_arch("gfx942"), "Flat Read")
             ),
+            {"Flat Read"},
         ),
         (
-            "gfx942",
             memory_chart_arch_config(
                 with_a_repeated_layout_metric(PanelConfigs.for_arch("gfx942"))
             ),
+            {"Flat Read"},
         ),
     ],
-    ids=[
-        "arch-without-layout",
-        "no-chart-panel",
-        "custom-chart-panel",
-        "repeated-name",
-    ],
+    ids=["no-chart-panel", "custom-chart-panel", "repeated-name"],
 )
-def test_run_analysis_stores_no_layout_it_cannot_resolve(
-    db_session, tmp_path, gpu_arch, arch_config
+def test_run_analysis_stores_null_for_metrics_it_cannot_resolve(
+    db_session, tmp_path, arch_config, unresolved
 ):
-    workload = run_memory_chart_workload(tmp_path, gpu_arch, arch_config)
-    assert workload.memory_chart_extdata is None
+    workload = run_memory_chart_workload(tmp_path, "gfx942", arch_config)
+    stored = workload.memory_chart_render_extdata
+    assert common.unresolved_metrics(Layouts.for_arch("gfx942"), stored) == unresolved
