@@ -155,10 +155,9 @@ class AnvilLib {
   // queue budget. Track usage to refuse a mesh that cannot fit before KFD returns NO_MEMORY part
   // way through building it.
   uint32_t numSdmaQueuesPerEngine_{0};
-  // Queues already taken by this process, counted across all engines rather than per engine: a
-  // rejected engine-pinned create retries as a generic queue and reports the requested engine, not
-  // the one KFD picked. connect() compares this against usableSdmaEngines() *
-  // numSdmaQueuesPerEngine_, which on a partition is engine 0's slots alone.
+  // Queues already taken by this process, counted across all engines. connect() compares this
+  // against usableSdmaEngines() * numSdmaQueuesPerEngine_, the slots of the even engines alone. A
+  // single engine filling up first is caught by KFD rejecting the engine-pinned create.
   uint32_t queuesUsedTotal_{0};
   HSAKMT_STATUS lastQueueStatus_{HSAKMT_STATUS_SUCCESS};
   // Selection in progress, so getOamId can report why the map was consulted without the caller

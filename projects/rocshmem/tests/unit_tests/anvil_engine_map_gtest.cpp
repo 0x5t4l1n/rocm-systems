@@ -29,26 +29,36 @@ using namespace sdma_anvil;
 
 namespace {
 
-// MI300X engine counts as ROCr reports them.
-constexpr uint32_t kSpxXgmi = 14;
+// MI300X engine counts as ROCr reports them, per logical GPU.
 constexpr uint32_t kSpxTotal = 16;
-constexpr uint32_t kCpxXgmi = 0;
+constexpr uint32_t kDpxTotal = 8;
+constexpr uint32_t kQpxTotal = 4;
 constexpr uint32_t kCpxTotal = 2;
 
 }  // namespace
 
-TEST(AnvilEngineMap, PartitionIsNoXgmiEnginesWithKnownTotal) {
-  EXPECT_TRUE(isSdmaPartition(kCpxXgmi, kCpxTotal));
-  EXPECT_FALSE(isSdmaPartition(kSpxXgmi, kSpxTotal));
-  // A failed engine-count query reports a total of 0 and must not be read as a partition.
-  EXPECT_FALSE(isSdmaPartition(0, 0));
+TEST(AnvilEngineMap, OnlyEvenEnginesAreUsable) {
+  // Odd engines never see a GPU-written doorbell (ROCM-32598).
+  for (int e = 0; e < static_cast<int>(kSpxTotal); ++e) {
+    EXPECT_EQ(isUsableSdmaEngine(e), e % 2 == 0) << "engine=" << e;
+  }
+  EXPECT_FALSE(isUsableSdmaEngine(-1));
 }
 
-TEST(AnvilEngineMap, PartitionUsesOnlyEngineZero) {
-  // A partition's second engine never sees a GPU-written doorbell (ROCM-32598).
-  EXPECT_EQ(usableSdmaEngines(kCpxXgmi, kCpxTotal), 1u);
-  EXPECT_EQ(usableSdmaEngines(kSpxXgmi, kSpxTotal), kSpxTotal);
-  EXPECT_EQ(usableSdmaEngines(0, 0), 0u);
+TEST(AnvilEngineMap, UsableEnginesAreTheEvenHalf) {
+  EXPECT_EQ(usableSdmaEngines(kSpxTotal), 8u);
+  EXPECT_EQ(usableSdmaEngines(kDpxTotal), 4u);
+  EXPECT_EQ(usableSdmaEngines(kQpxTotal), 2u);
+  EXPECT_EQ(usableSdmaEngines(kCpxTotal), 1u);
+  EXPECT_EQ(usableSdmaEngines(0), 0u);
+}
+
+TEST(AnvilEngineMap, PreferredMaskPicksAnEvenEngine) {
+  EXPECT_EQ(preferredUsableEngine(0x0004), 2);
+  EXPECT_EQ(preferredUsableEngine(0x0006), 2);  // engines 1 and 2
+  EXPECT_EQ(preferredUsableEngine(0x0002), 0);  // engine 1 alone
+  EXPECT_EQ(preferredUsableEngine(0x8000), 14);
+  EXPECT_EQ(preferredUsableEngine(0), -1);
 }
 
 TEST(AnvilEngineMap, SpxUsesInRangeIdsAsIs) {
@@ -59,7 +69,7 @@ TEST(AnvilEngineMap, SpxUsesInRangeIdsAsIs) {
 
 TEST(AnvilEngineMap, OutOfRangeIdFolds) {
   EXPECT_TRUE(oamMapEngineNeedsFold(kSpxTotal, static_cast<int>(kSpxTotal)));
-  EXPECT_TRUE(oamMapEngineNeedsFold(4, 12));
+  EXPECT_TRUE(oamMapEngineNeedsFold(kDpxTotal, 12));
 }
 
 TEST(AnvilEngineMap, UnknownTotalNeverFolds) {
@@ -67,27 +77,35 @@ TEST(AnvilEngineMap, UnknownTotalNeverFolds) {
   EXPECT_FALSE(oamMapEngineNeedsFold(0, 12));
 }
 
-TEST(AnvilEngineMap, FoldStaysInRangeForEveryInput) {
-  for (int oam = 0; oam < 8; ++oam) {
-    for (int src = -1; src < 8; ++src) {
-      for (int dst = -1; dst < 8; ++dst) {
-        const int e = foldOamMapEngine(oam, src, dst, kCpxTotal);
-        EXPECT_GE(e, 0);
-        EXPECT_LT(e, static_cast<int>(kCpxTotal));
+TEST(AnvilEngineMap, FoldLandsOnAnInRangeEvenEngine) {
+  for (uint32_t total : {kDpxTotal, kQpxTotal, kCpxTotal}) {
+    for (int oam = 0; oam < 8; ++oam) {
+      for (int src = -1; src < 8; ++src) {
+        for (int dst = -1; dst < 8; ++dst) {
+          const int e = foldOamMapEngine(oam, src, dst, total);
+          EXPECT_TRUE(isUsableSdmaEngine(e)) << "total=" << total << " e=" << e;
+          EXPECT_LT(e, static_cast<int>(total)) << "total=" << total;
+        }
       }
     }
   }
 }
 
+TEST(AnvilEngineMap, CpxFoldAlwaysUsesEngineZero) {
+  for (int oam = 0; oam < 8; ++oam) {
+    EXPECT_EQ(foldOamMapEngine(oam, 3, 5, kCpxTotal), 0);
+  }
+}
+
 TEST(AnvilEngineMap, FoldSeparatesPairsSharingADestinationFunction) {
-  EXPECT_NE(foldOamMapEngine(0, 0, 1, kCpxTotal), foldOamMapEngine(0, 1, 1, kCpxTotal));
+  EXPECT_NE(foldOamMapEngine(0, 0, 1, kDpxTotal), foldOamMapEngine(0, 1, 1, kDpxTotal));
 }
 
 TEST(AnvilEngineMap, FoldTreatsUnreadableFunctionAsZero) {
-  // One unreadable side: without the clamp, (0 + -1 + 0) % 2 would be -1.
-  EXPECT_EQ(foldOamMapEngine(0, -1, 0, kCpxTotal), foldOamMapEngine(0, 0, 0, kCpxTotal));
-  EXPECT_EQ(foldOamMapEngine(0, 0, -1, kCpxTotal), foldOamMapEngine(0, 0, 0, kCpxTotal));
-  EXPECT_EQ(foldOamMapEngine(3, -1, -1, kCpxTotal), foldOamMapEngine(3, 0, 0, kCpxTotal));
+  // One unreadable side: without the clamp, (0 + -1 + 0) % 4 would be -1.
+  EXPECT_EQ(foldOamMapEngine(0, -1, 0, kDpxTotal), foldOamMapEngine(0, 0, 0, kDpxTotal));
+  EXPECT_EQ(foldOamMapEngine(0, 0, -1, kDpxTotal), foldOamMapEngine(0, 0, 0, kDpxTotal));
+  EXPECT_EQ(foldOamMapEngine(3, -1, -1, kDpxTotal), foldOamMapEngine(3, 0, 0, kDpxTotal));
 }
 
 TEST(AnvilEngineMap, PciFunctionBusRewritesPartitionToFunctionZero) {
@@ -115,13 +133,17 @@ TEST(AnvilEngineMap, QueueBudgetRefusesOverSubscription) {
   EXPECT_TRUE(queueBudgetExceeded(0, 17, 2, 8));
 }
 
-TEST(AnvilEngineMap, PartitionQueueBudgetIsEngineZeroAlone) {
-  // CPX, 8 queues per engine: 8 peers fit at 1 channel but only 4 at 2 channels.
-  const uint32_t usable = usableSdmaEngines(kCpxXgmi, kCpxTotal);
-  EXPECT_FALSE(queueBudgetExceeded(7, 1, usable, 8));
-  EXPECT_TRUE(queueBudgetExceeded(8, 1, usable, 8));
-  EXPECT_FALSE(queueBudgetExceeded(6, 2, usable, 8));
-  EXPECT_TRUE(queueBudgetExceeded(8, 2, usable, 8));
+TEST(AnvilEngineMap, QueueBudgetCountsEvenEnginesOnly) {
+  // CPX, 8 queues per engine: engine 0 alone, so 8 queues at 1 channel but only 4 peers at 2.
+  const uint32_t cpx = usableSdmaEngines(kCpxTotal);
+  EXPECT_FALSE(queueBudgetExceeded(7, 1, cpx, 8));
+  EXPECT_TRUE(queueBudgetExceeded(8, 1, cpx, 8));
+  EXPECT_FALSE(queueBudgetExceeded(6, 2, cpx, 8));
+  EXPECT_TRUE(queueBudgetExceeded(8, 2, cpx, 8));
+  // QPX: engines 0 and 2, 16 queues, so 32 ranks (31 peers) at 1 channel do not fit.
+  const uint32_t qpx = usableSdmaEngines(kQpxTotal);
+  EXPECT_FALSE(queueBudgetExceeded(15, 1, qpx, 8));
+  EXPECT_TRUE(queueBudgetExceeded(16, 1, qpx, 8));
 }
 
 TEST(AnvilEngineMap, QueueBudgetUnknownNeverRefuses) {

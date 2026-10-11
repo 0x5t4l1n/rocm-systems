@@ -212,50 +212,20 @@ SdmaQueue::SdmaQueue(int localDeviceId, int remoteDeviceId, const hsa_agent_t& l
   // Create SDMA Queue
   memset(&queue_, 0, sizeof(HsaQueueResource));
 
-  HSAKMT_STATUS pinnedStatus = hsaKmtCreateQueueExt(
+  // No generic HSA_QUEUE_SDMA retry when this is rejected (typically the engine's queue slots are
+  // full): KFD may place a generic queue on an odd engine, which never sees a GPU-written doorbell
+  // (ROCM-32598). Failing the connect lets the caller fall back instead of hanging later.
+  createStatus_ = hsaKmtCreateQueueExt(
       localNodeId, HSA_QUEUE_SDMA_BY_ENG_ID, DEFAULT_QUEUE_PERCENTAGE, DEFAULT_PRIORITY, engineId,
       queueBuffer_, SDMA_QUEUE_SIZE, nullptr, &queue_);
-  HSAKMT_STATUS queueStatus = pinnedStatus;
-  const bool partition =
-      isSdmaPartition(selection.numSdmaXgmiEngines, selection.numSdmaEnginesTotal);
 
-  if (queueStatus != HSAKMT_STATUS_SUCCESS && partition) {
-    // Typically engine 0's queue slots are full. A generic queue would let KFD use engine 1, which
-    // never sees a GPU-written doorbell (ROCM-32598), so fail the connect instead of hanging later.
-    LOG_ERROR("anvil: engine-pinned queue rejected on a partition (hsakmt=%d %s node=%u "
-              "engineId=%u); not retrying as a generic queue, which KFD may place on engine 1",
-              static_cast<int>(queueStatus), hsakmtStatusName(queueStatus), localNodeId, engineId);
-  } else if (queueStatus != HSAKMT_STATUS_SUCCESS) {
-    // An engine-pinned queue needs an engine id the KFD node actually owns, and an id valid on
-    // another node's layout is rejected here. A generic HSA_QUEUE_SDMA lets KFD pick an engine it
-    // owns: that gives up the per-peer xGMI engine affinity but still reaches the peer over xGMI.
-    LOG_WARN("anvil: engine-pinned queue rejected (hsakmt=%d %s node=%u engineId=%u), retrying with "
-             "a generic SDMA queue",
-             static_cast<int>(queueStatus), hsakmtStatusName(queueStatus), localNodeId, engineId);
-    memset(&queue_, 0, sizeof(queue_));
-    queueStatus =
-        hsaKmtCreateQueueExt(localNodeId, HSA_QUEUE_SDMA, DEFAULT_QUEUE_PERCENTAGE, DEFAULT_PRIORITY,
-                             0, queueBuffer_, SDMA_QUEUE_SIZE, nullptr, &queue_);
-  }
-
-  // A generic retry can return NO_MEMORY after the pinned create returned INVALID_PARAMETER.
-  // Keeping only the pinned status would hide the budget failure from connect().
-  if (queueStatus == HSAKMT_STATUS_SUCCESS) {
-    createStatus_ = HSAKMT_STATUS_SUCCESS;
-  } else if (pinnedStatus == HSAKMT_STATUS_NO_MEMORY || queueStatus == HSAKMT_STATUS_NO_MEMORY) {
-    createStatus_ = HSAKMT_STATUS_NO_MEMORY;
-  } else {
-    createStatus_ = pinnedStatus;
-  }
-
-  if (queueStatus != HSAKMT_STATUS_SUCCESS) {
+  if (createStatus_ != HSAKMT_STATUS_SUCCESS) {
     const std::string srcBus = getBusId(localDeviceId);
     const std::string dstBus = getBusId(remoteDeviceId);
     LOG_ERROR(
-        "anvil: hsaKmtCreateQueueExt failed hsakmt=%d (%s) genericRetry=%d (%s) node=%u "
-        "engineId=%u srcDev=%d (%s) dstDev=%d (%s) %s",
-        static_cast<int>(createStatus_), hsakmtStatusName(createStatus_),
-        static_cast<int>(queueStatus), hsakmtStatusName(queueStatus), localNodeId, engineId,
+        "anvil: engine-pinned hsaKmtCreateQueueExt failed hsakmt=%d (%s) node=%u engineId=%u "
+        "srcDev=%d (%s) dstDev=%d (%s) %s; not retrying as a generic queue",
+        static_cast<int>(createStatus_), hsakmtStatusName(createStatus_), localNodeId, engineId,
         localDeviceId, srcBus.c_str(), remoteDeviceId, dstBus.c_str(),
         describeSelection(selection).c_str());
     // Leave valid_ false so the caller can drop the Anvil backend instead of killing the job.
@@ -493,8 +463,8 @@ void AnvilLib::querySdmaEngineCounts() {
       agent, static_cast<hsa_agent_info_t>(HSA_AMD_AGENT_INFO_NUM_SDMA_XGMI_ENG),
       &numSdmaXgmiEngines_);
   if (hostStatus != HSA_STATUS_SUCCESS || xgmiStatus != HSA_STATUS_SUCCESS) {
-    // A zero count from a failed query would read as a CPX partition (no xGMI engines) and fold a
-    // full SPX node onto the host engines. A total of 0 means "unknown": no fold, no budget check.
+    // A partial count from a failed query would fold a full SPX node onto too few engines. A total
+    // of 0 means "unknown": no fold, no budget check.
     LOG_ERROR("anvil: SDMA engine count query failed (host=%#x xgmi=%#x); engine counts unknown",
               hostStatus, xgmiStatus);
     numSdmaEngines_ = 0;
@@ -573,8 +543,9 @@ bool AnvilLib::connect(int srcDeviceId, int dstDeviceId, int numChannels) {
     return false;
   }
   const EngineSelection selection = getSdmaEngineId(srcDeviceId, dstDeviceId);
-  if (selection.engineId < 0) {
-    LOG_ERROR("anvil: no SDMA engine mapping for %d -> %d", srcDeviceId, dstDeviceId);
+  if (!isUsableSdmaEngine(selection.engineId)) {
+    LOG_ERROR("anvil: no usable (even) SDMA engine for %d -> %d (selected %d)", srcDeviceId,
+              dstDeviceId, selection.engineId);
     return false;
   }
   const uint32_t engineId = static_cast<uint32_t>(selection.engineId);
@@ -583,13 +554,13 @@ bool AnvilLib::connect(int srcDeviceId, int dstDeviceId, int numChannels) {
 
   // KFD does not report how many queues ROCr already holds, so this only predicts gross
   // over-subscription; a NO_MEMORY from queue creation below is reported against the same budget.
-  const uint32_t usableEngines = usableSdmaEngines(numSdmaXgmiEngines_, numSdmaEnginesTotal_);
+  const uint32_t usableEngines = usableSdmaEngines(numSdmaEnginesTotal_);
   const uint32_t queueBudget = usableEngines * numSdmaQueuesPerEngine_;
   auto reportBudget = [&](uint32_t used) {
     LOG_ERROR(
         "anvil: SDMA queue budget exhausted: %u queue(s) taken by this process + %d requested, "
-        "limit %u (%u usable of %u engines: host=%u xgmi=%u, %u queues per engine). ROCm already "
-        "holds some of them, so this partition cannot cover this peer count at %d channel(s) per "
+        "limit %u (%u usable even engines of %u: host=%u xgmi=%u, %u queues per engine). ROCm "
+        "already holds some of them, so this GPU cannot cover this peer count at %d channel(s) per "
         "peer. Use fewer ranks per node, fewer channels, or a coarser partition mode (DPX/SPX).",
         used, numChannels, queueBudget, usableEngines, numSdmaEnginesTotal_, numSdmaEngines_,
         numSdmaXgmiEngines_, numSdmaQueuesPerEngine_, numChannels);
@@ -698,8 +669,8 @@ int AnvilLib::getSdmaEngineIdFromOamMap(int srcDeviceId, int dstDeviceId) {
   int engineId = oamEngine * 2;
 
   // The map and the doubling assume the 14 xGMI SDMA engines of an unpartitioned MI300X. A node
-  // that reports fewer engines folds an id past its count back into range. (srcFn + dstFn) rather
-  // than dstFn alone, so pairs that share a destination function still separate.
+  // that reports fewer engines folds an id past its count back onto its even engines. (srcFn +
+  // dstFn) rather than dstFn alone, so pairs that share a destination function still separate.
   if (oamMapEngineNeedsFold(numSdmaEnginesTotal_, engineId)) {
     const PciFunctionBus srcPci = pciFunctionBus(getBusId(srcDeviceId));
     const PciFunctionBus dstPci = pciFunctionBus(getBusId(dstDeviceId));
@@ -731,13 +702,6 @@ EngineSelection AnvilLib::getSdmaEngineId(int srcDeviceId, int dstDeviceId) {
   selection_.numSdmaXgmiEngines = numSdmaXgmiEngines_;
   selection_.numSdmaEnginesTotal = numSdmaEnginesTotal_;
 
-  // Ahead of the HSA preference too: whichever engine it names, engine 1 of a partition hangs.
-  if (isSdmaPartition(numSdmaXgmiEngines_, numSdmaEnginesTotal_)) {
-    selection_.engineId = 0;
-    LOG_TRACE("SDMA: partition, engine 0 for %d -> %d", srcDeviceId, dstDeviceId);
-    return selection_;
-  }
-
   if (srcDeviceId >= 0 && dstDeviceId >= 0 &&
       srcDeviceId < static_cast<int>(gpuAgentsByHipDev_.size()) &&
       dstDeviceId < static_cast<int>(gpuAgentsByHipDev_.size()) &&
@@ -749,7 +713,7 @@ EngineSelection AnvilLib::getSdmaEngineId(int srcDeviceId, int dstDeviceId) {
         hsa_amd_memory_get_preferred_copy_engine(dstAgent, srcAgent, &selection_.preferredMask);
     selection_.preferredQueried = true;
     if (selection_.preferredStatus == HSA_STATUS_SUCCESS && selection_.preferredMask != 0) {
-      const int engineId = __builtin_ctz(selection_.preferredMask);
+      const int engineId = preferredUsableEngine(selection_.preferredMask);
       if (engineId >= 0 && (numSdmaEnginesTotal_ == 0 ||
                             static_cast<uint32_t>(engineId) < numSdmaEnginesTotal_)) {
         selection_.usedPreferred = true;

@@ -32,33 +32,38 @@
 
 namespace sdma_anvil {
 
-// A CPX/DPX partition owns host SDMA engines but no xGMI engines. Callers pass a total of 0 when
-// the engine counts could not be queried, so a failed query is never read as a partition.
-inline bool isSdmaPartition(uint32_t numSdmaXgmiEngines, uint32_t numSdmaEnginesTotal) {
-  return numSdmaXgmiEngines == 0 && numSdmaEnginesTotal > 0;
+// Anvil rings every doorbell from a GPU kernel, and an odd-numbered SDMA engine never sees a
+// doorbell written that way (ROCM-32598), so a queue there hangs on its first packet. This holds in
+// every compute partition mode on MI300X and MI355X, so Anvil places queues on even engines only.
+inline bool isUsableSdmaEngine(int engineId) { return engineId >= 0 && engineId % 2 == 0; }
+
+// Even engines of a node reporting numSdmaEnginesTotal engines: 8 on SPX, 4 on DPX, 2 on QPX, 1 on
+// CPX. 0 when the counts are unknown.
+inline uint32_t usableSdmaEngines(uint32_t numSdmaEnginesTotal) {
+  return (numSdmaEnginesTotal + 1) / 2;
 }
 
-// Engines Anvil may place queues on. On a partition only engine 0: the partition's second engine
-// never sees a doorbell written from a GPU kernel (ROCM-32598), and Anvil rings every doorbell from
-// the device, so a queue there hangs on its first packet. 0 when the counts are unknown.
-inline uint32_t usableSdmaEngines(uint32_t numSdmaXgmiEngines, uint32_t numSdmaEnginesTotal) {
-  return isSdmaPartition(numSdmaXgmiEngines, numSdmaEnginesTotal) ? 1 : numSdmaEnginesTotal;
+// Engine to use for an HSA preferred-copy-engine mask: its lowest even engine, else the even engine
+// below its lowest odd one. -1 for an empty mask.
+inline int preferredUsableEngine(uint32_t preferredMask) {
+  if (preferredMask == 0) return -1;
+  const uint32_t even = preferredMask & 0x55555555u;
+  return even != 0 ? __builtin_ctz(even) : (__builtin_ctz(preferredMask) & ~1);
 }
 
-// True when the doubled OAM-map id is past the engines this node reports. Partitions never get
-// here: they always use engine 0. numSdmaEnginesTotal == 0 never folds, so the modulo below is not
-// asked to divide by zero.
+// True when the doubled OAM-map id is past the engines this node reports. numSdmaEnginesTotal == 0
+// never folds, so foldOamMapEngine is not asked to divide by zero.
 inline bool oamMapEngineNeedsFold(uint32_t numSdmaEnginesTotal, int doubledEngineId) {
   return numSdmaEnginesTotal > 0 && static_cast<uint32_t>(doubledEngineId) >= numSdmaEnginesTotal;
 }
 
-// Fold the undoubled OAM-map value and both PCI functions into the engines this
-// node reports. numEngines must be > 0. An unreadable function (-1) counts as 0
+// Fold the undoubled OAM-map value and both PCI functions onto the even engines of a node reporting
+// numEnginesTotal engines. numEnginesTotal must be > 0. An unreadable function (-1) counts as 0
 // and therefore collides with function 0.
-inline int foldOamMapEngine(int oamEngine, int srcFn, int dstFn, uint32_t numEngines) {
+inline int foldOamMapEngine(int oamEngine, int srcFn, int dstFn, uint32_t numEnginesTotal) {
   const int src = srcFn < 0 ? 0 : srcFn;
   const int dst = dstFn < 0 ? 0 : dstFn;
-  return (oamEngine + src + dst) % static_cast<int>(numEngines);
+  return 2 * ((oamEngine + src + dst) % static_cast<int>(usableSdmaEngines(numEnginesTotal)));
 }
 
 // PCI function and the function-0 BDF of the same device. function is -1 when the tail is not a
@@ -90,7 +95,7 @@ inline PciFunctionBus pciFunctionBus(const std::string& busId) {
 }
 
 // True when taking `requested` more queues would exceed the queue budget, counted across the usable
-// engines as numEngines * queuesPerEngine. Either count being 0 means the budget is unknown, which
+// (even) engines as numEngines * queuesPerEngine. Either count being 0 means the budget is unknown, which
 // is never reported as exhausted.
 inline bool queueBudgetExceeded(uint32_t used, int requested, uint32_t numEngines,
                                 uint32_t queuesPerEngine) {
