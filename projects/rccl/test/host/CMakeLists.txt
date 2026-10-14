@@ -409,6 +409,19 @@ function(rccl_define_micro_source_lists)
     ../common/main_altrsmi.cpp
     PARENT_SCOPE)
 
+  # src/graph/search.cc -- the NCCL_GRAPH_FILE XML-graph import path. search.cc
+  # defines several symbols topo_stubs.cc also provides, so those are omitted
+  # from the stub floor for this target only (see RCCL_STUBS_OMIT_* below).
+  set(TEST_MICRO_SEARCH_SOURCE_FILES
+    search-test.cc
+    fakes/nccl_fakes.cc
+    fakes/hip_fakes.cc
+    fakes/env_fakes.cc
+    fakes/topo_stubs.cc
+    ${RCCL_HOST_HIPIFY_DIR}/src/misc/archinfo.cc
+    ../common/main_altrsmi.cpp
+    PARENT_SCOPE)
+
   # src/diagnostics/p2p.cc; fakes transport/p2p.cc, which rccl-UnitTestsMicro compiles.
   set(TEST_MICRO_DIAGNOSTICS_SOURCE_FILES
     diag-p2p-test.cc
@@ -1182,6 +1195,26 @@ rccl_add_micro_binary(rccl-UnitTestsMicroRomeModels
     ${_MICRO_MODE_DEFS}
     ROME_MODELS_CC_PATH="${RCCL_HOST_HIPIFY_DIR}/src/graph/rome_models.cc"
   CATEGORIES_YAML "${CMAKE_CURRENT_SOURCE_DIR}/../test_categories_micro_rome_models.yaml")
+
+# ---------------------------------------------------------------------------
+# rccl-UnitTestsMicroSearch
+# ---------------------------------------------------------------------------
+rccl_add_micro_binary(rccl-UnitTestsMicroSearch
+  SOURCES ${TEST_MICRO_SEARCH_SOURCE_FILES}
+  EXTRA_DEFS
+    ${_MICRO_MODE_DEFS}
+    SEARCH_CC_PATH="${RCCL_HOST_HIPIFY_DIR}/src/graph/search.cc"
+    # search.cc is the unit under test here, so it defines these itself; omit
+    # the shared floor's copies to avoid duplicate definitions at link time.
+    RCCL_STUBS_OMIT_ncclTopoCheckCrossNicSupport
+    RCCL_STUBS_OMIT_ncclTopoCheckNicFused
+    RCCL_STUBS_OMIT_ncclTopoCompute
+    RCCL_STUBS_OMIT_ncclTopoComputeCommCPU
+    RCCL_STUBS_OMIT_ncclTopoDumpGraphs
+    RCCL_STUBS_OMIT_ncclTopoGetLinkType
+    RCCL_STUBS_OMIT_ncclTopoPrintGraph
+    RCCL_STUBS_OMIT_ncclTopoSearchInit
+  CATEGORIES_YAML "${CMAKE_CURRENT_SOURCE_DIR}/../test_categories_micro_search.yaml")
 
 # ---------------------------------------------------------------------------
 # rccl-UnitTestsMicroDiagnostics

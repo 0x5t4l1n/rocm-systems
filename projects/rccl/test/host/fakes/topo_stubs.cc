@@ -31,11 +31,21 @@ static_assert(std::size(topoPathTypeStr) == PATH_DIS + 1, "topoPathTypeStr must 
 // Controllable (was fail-loud). :1982; the value reaches the AllGather3 payload, so the default is deterministic.
 std::function<ncclResult_t(struct ncclComm*, bool*)> g_ncclTopoCheckNicFused =
     [](struct ncclComm*, bool* fused) { *fused = false; return ncclSuccess; };
+// Omitted when RCCL_STUBS_OMIT_ncclTopoCheckNicFused is defined -- the unit under
+// test (src/graph/search.cc, rccl-UnitTestsMicroSearch) defines it itself.
+#ifndef RCCL_STUBS_OMIT_ncclTopoCheckNicFused
 ncclResult_t ncclTopoCheckNicFused(struct ncclComm* comm, bool* fused) { return g_ncclTopoCheckNicFused(comm, fused); }
+#endif
+
+// Omitted when RCCL_STUBS_OMIT_ncclTopoCheckCrossNicSupport is defined -- the unit under
+// test (src/graph/search.cc, rccl-UnitTestsMicroSearch) defines it itself.
+#ifndef RCCL_STUBS_OMIT_ncclTopoCheckCrossNicSupport
 ncclResult_t ncclTopoCheckCrossNicSupport(bool* supported) {  // src/graph/search.cc
   if (supported) *supported = false;
   return ncclSuccess;
 }
+#endif
+
 // src/graph/paths.cc. Single call site (:1501) -> a success default is safe; see MICROTEST_README.md
 // "Adding more controllable seams" for when to default a seam to failure instead.
 std::function<ncclResult_t(int*)> g_ncclGetUserP2pLevel =
@@ -51,13 +61,23 @@ std::function<ncclResult_t(struct ncclTopoSystem*, struct ncclTopoGraph*)> g_ncc
     [](struct ncclTopoSystem*, struct ncclTopoGraph*) { return ncclRemoteError; };  // rung-2 terminator
 int g_ncclTopoComputeCalls = 0;
 std::vector<struct ncclTopoGraph*> g_ncclTopoComputeGraphs;
+// Omitted when RCCL_STUBS_OMIT_ncclTopoCompute is defined -- the unit under
+// test (src/graph/search.cc, rccl-UnitTestsMicroSearch) defines it itself.
+#ifndef RCCL_STUBS_OMIT_ncclTopoCompute
 ncclResult_t ncclTopoCompute(struct ncclTopoSystem* system, struct ncclTopoGraph* graph) {
   g_ncclTopoComputeCalls++;
   g_ncclTopoComputeGraphs.push_back(graph);
   return g_ncclTopoCompute(system, graph);
 }
+#endif
+
 ncclResult_t g_ncclTopoComputeCommCPUResult = ncclSuccess;
+// Omitted when RCCL_STUBS_OMIT_ncclTopoComputeCommCPU is defined -- the unit under
+// test (src/graph/search.cc, rccl-UnitTestsMicroSearch) defines it itself.
+#ifndef RCCL_STUBS_OMIT_ncclTopoComputeCommCPU
 ncclResult_t ncclTopoComputeCommCPU(struct ncclComm* comm) { return g_ncclTopoComputeCommCPUResult; }
+#endif
+
 ncclResult_t ncclTopoComputeP2pChannels(struct ncclComm* comm) { ::abort(); }
 // Controllable (was fail-loud). Rung-3 terminator at :1774. Its sentinel is ncclTimeout rather than the
 // ncclRemoteError the earlier rungs share, so a rung-3 test proves it cleared the whole graph block
@@ -80,6 +100,9 @@ ncclResult_t g_ncclTopoDumpGraphsResult = ncclSuccess;
 int g_ncclTopoDumpGraphsCalls = 0;
 int g_ncclTopoDumpGraphsNgraphs = -1;
 std::vector<struct ncclTopoGraph*> g_ncclTopoDumpGraphsArray;
+// Omitted when RCCL_STUBS_OMIT_ncclTopoDumpGraphs is defined -- the unit under
+// test (src/graph/search.cc, rccl-UnitTestsMicroSearch) defines it itself.
+#ifndef RCCL_STUBS_OMIT_ncclTopoDumpGraphs
 ncclResult_t ncclTopoDumpGraphs(struct ncclTopoSystem* system, int ngraphs, struct ncclTopoGraph** graphs) {
   g_ncclTopoDumpGraphsCalls++;
   g_ncclTopoDumpGraphsNgraphs = ngraphs;  // assert this, not the vector length, if :1764's 5 ever moves
@@ -90,6 +113,8 @@ ncclResult_t ncclTopoDumpGraphs(struct ncclTopoSystem* system, int ngraphs, stru
   g_ncclTopoDumpGraphsArray.assign(graphs, graphs + n);  // :1763 orders direct BEFORE chain
   return g_ncclTopoDumpGraphsResult;
 }
+#endif
+
 void ncclTopoFree(struct ncclTopoSystem* system) { ::abort(); }
 // Controllable (was fail-loud). A std::function: :1608-1610 branch on the WRITTEN mask, and exit::2404
 // forwards it, so a result-only seam could drive neither. Records rank so :1607 passing comm->rank is visible.
@@ -155,12 +180,22 @@ ncclResult_t ncclTopoPrint(struct ncclTopoSystem* system) { return g_ncclTopoPri
 // ring one -- is visible; a result-only seam would not see it.
 ncclResult_t g_ncclTopoPrintGraphResult = ncclSuccess;
 std::vector<struct ncclTopoGraph*> g_ncclTopoPrintGraphGraphs;
+// Omitted when RCCL_STUBS_OMIT_ncclTopoPrintGraph is defined -- the unit under
+// test (src/graph/search.cc, rccl-UnitTestsMicroSearch) defines it itself.
+#ifndef RCCL_STUBS_OMIT_ncclTopoPrintGraph
 ncclResult_t ncclTopoPrintGraph(struct ncclTopoSystem* system, struct ncclTopoGraph* graph) {
   g_ncclTopoPrintGraphGraphs.push_back(graph);
   return g_ncclTopoPrintGraphResult;
 }
+#endif
+
 ncclResult_t g_ncclTopoSearchInitResult = ncclSuccess;
+// Omitted when RCCL_STUBS_OMIT_ncclTopoSearchInit is defined -- the unit under
+// test (src/graph/search.cc, rccl-UnitTestsMicroSearch) defines it itself.
+#ifndef RCCL_STUBS_OMIT_ncclTopoSearchInit
 ncclResult_t ncclTopoSearchInit(struct ncclTopoSystem* system) { return g_ncclTopoSearchInitResult; }
+#endif
+
 ncclResult_t g_ncclTopoTrimSystemResult = ncclSuccess;
 ncclResult_t ncclTopoTrimSystem(struct ncclTopoSystem* system, struct ncclComm* comm) {
   return g_ncclTopoTrimSystemResult;

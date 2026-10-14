@@ -408,6 +408,9 @@ ncclResult_t DefaultTopoGetLinkType(int, int, bool* isXGMI, int)
 std::function<ncclResult_t(int, int, bool*, int)> g_ncclTopoGetLinkType = DefaultTopoGetLinkType;
 int g_ncclTopoGetLinkTypeCalls = 0;
 
+// Omitted when RCCL_STUBS_OMIT_ncclTopoGetLinkType is defined -- the unit under
+// test (src/graph/search.cc, rccl-UnitTestsMicroSearch) defines it itself.
+#ifndef RCCL_STUBS_OMIT_ncclTopoGetLinkType
 ncclResult_t ncclTopoGetLinkType(struct ncclTopoSystem* /*system*/,
                                  int                    cudaDev1,
                                  int                    cudaDev2,
@@ -419,6 +422,8 @@ ncclResult_t ncclTopoGetLinkType(struct ncclTopoSystem* /*system*/,
     g_ncclTopoGetLinkTypeCalls++;
     return g_ncclTopoGetLinkType(cudaDev1, cudaDev2, isXGMI, maxInter);
 }
+#endif
+
 
 // ---------------------------------------------------------------------------
 // Memory-manager tracking stubs.
