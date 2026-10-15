@@ -63,8 +63,8 @@ class Workload(Base):
     sys_info_extdata = Column(JSON)
     roofline_bench_extdata = Column(JSON)
     profiling_config_extdata = Column(JSON)
-    # Memory chart rendering specification for ROCm Optiq (see memory_chart.extdata)
-    memory_chart_render_extdata = Column(JSON)
+    # Memory chart layout file, unchanged; see src/memory_chart/README.md
+    memory_chart_layout_extdata = Column(JSON)
 
     # Workload can have multiple kernels
     kernels = relationship("Kernel", back_populates="workload")

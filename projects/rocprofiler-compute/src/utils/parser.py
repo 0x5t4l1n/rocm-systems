@@ -30,9 +30,7 @@ from utils.utils_common import (
     convert_filter_blocks_to_panel_ids,
     convert_metric_id_to_panel_info,
     expand_placeholder_ranges,
-    format_metric_id,
     normalize_filter_to_str_list,
-    table_index,
 )
 
 # ------------------------------------------------------------------------------
@@ -205,7 +203,7 @@ def _build_metric_table_df(
     metric_counters in place.
     """
     table_id = data_config["id"]
-    table_data_source_idx = table_index(table_id)
+    table_data_source_idx = f"{table_id // 100}.{table_id % 100}"
     is_simple_box = data_config.get("cli_style") == "simple_box"
 
     headers: list[str] = ["Metric_ID", data_config["header"]["metric"]]
@@ -226,7 +224,7 @@ def _build_metric_table_df(
     expressions: list[str] = []
     metric_entries = data_config["metric"]
     for i, (key, entries) in enumerate(metric_entries.items()):
-        metric_idx = format_metric_id(table_id, i)
+        metric_idx = f"{table_data_source_idx}.{i}"
 
         if not _metric_passes_filter(
             metric_id=metric_idx,

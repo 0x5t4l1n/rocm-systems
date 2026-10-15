@@ -18,7 +18,7 @@ import threading
 import time
 import uuid
 from collections import OrderedDict
-from collections.abc import Generator, Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Optional, Union
@@ -58,40 +58,6 @@ def is_gfx115x(gpu_arch: Optional[str]) -> bool:
 def is_gfx1250(gpu_arch: Optional[str]) -> bool:
     """Return True if gpu_arch is a gfx1250 architecture."""
     return gpu_arch == "gfx1250"
-
-
-def table_index(table_id: int) -> str:
-    """The dotted id of a metric table, e.g. 301 -> "3.1"."""
-    return f"{table_id // 100}.{table_id % 100}"
-
-
-def format_metric_id(table_id: int, position: int) -> str:
-    """The id of the metric at *position* in a table, e.g. (301, 5) -> "3.1.5"."""
-    return f"{table_index(table_id)}.{position}"
-
-
-def panel_tables(panel_config: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any]]]:
-    """Each table of a panel config, with its type, e.g. "metric_table"."""
-    for source in panel_config.get("data source") or []:
-        yield from source.items()
-
-
-def panel_metric_ids(panel_config: dict[str, Any]) -> dict[str, str]:
-    """Metric name -> metric id for a panel's metric tables.
-
-    Names that appear more than once are left out; they identify no single metric.
-    """
-    ids: dict[str, str] = {}
-    repeated: set[str] = set()
-    metric_tables = [
-        t for kind, t in panel_tables(panel_config) if kind == "metric_table"
-    ]
-    for table in metric_tables:
-        for position, name in enumerate(table.get("metric") or {}):
-            if name in ids:
-                repeated.add(name)
-            ids[name] = format_metric_id(table["id"], position)
-    return {name: id_ for name, id_ in ids.items() if name not in repeated}
 
 
 def canonical_config_arch(gpu_arch: Optional[str]) -> Optional[str]:
@@ -807,10 +773,11 @@ def build_metric_list(
                     if data_source_idx != "0":
                         metric_list[data_source_idx] = panel["title"]
 
-                    metric_list[table_index(data_config["id"])] = data_config["title"]
+                    table_idx = f"{data_config['id'] // 100}.{data_config['id'] % 100}"
+                    metric_list[table_idx] = data_config["title"]
 
                     for i, (key, entries) in enumerate(data_config["metric"].items()):
-                        metric_idx = format_metric_id(data_config["id"], i)
+                        metric_idx = f"{table_idx}.{i}"
                         if _metric_has_valid_expr(entries, data_config):
                             metric_list[metric_idx] = key
 

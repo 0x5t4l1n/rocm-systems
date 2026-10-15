@@ -20,7 +20,6 @@ from memory_chart.loader import (
     load_layout,
 )
 from memory_chart.units import display_unit, panel_units
-from utils.utils_common import panel_tables
 
 MEMORY_CHART_ARCHS = common.memory_chart_archs()
 
@@ -44,7 +43,8 @@ def panel_metric_names(arch):
     """Memory chart metric names of an arch, in config order, duplicates kept."""
     return [
         name
-        for _, table in panel_tables(PanelConfigs.for_arch(arch))
+        for source in PanelConfigs.for_arch(arch)["data source"]
+        for table in source.values()
         for name in table.get("metric") or {}
     ]
 
