@@ -135,6 +135,7 @@ Device::Device(hsa_agent_t bkendDevice)
       gpuvm_segment_max_alloc_(0),
       alloc_granularity_(0),
       xferQueue_(nullptr),
+      coopQueue_(nullptr),
       freeMem_(0),
       hsa_exclusive_gpu_access_(false),
       numOfVgpus_(0),
@@ -257,8 +258,10 @@ Device::~Device() {
     glb_ctx_ = nullptr;
   }
 
-  // Destroy transfer queue FIRST (before destroying queues in pool)
-  // because its destructor will call releaseQueue()
+  // Destroy internal queues FIRST (before destroying queues in pool)
+  // because their destructors will call releaseQueue()
+  delete coopQueue_;
+  coopQueue_ = nullptr;
   delete xferQueue_;
   xferQueue_ = nullptr;
 
@@ -1916,6 +1919,24 @@ device::VirtualDevice* Device::createVirtualDevice(amd::CommandQueue* queue) {
   return virtualDevice;
 }
 
+// Note: Keep in sync with the queue==nullptr path of createVirtualDevice(),
+// minus the cooperative flag.
+VirtualGPU* Device::createInternalXferQueue() {
+  std::scoped_lock lock(vgpusAccess());
+
+  const std::vector<uint32_t> defaultCuMask = {};
+  VirtualGPU* virtualDevice =
+      new VirtualGPU(*this, /*profiling=*/amd::IS_HIP, /*cooperative=*/false, defaultCuMask,
+                     amd::CommandQueue::Priority::Normal, /*dedicated_queue=*/false);
+
+  if (!virtualDevice->create()) {
+    delete virtualDevice;
+    return nullptr;
+  }
+
+  return virtualDevice;
+}
+
 bool Device::globalFreeMemory(size_t* freeMemory) const {
   const uint TotalFreeMemory = 0;
   const uint LargestFreeBlock = 1;
@@ -3273,9 +3294,8 @@ VirtualGPU* Device::xferQueue() const {
   Device* thisDevice = const_cast<Device*>(this);
   std::call_once(xferQueueOnce_, [thisDevice]() {
     // Create virtual device for internal memory transfer
-    thisDevice->xferQueue_ = reinterpret_cast<VirtualGPU*>(thisDevice->createVirtualDevice());
+    thisDevice->xferQueue_ = thisDevice->createInternalXferQueue();
     if (!thisDevice->xferQueue_) {
-      LogError("Couldn't create the device transfer manager!");
       return;
     }
     if (thisDevice->xferQueue_->gpu_queue() == nullptr) {
@@ -3289,6 +3309,28 @@ VirtualGPU* Device::xferQueue() const {
   }
   xferQueue_->enableSyncBlit();
   return xferQueue_;
+}
+
+// ================================================================================================
+VirtualGPU* Device::coopQueue() const {
+  Device* thisDevice = const_cast<Device*>(this);
+  std::call_once(coopQueueOnce_, [thisDevice]() {
+    // Create virtual device for cooperative launches
+    thisDevice->coopQueue_ = reinterpret_cast<VirtualGPU*>(thisDevice->createVirtualDevice());
+    if (!thisDevice->coopQueue_) {
+      return;
+    }
+    if (thisDevice->coopQueue_->gpu_queue() == nullptr) {
+      thisDevice->coopQueue_->SetGpuQueue(
+          thisDevice->AcquireActiveQueue(amd::CommandQueue::Priority::Normal));
+    }
+  });
+  if (!coopQueue_) {
+    LogError("Couldn't create the cooperative queue!");
+    return nullptr;
+  }
+  coopQueue_->enableSyncBlit();
+  return coopQueue_;
 }
 
 // ================================================================================================
