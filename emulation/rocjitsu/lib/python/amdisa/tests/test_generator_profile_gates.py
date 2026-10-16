@@ -7781,6 +7781,7 @@ def test_generated_memory_paths_use_decoded_issue_metadata(
             'mtbuf',
             'flat',
             'mimg',
+            'vbuffer',
             'vflat',
             'vglobal',
             'vscratch',
