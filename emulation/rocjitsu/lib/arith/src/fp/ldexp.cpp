@@ -27,15 +27,17 @@ ldexp_bits(typename rocjitsu::arith::DivisionFormat<Width>::Bits bits, int32_t a
   using T = typename F::Bits;
   const T implicit = T(1) << F::fraction;
   const T sign = bits & F::sign, magnitude = bits & (F::sign - 1);
-  if (magnitude >= F::infinity)
+  if (magnitude >= F::infinity) {
     return bits | (magnitude > F::infinity ? F::quiet : 0);
+  }
   int exponent = int(magnitude >> F::fraction);
   T significand = magnitude & (implicit - 1);
-  if (!magnitude || (!exponent && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)))
+  if (!magnitude || (!exponent && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS))) {
     return sign;
-  if (exponent)
+  }
+  if (exponent) {
     significand |= implicit;
-  else {
+  } else {
     exponent = 1;
     while (significand < implicit) {
       significand <<= 1;
@@ -47,19 +49,23 @@ ldexp_bits(typename rocjitsu::arith::DivisionFormat<Width>::Bits bits, int32_t a
   const T overflow = sign | (rounding == 0 || outward ? F::infinity : F::infinity - 1);
   adjustment = adjustment < -4096 ? -4096 : adjustment > 4096 ? 4096 : adjustment;
   exponent += adjustment;
-  if (exponent >= 2 * F::bias + 1)
+  if (exponent >= 2 * F::bias + 1) {
     return overflow;
-  if (exponent > 0)
+  }
+  if (exponent > 0) {
     return sign | (T(exponent) << F::fraction) | (significand & (implicit - 1));
+  }
   const unsigned shift = unsigned(1 - exponent);
   T kept = shift >= Width ? 0 : significand >> shift;
   const bool guard = shift <= Width && ((significand >> (shift - 1)) & 1);
   const bool sticky =
       shift > Width ? significand != 0 : shift > 1 && (significand << (Width + 1 - shift)) != 0;
-  if ((rounding == 0 && guard && (sticky || (kept & 1))) || (outward && (guard || sticky)))
+  if ((rounding == 0 && guard && (sticky || (kept & 1))) || (outward && (guard || sticky))) {
     ++kept;
-  if (kept < implicit && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
+  }
+  if (kept < implicit && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) {
     kept = 0;
+  }
   return sign | kept;
 }
 
@@ -74,12 +80,15 @@ int ldexp_rounded(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *c
   const unsigned rounding = unsigned((flags & RJ_ARITH_FP_ROUND_MASK) >> 24);
   for (int lane = 0; lane < 32; ++lane) {
     T input = a[0][lane];
-    if constexpr (Fp64)
+    if constexpr (Fp64) {
       input |= T(a[1][lane]) << 32;
-    if (mode & RJ_ARITH_ALU_ABS_A)
+    }
+    if (mode & RJ_ARITH_ALU_ABS_A) {
       input &= F::sign - 1;
-    if (mode & RJ_ARITH_ALU_NEG_A)
+    }
+    if (mode & RJ_ARITH_ALU_NEG_A) {
       input ^= F::sign;
+    }
     int32_t adjustment;
     std::memcpy(&adjustment, b[0] + lane, sizeof(adjustment));
     T value = ldexp_bits<width>(input, adjustment, flags);
@@ -90,13 +99,17 @@ int ldexp_rounded(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *c
     value = rocjitsu::arith::division_output<width>(
         value, preserve_nan ? mode & ~RJ_ARITH_ALU_CLAMP : mode, overflow);
     result[0][lane] = uint32_t(value);
-    if constexpr (Fp64)
+    if constexpr (Fp64) {
       result[1][lane] = uint32_t(value >> 32);
+    }
   }
-  for (int reg = 0; reg < (Fp64 ? 2 : 1); ++reg)
-    for (int lane = 0; lane < 32; ++lane)
-      if ((exec_mask >> lane) & 1)
+  for (int reg = 0; reg < (Fp64 ? 2 : 1); ++reg) {
+    for (int lane = 0; lane < 32; ++lane) {
+      if ((exec_mask >> lane) & 1) {
         d[reg][lane] = result[reg][lane];
+      }
+    }
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -117,32 +130,39 @@ int ldexp(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
           flags, mode & ~known, true,
           RJ_ARITH_FP_IEEE_MODE | RJ_ARITH_FP_FLUSH_INPUT_DENORMALS |
               RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS | RJ_ARITH_FP_ROUND_MASK |
-              (Rdna3 ? RJ_ARITH_FP_DX10_CLAMP_OFF : 0)))
+              (Rdna3 ? RJ_ARITH_FP_DX10_CLAMP_OFF : 0))) {
     return error;
-  if (exec_mask == 0)
+  }
+  if (exec_mask == 0) {
     return RJ_ARITH_SUCCESS;
+  }
   if ((flags & RJ_ARITH_SEMANTICS_MASK) != RJ_ARITH_SEMANTICS_LOOSE ||
-      (flags & RJ_ARITH_FP_ROUND_MASK))
+      (flags & RJ_ARITH_FP_ROUND_MASK)) {
     return ldexp_rounded<Fp64>(flags, exec_mask, mode, d, a, b);
-  if constexpr (!GuestDenormals)
+  }
+  if constexpr (!GuestDenormals) {
     if (flags & (RJ_ARITH_FP_FLUSH_INPUT_DENORMALS | RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS |
-                 RJ_ARITH_FP_DX10_CLAMP_OFF))
+                 RJ_ARITH_FP_DX10_CLAMP_OFF)) {
       return ldexp_guest<Fp64, Rdna3>(flags, exec_mask, mode, d, a, b);
+    }
+  }
 #if defined(RJ_ARITH_HAVE_X86_64_V4)
   if ((flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V4) {
-    if constexpr (GuestDenormals)
+    if constexpr (GuestDenormals) {
       rocjitsu::arith::ldexp_guest_x86_64_v4(Fp64, flags, exec_mask, mode, d, a, b[0]);
-    else
+    } else {
       rocjitsu::arith::ldexp_x86_64_v4(Fp64, exec_mask, mode, d, a, b[0]);
+    }
     return RJ_ARITH_SUCCESS;
   }
 #endif
 #if defined(RJ_ARITH_HAVE_X86_64_V3)
   if ((flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V3) {
-    if constexpr (GuestDenormals)
+    if constexpr (GuestDenormals) {
       rocjitsu::arith::ldexp_guest_x86_64_v3(Fp64, flags, exec_mask, mode, d, a, b[0]);
-    else
+    } else {
       rocjitsu::arith::ldexp_x86_64_v3(Fp64, exec_mask, mode, d, a, b[0]);
+    }
     return RJ_ARITH_SUCCESS;
   }
 #endif
@@ -152,30 +172,34 @@ int ldexp(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
     std::memcpy(&exponent, b[0] + lane, sizeof(exponent));
     if constexpr (Fp64) {
       double input = rocjitsu::arith::fp64_input(a, lane, mode);
-      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS))
+      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)) {
         input = rocjitsu::arith::fp64_flush_denorm(input);
+      }
       double value = std::ldexp(input, exponent);
       if ((mode & RJ_ARITH_ALU_OMOD_HALF) && std::abs(value) == 0x1p-1022) {
         // A tiny exact result can round up to minimum normal. Detect this
         // from the source exponent without relying on wider host FP types.
         int source_exponent;
         std::frexp(input, &source_exponent);
-        if (int64_t(source_exponent) + exponent <= -1022)
+        if (int64_t(source_exponent) + exponent <= -1022) {
           value = 0;
+        }
       }
       const bool preserve_nan =
           (flags & RJ_ARITH_FP_DX10_CLAMP_OFF) &&
           (rocjitsu::arith::double_bits(value) & 0x7fffffffffffffffULL) > 0x7ff0000000000000ULL;
       value = rocjitsu::arith::fp64_output(value, preserve_nan ? mode & ~RJ_ARITH_ALU_CLAMP : mode);
-      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
+      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) {
         value = rocjitsu::arith::fp64_flush_denorm(value);
+      }
       uint64_t bits = rocjitsu::arith::double_bits(value);
       result[0][lane] = uint32_t(bits);
       result[1][lane] = uint32_t(bits >> 32);
     } else {
       float input = rocjitsu::arith::alu_input(a[0][lane], mode);
-      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS))
+      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)) {
         input = rocjitsu::arith::flush_denorm_f32(input);
+      }
       float value;
       if (mode & RJ_ARITH_ALU_OMOD_HALF) {
         // OMOD flushes tininess before FP32 rounding, including values
@@ -190,15 +214,19 @@ int ldexp(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
                                 (rocjitsu::arith::as_bits(value) & 0x7fffffff) > 0x7f800000;
       value =
           rocjitsu::arith::alu_output_f32(value, preserve_nan ? mode & ~RJ_ARITH_ALU_CLAMP : mode);
-      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
+      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) {
         value = rocjitsu::arith::flush_denorm_f32(value);
+      }
       result[0][lane] = rocjitsu::arith::as_bits(value);
     }
   }
-  for (int reg = 0; reg < (Fp64 ? 2 : 1); ++reg)
-    for (int lane = 0; lane < 32; ++lane)
-      if ((exec_mask >> lane) & 1)
+  for (int reg = 0; reg < (Fp64 ? 2 : 1); ++reg) {
+    for (int lane = 0; lane < 32; ++lane) {
+      if ((exec_mask >> lane) & 1) {
         d[reg][lane] = result[reg][lane];
+      }
+    }
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -220,10 +248,12 @@ int ldexp_wave64(uint64_t flags, uint64_t exec_mask, uint64_t mode, uint32_t *co
            : (Rdna3 ? rj_arith_v_ldexp_f32_w32 : rj_arith_v_ldexp_f32_w32_gfx12);
 
   // Validate before either Wave64 half can modify outputs, even when EXEC is empty.
-  if (int error = instruction(flags, 0, mode, nullptr, nullptr, nullptr, excp_flag_user))
+  if (int error = instruction(flags, 0, mode, nullptr, nullptr, nullptr, excp_flag_user)) {
     return error;
-  if (!exec_mask)
+  }
+  if (!exec_mask) {
     return RJ_ARITH_SUCCESS;
+  }
   for (int half = 0; half < 2; ++half) {
     uint64_t half_mode = mode;
     if (mode & RJ_ARITH_DPP16) {
@@ -241,8 +271,9 @@ int ldexp_wave64(uint64_t flags, uint64_t exec_mask, uint64_t mode, uint32_t *co
     // The signed integer exponent occupies one VGPR even for FP64.
     const uint32_t *exponent = b[0] + half * 32;
     if (int error = instruction(flags, uint32_t(exec_mask >> (half * 32)), half_mode, dest, source,
-                                &exponent, excp_flag_user))
+                                &exponent, excp_flag_user)) {
       return error;
+    }
   }
   return RJ_ARITH_SUCCESS;
 }
@@ -258,15 +289,18 @@ int rj_arith_v_ldexp_f32_w32_gfx12(uint64_t flags, uint32_t exec_mask, uint64_t 
                                    [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (mode >> 32)
+  }
+  if (mode >> 32) {
     return rocjitsu::arith::execute_dpp(
         flags, exec_mask, mode, a, [&](uint32_t exec_mask, const uint32_t *const *source) {
           return ldexp<false>(flags, exec_mask, uint32_t(mode), d, source, b);
         });
+  }
   return ldexp<false>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -279,12 +313,15 @@ int rj_arith_v_ldexp_f64_w32_gfx12(uint64_t flags, uint32_t exec_mask, uint64_t 
                                    [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (mode >> 32)
+  }
+  if (mode >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return ldexp<true>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -296,8 +333,9 @@ int rj_arith_v_ldexp_f32_w64_gfx12(uint64_t flags, uint64_t exec_mask, uint64_t 
                                    const uint32_t *const *b, uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return ldexp_wave64<false>(flags, exec_mask, mode, d, a, b, excp_flag_user);
 }
 
@@ -309,8 +347,9 @@ int rj_arith_v_ldexp_f64_w64_gfx12(uint64_t flags, uint64_t exec_mask, uint64_t 
                                    const uint32_t *const *b, uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return ldexp_wave64<true>(flags, exec_mask, mode, d, a, b, excp_flag_user);
 }
 
@@ -322,19 +361,23 @@ int rj_arith_v_ldexp_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode, 
                              [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
 
   // RDNA3 gates OMOD on guest IEEE mode and output-denormal preservation.
-  if (!(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) || (flags & RJ_ARITH_FP_IEEE_MODE))
+  if (!(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) || (flags & RJ_ARITH_FP_IEEE_MODE)) {
     mode &= ~uint64_t(RJ_ARITH_ALU_OMOD_HALF);
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (mode >> 32)
+  }
+  if (mode >> 32) {
     return rocjitsu::arith::execute_dpp(
         flags, exec_mask, mode, a, [&](uint32_t exec_mask, const uint32_t *const *source) {
           return ldexp<false, false, true>(flags, exec_mask, uint32_t(mode), d, source, b);
         });
+  }
   return ldexp<false, false, true>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -346,12 +389,14 @@ int rj_arith_v_ldexp_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode, 
                              uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
 
   // RDNA3 gates OMOD on guest IEEE mode and output-denormal preservation.
-  if (!(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) || (flags & RJ_ARITH_FP_IEEE_MODE))
+  if (!(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) || (flags & RJ_ARITH_FP_IEEE_MODE)) {
     mode &= ~uint64_t(RJ_ARITH_ALU_OMOD_HALF);
+  }
   return ldexp_wave64<false, true>(flags, exec_mask, mode, d, a, b, trapsts);
 }
 
@@ -363,16 +408,20 @@ int rj_arith_v_ldexp_f64_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode, 
                              [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
 
   // RDNA3 gates OMOD on guest IEEE mode and output-denormal preservation.
-  if (!(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) || (flags & RJ_ARITH_FP_IEEE_MODE))
+  if (!(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) || (flags & RJ_ARITH_FP_IEEE_MODE)) {
     mode &= ~uint64_t(RJ_ARITH_ALU_OMOD_HALF);
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (mode >> 32)
+  }
+  if (mode >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return ldexp<true, false, true>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -384,11 +433,13 @@ int rj_arith_v_ldexp_f64_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode, 
                              uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
 
   // RDNA3 gates OMOD on guest IEEE mode and output-denormal preservation.
-  if (!(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) || (flags & RJ_ARITH_FP_IEEE_MODE))
+  if (!(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) || (flags & RJ_ARITH_FP_IEEE_MODE)) {
     mode &= ~uint64_t(RJ_ARITH_ALU_OMOD_HALF);
+  }
   return ldexp_wave64<true, true>(flags, exec_mask, mode, d, a, b, trapsts);
 }

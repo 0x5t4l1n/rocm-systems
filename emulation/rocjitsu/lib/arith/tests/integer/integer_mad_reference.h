@@ -26,20 +26,25 @@ inline uint32_t integer_mad_reference(Mad operation, uint32_t a, uint32_t b, uin
   int64_t y = (op < 2 && (mode & RJ_ARITH_ALU_HIGH_B) ? b >> 16 : b) % range;
   int64_t z = c;
   if (op & 1) {
-    if (x >= range / 2)
+    if (x >= range / 2) {
       x -= range;
-    if (y >= range / 2)
+    }
+    if (y >= range / 2) {
       y -= range;
-    if (z > INT32_MAX)
+    }
+    if (z > INT32_MAX) {
       z -= 4294967296LL;
+    }
   }
   int64_t result = x * y + z;
   if (mode & RJ_ARITH_ALU_CLAMP) {
     int64_t low = op & 1 ? INT32_MIN : 0, high = op & 1 ? INT32_MAX : int64_t(UINT32_MAX);
-    if (result < low)
+    if (result < low) {
       result = low;
-    if (result > high)
+    }
+    if (result > high) {
       result = high;
+    }
   }
   return uint32_t(result);
 }

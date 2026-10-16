@@ -25,10 +25,11 @@ void integer_add_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *d, const
   for (int lane = 0; lane < 32; lane += 16) {
     auto x = _mm512_loadu_si512(a + lane), y = _mm512_loadu_si512(b + lane);
     __m512i result;
-    if constexpr (Op == IntegerAdd::Add || Op == IntegerAdd::Add3)
+    if constexpr (Op == IntegerAdd::Add || Op == IntegerAdd::Add3) {
       result = _mm512_add_epi32(x, y);
-    else
+    } else {
       result = _mm512_sub_epi32(x, y);
+    }
     if constexpr (Op == IntegerAdd::Add3) {
       result = _mm512_add_epi32(result, _mm512_loadu_si512(c + lane));
     } else if (mode & RJ_ARITH_ALU_CLAMP) {

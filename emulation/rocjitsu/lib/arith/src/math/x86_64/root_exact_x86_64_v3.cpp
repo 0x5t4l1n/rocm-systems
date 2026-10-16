@@ -12,8 +12,9 @@ namespace rocjitsu::arith {
 // Requires the named CPU features and validated instruction controls.
 uint32_t root_exact_x86_64_v3(bool reciprocal, uint64_t flags, uint32_t exec_mask, uint32_t mode,
                               uint32_t *d, const uint32_t *a, bool quiet_snan, bool reporting) {
-  if (reciprocal)
+  if (reciprocal) {
     return root_simd::run<true, root_simd::U4>(flags, exec_mask, mode, d, a, quiet_snan, reporting);
+  }
   return root_simd::run<false, root_simd::U4>(flags, exec_mask, mode, d, a, quiet_snan, reporting);
 }
 } // namespace rocjitsu::arith

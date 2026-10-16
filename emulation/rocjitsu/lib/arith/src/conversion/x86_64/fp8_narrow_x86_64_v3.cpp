@@ -47,9 +47,10 @@ template <bool Bf8, bool Stochastic> __m256i narrow(__m256i raw, __m256i seed, b
       _mm256_slli_epi32(_mm256_max_epi32(_mm256_sub_epi32(exponent, one), zero), fraction_bits);
   result = _mm256_add_epi32(result, normal_exponent);
   auto limit = _mm256_set1_epi32(terminal);
-  if (saturate)
+  if (saturate) {
     limit = select_greater(_mm256_set1_epi32(0x7f800000), magnitude,
                            _mm256_set1_epi32(terminal - 1), limit);
+  }
   result = _mm256_min_epu32(result, limit);
   auto sign = _mm256_and_si256(_mm256_srli_epi32(raw, 24), _mm256_set1_epi32(128));
   result = _mm256_or_si256(result, sign);

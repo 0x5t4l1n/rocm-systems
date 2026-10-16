@@ -1,6 +1,6 @@
 # rj-arith coding style
 
-Follow [Rocjitsu's style guide](../../docs/style.md) and inherited `.clang-format`,
+Follow [Rocjitsu's style guide](../../docs/style.md) and parent `.clang-format`,
 with the following differences for `lib/arith/`.
 
 ## Integer types
@@ -22,6 +22,12 @@ Internal C++ code lives in `rocjitsu::arith`, not a top-level `arith` namespace.
 
 Short arithmetic names such as `a`, `b`, `c`, and `d` are appropriate when they
 match instruction operands or a nearby mathematical expression.
+
+## Control flow
+
+Always use braces around control-flow bodies, including single-statement
+`if`, `else`, `for`, `while`, and `do` bodies. The local `.clang-format`
+inherits Rocjitsu’s formatting and enables brace insertion.
 
 ## Comments
 

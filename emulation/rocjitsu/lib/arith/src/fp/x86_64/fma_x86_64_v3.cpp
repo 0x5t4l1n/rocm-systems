@@ -59,14 +59,16 @@ void run(uint32_t exec_mask, uint32_t modifiers, uint32_t *d, const uint32_t *a,
       vb = _mm256_blendv_ps(vb, _mm256_set1_ps(1), has_zero);
     }
     auto result = _mm256_fmadd_ps(va, vb, vc);
-    if (Dx9Zero || (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
+    if (Dx9Zero || (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) {
       result = flush_denorm_f32(result);
+    }
     if (modifiers & RJ_ARITH_ALU_OMOD_HALF) {
       result = prepare_omod_f32(result, modifiers);
       result = _mm256_mul_ps(result, scale);
     }
-    if (modifiers & RJ_ARITH_ALU_CLAMP)
+    if (modifiers & RJ_ARITH_ALU_CLAMP) {
       result = clamp_f32(result, flags & RJ_ARITH_FP_DX10_CLAMP_OFF);
+    }
     __m256i lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> i)),
                                                _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));
     _mm256_maskstore_epi32(reinterpret_cast<int *>(d + i), lane_exec_mask,

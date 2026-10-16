@@ -22,9 +22,9 @@ void permlane_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *d, const ui
   auto shifts = _mm512_setr_epi32(0, 4, 8, 12, 16, 20, 24, 28, 0, 4, 8, 12, 16, 20, 24, 28);
   for (int lane = 0; lane < 32; lane += 16) {
     __m512i index;
-    if constexpr (Var)
+    if constexpr (Var) {
       index = _mm512_loadu_si512(reinterpret_cast<const __m512i *>(b + lane));
-    else {
+    } else {
       auto packed =
           _mm512_mask_blend_epi32(0xff00, _mm512_set1_epi32(int(lo)), _mm512_set1_epi32(int(hi)));
       index = _mm512_srlv_epi32(packed, shifts);

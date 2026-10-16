@@ -42,8 +42,9 @@ void half_round_exact_x86_64_v4(uint64_t flags, uint32_t exec_mask, uint32_t mod
         value = _mm512_min_ps(_mm512_set1_ps(1), _mm512_max_ps(_mm512_setzero_ps(), value));
         value = _mm512_mask_mov_ps(
             value, _mm512_cmp_ps_mask(value, _mm512_setzero_ps(), _CMP_EQ_OQ), _mm512_setzero_ps());
-      } else
+      } else {
         value = _mm512_min_ps(_mm512_max_ps(value, _mm512_setzero_ps()), _mm512_set1_ps(1));
+      }
     }
     int shift = mode & RJ_ARITH_ALU_HIGH_D ? 16 : 0;
     auto result = _mm512_sll_epi32(half_narrow<false>(value, flags & RJ_ARITH_FP16_OVFL),

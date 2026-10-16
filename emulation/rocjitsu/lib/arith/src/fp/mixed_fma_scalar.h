@@ -21,8 +21,9 @@ namespace rocjitsu::arith {
 // Select input flushing independently for the source's decoded element type.
 inline bool mixed_fma_flush_input(uint64_t flags, uint32_t mode) {
   const uint64_t half_policy = flags & RJ_ARITH_FP_INPUT_DENORMALS_F16_MASK;
-  if ((mode & RJ_ARITH_MIX_F16_A) && half_policy)
+  if ((mode & RJ_ARITH_MIX_F16_A) && half_policy) {
     return half_policy == RJ_ARITH_FP_FLUSH_INPUT_DENORMALS_F16;
+  }
   return flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS;
 }
 
@@ -31,33 +32,40 @@ inline uint32_t mixed_fma_input(uint32_t raw, uint32_t mode, bool flush_input = 
   if (flush_input) {
     if (mode & RJ_ARITH_MIX_F16_A) {
       unsigned shift = mode & RJ_ARITH_ALU_HIGH_A ? 16 : 0;
-      if (!((raw >> shift) & 0x7c00))
+      if (!((raw >> shift) & 0x7c00)) {
         raw &= ~(0x7fffU << shift);
-    } else if (!(raw & 0x7f800000))
+      }
+    } else if (!(raw & 0x7f800000)) {
       raw &= 0x80000000;
+    }
   }
-  if (mode & RJ_ARITH_MIX_F16_A)
+  if (mode & RJ_ARITH_MIX_F16_A) {
     raw = as_bits(f16_to_float(uint16_t(raw >> (mode & RJ_ARITH_ALU_HIGH_A ? 16 : 0))));
-  if (mode & RJ_ARITH_ALU_ABS_A)
+  }
+  if (mode & RJ_ARITH_ALU_ABS_A) {
     raw &= 0x7fffffff;
-  if (mode & RJ_ARITH_ALU_NEG_A)
+  }
+  if (mode & RJ_ARITH_ALU_NEG_A) {
     raw ^= 0x80000000;
+  }
   return raw;
 }
 
 // Return the FP16 FMA result when at least one FP32 input is nonfinite.
 inline uint16_t mixed_fma_special(uint32_t a, uint32_t b, uint32_t c) {
   uint32_t ma = a & 0x7fffffff, mb = b & 0x7fffffff, mc = c & 0x7fffffff;
-  if ((ma == 0 && mb == 0x7f800000) || (mb == 0 && ma == 0x7f800000))
+  if ((ma == 0 && mb == 0x7f800000) || (mb == 0 && ma == 0x7f800000)) {
     return 0xfe00;
+  }
   if (ma > 0x7f800000 || mb > 0x7f800000 || mc > 0x7f800000) {
     uint32_t nan = ma > 0x7f800000 ? a : mb > 0x7f800000 ? b : c;
     return uint16_t(((nan >> 16) & 0x8000) | 0x7e00 | ((nan >> 13) & 1023));
   }
   if (ma == 0x7f800000 || mb == 0x7f800000) {
     uint32_t sign = (a ^ b) & 0x80000000;
-    if (mc == 0x7f800000 && ((sign ^ c) & 0x80000000))
+    if (mc == 0x7f800000 && ((sign ^ c) & 0x80000000)) {
       return 0xfe00;
+    }
     return uint16_t((sign >> 16) | 0x7c00);
   }
   return uint16_t(((c >> 16) & 0x8000) | 0x7c00);
@@ -88,8 +96,9 @@ inline uint16_t mixed_fma_half_value(uint32_t a, uint32_t b, uint32_t c, bool cl
       const bool away = rounding == ((result & 0x8000) ? 2u : 1u);
       const double threshold = 0x1p-14 - (rounding == 0 ? 0x1p-26 : away ? 0x1p-25 : 0.0);
       if (magnitude < 0x400 || (magnitude == 0x400 && (std::abs(value) < threshold ||
-                                                       (away && std::abs(value) == threshold))))
+                                                       (away && std::abs(value) == threshold)))) {
         result &= 0x8000;
+      }
     }
   }
   const bool keep_nan = (flags & RJ_ARITH_FP_DX10_CLAMP_OFF) && (result & 0x7fff) > 0x7c00;

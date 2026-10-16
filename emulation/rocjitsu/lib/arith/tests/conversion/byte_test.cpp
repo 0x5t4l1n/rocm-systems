@@ -20,10 +20,11 @@ template <int Lanes, int Byte, bool Gfx12, class Call> void check_byte(Call call
       call, conversion_inputs<Lanes>(32),
       [](uint64_t a, uint32_t, uint32_t, uint32_t, uint64_t flags, uint32_t mode) {
         mode = conversion_effective_mode(flags, mode, Gfx12);
-        if constexpr (Byte < 0)
+        if constexpr (Byte < 0) {
           return nibble_offset_reference(uint32_t(a), mode);
-        else
+        } else {
           return byte_conversion_reference(Byte, uint32_t(a), mode);
+        }
       },
       conversion_bits, RJ_ARITH_ALU_OMOD_HALF | RJ_ARITH_ALU_CLAMP, true,
       RJ_ARITH_FP_IEEE_MODE | RJ_ARITH_FP_FLUSH_INPUT_DENORMALS |
@@ -35,10 +36,12 @@ template <int Lanes, class Call> void check_byte_pack(Call call) {
   auto input = conversion_inputs<Lanes>(32);
   // Ties, saturation around 255, and all four insertion positions.
   const uint32_t edges[] = {0x3f000000, 0x3fc00000, 0x40200000, 0x437e8000, 0x437f0000, 0x437f8000};
-  for (int lane = 0; lane < 6; ++lane)
+  for (int lane = 0; lane < 6; ++lane) {
     input.v[0][lane] = edges[lane];
-  for (int lane = 0; lane < Lanes; ++lane)
+  }
+  for (int lane = 0; lane < Lanes; ++lane) {
     input.v[2][lane] = uint32_t(lane);
+  }
   check_conversion<Lanes, 3, 1, 1, true>(
       call, input,
       [](uint64_t a, uint32_t b, uint32_t c, uint32_t, uint64_t, uint32_t mode) {

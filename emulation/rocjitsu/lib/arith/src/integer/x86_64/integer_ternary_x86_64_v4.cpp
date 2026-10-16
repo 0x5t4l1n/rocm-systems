@@ -19,22 +19,29 @@ void integer_ternary_x86_64_v4(uint32_t exec_mask, uint32_t *d, const uint32_t *
     auto x = _mm512_loadu_si512(a + lane), y = _mm512_loadu_si512(b + lane),
          z = _mm512_loadu_si512(c + lane);
     __m512i result;
-    if constexpr (Op == IntegerTernary::ShiftAdd)
+    if constexpr (Op == IntegerTernary::ShiftAdd) {
       result =
           _mm512_add_epi32(_mm512_sllv_epi32(x, _mm512_and_si512(y, _mm512_set1_epi32(31))), z);
-    if constexpr (Op == IntegerTernary::AddShift)
+    }
+    if constexpr (Op == IntegerTernary::AddShift) {
       result =
           _mm512_sllv_epi32(_mm512_add_epi32(x, y), _mm512_and_si512(z, _mm512_set1_epi32(31)));
-    if constexpr (Op == IntegerTernary::ShiftOr)
+    }
+    if constexpr (Op == IntegerTernary::ShiftOr) {
       result = _mm512_or_si512(_mm512_sllv_epi32(x, _mm512_and_si512(y, _mm512_set1_epi32(31))), z);
-    if constexpr (Op == IntegerTernary::AndOr)
+    }
+    if constexpr (Op == IntegerTernary::AndOr) {
       result = _mm512_ternarylogic_epi32(x, y, z, 0xea);
-    if constexpr (Op == IntegerTernary::Or3)
+    }
+    if constexpr (Op == IntegerTernary::Or3) {
       result = _mm512_ternarylogic_epi32(x, y, z, 0xfe);
-    if constexpr (Op == IntegerTernary::Xor3)
+    }
+    if constexpr (Op == IntegerTernary::Xor3) {
       result = _mm512_ternarylogic_epi32(x, y, z, 0x96);
-    if constexpr (Op == IntegerTernary::XorAdd)
+    }
+    if constexpr (Op == IntegerTernary::XorAdd) {
       result = _mm512_add_epi32(_mm512_xor_si512(x, y), z);
+    }
     if constexpr (Op == IntegerTernary::Lerp) {
       // Native byte average rounds up. Subtract one only for an odd sum
       // whose C byte requests truncation; higher C bits are ignored.

@@ -33,8 +33,9 @@ static_assert([] {
   for (int bucket = 0; bucket < 256; ++bucket) {
     int count = detail::kAmdgpuRcpCorrectionOffsets[bucket + 1] -
                 detail::kAmdgpuRcpCorrectionOffsets[bucket];
-    if (count > 32)
+    if (count > 32) {
       return false;
+    }
   }
   return true;
 }());
@@ -73,10 +74,12 @@ void run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *d, const u
   uint32_t result[32];
   for (int base = 0; base < 32; base += Lanes) {
     V input = load(a + base, V{});
-    if (mode & RJ_ARITH_ALU_ABS_A)
+    if (mode & RJ_ARITH_ALU_ABS_A) {
       input &= 0x7fffffffULL;
-    if (mode & RJ_ARITH_ALU_NEG_A)
+    }
+    if (mode & RJ_ARITH_ALU_NEG_A) {
       input ^= 0x80000000ULL;
+    }
     V mantissas = input & 0x7fffffULL;
     V values =
         sfu_simd::correct(mantissas, polynomial(mantissas), detail::kAmdgpuRcpCorrectionOffsets,

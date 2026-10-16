@@ -23,10 +23,12 @@ int frexp_exp(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const
   if (int error =
           rocjitsu::arith::validate(flags, mode & ~known, !Fp64,
                                     RJ_ARITH_FP_IEEE_MODE | RJ_ARITH_FP_FLUSH_INPUT_DENORMALS |
-                                        RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
+                                        RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) {
     return error;
-  if (exec_mask == 0)
+  }
+  if (exec_mask == 0) {
     return RJ_ARITH_SUCCESS;
+  }
 
   // Sign modifiers do not affect the exponent. Integer results ignore OMOD;
   // the exponent always fits in int32_t, so CLAMP does not change the result.
@@ -44,25 +46,29 @@ int frexp_exp(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const
     if constexpr (Fp64) {
       uint64_t magnitude = (uint64_t(a[0][lane]) | (uint64_t(a[1][lane]) << 32)) & INT64_MAX;
       unsigned field = unsigned(magnitude >> 52);
-      if (field && field != 2047)
+      if (field && field != 2047) {
         exponent = int(field) - 1022;
-      else if (!field && magnitude)
+      } else if (!field && magnitude) {
         // The leading bit is 63-clz; a subnormal exponent is that position-1073.
         exponent = -1010 - int(rocjitsu::arith::bit_count_zero<false>(magnitude));
+      }
     } else {
       uint32_t magnitude = a[0][lane] & 0x7fffffffu;
       unsigned field = magnitude >> 23;
-      if (field && field != 255)
+      if (field && field != 255) {
         exponent = int(field) - 126;
-      else if (!field && magnitude && !(flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS))
+      } else if (!field && magnitude && !(flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)) {
         // rocjitsu's frexp_f32: exponent = -125 - (countl_zero(magnitude) - 8).
         exponent = -117 - int(rocjitsu::arith::bit_count_zero<false>(magnitude));
+      }
     }
     result[lane] = uint32_t(exponent);
   }
-  for (int lane = 0; lane < 32; ++lane)
-    if ((exec_mask >> lane) & 1)
+  for (int lane = 0; lane < 32; ++lane) {
+    if ((exec_mask >> lane) & 1) {
       d[0][lane] = result[lane];
+    }
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -85,10 +91,12 @@ int rj_arith_v_frexp_exp_i32_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_
                                      [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
 
   // Both architectures use the same numeric model; RDNA3 status is not yet verified.
   // DX10_CLAMP only affects floating-point outputs, not this integer exponent.
@@ -104,13 +112,16 @@ int rj_arith_v_frexp_exp_i32_f32_w32_gfx12(uint64_t flags, uint32_t exec_mask, u
                                            [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   const auto semantics = flags & RJ_ARITH_SEMANTICS_MASK;
-  if (rocjitsu::arith::reports_fp_status(flags) && semantics != RJ_ARITH_SEMANTICS_LOOSE)
+  if (rocjitsu::arith::reports_fp_status(flags) && semantics != RJ_ARITH_SEMANTICS_LOOSE) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (mode >> 32)
+  }
+  if (mode >> 32) {
     return frexp_exp_f32_dpp(flags, exec_mask, mode, d, a);
+  }
   return frexp_exp<false>(flags, exec_mask, mode, d, a);
 }
 
@@ -121,12 +132,15 @@ int rj_arith_v_frexp_exp_i32_f64_w32_gfx12(uint64_t flags, uint32_t exec_mask, u
                                            uint32_t *const *d, const uint32_t *const *a,
                                            [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (mode >> 32)
+  }
+  if (mode >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return frexp_exp<true>(flags, exec_mask, mode, d, a);
 }
 
@@ -142,10 +156,12 @@ int frexp_exp_wave64(uint64_t flags, uint64_t exec_mask, uint64_t mode, uint32_t
                                    : rj_arith_v_frexp_exp_i32_f32_w32;
 
   // Validate before either Wave64 half can modify outputs, even when EXEC is empty.
-  if (int error = instruction(flags, 0, mode, nullptr, nullptr, excp_flag_user))
+  if (int error = instruction(flags, 0, mode, nullptr, nullptr, excp_flag_user)) {
     return error;
-  if (!exec_mask)
+  }
+  if (!exec_mask) {
     return RJ_ARITH_SUCCESS;
+  }
   for (int half = 0; half < 2; ++half) {
     uint64_t half_mode = mode;
     if (mode & RJ_ARITH_DPP16) {
@@ -156,11 +172,13 @@ int frexp_exp_wave64(uint64_t flags, uint64_t exec_mask, uint64_t mode, uint32_t
     }
     uint32_t *dest = d[0] + half * 32;
     const uint32_t *source[Fp64 ? 2 : 1];
-    for (int reg = 0; reg < (Fp64 ? 2 : 1); ++reg)
+    for (int reg = 0; reg < (Fp64 ? 2 : 1); ++reg) {
       source[reg] = a[reg] + half * 32;
+    }
     if (int error = instruction(flags, uint32_t(exec_mask >> (half * 32)), half_mode, &dest, source,
-                                excp_flag_user))
+                                excp_flag_user)) {
       return error;
+    }
   }
   return RJ_ARITH_SUCCESS;
 }
@@ -175,8 +193,9 @@ int rj_arith_v_frexp_exp_i32_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_
                                      uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return frexp_exp_wave64<false>(flags, exec_mask, mode, d, a, trapsts);
 }
 
@@ -188,8 +207,9 @@ int rj_arith_v_frexp_exp_i32_f32_w64_gfx12(uint64_t flags, uint64_t exec_mask, u
                                            uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return frexp_exp_wave64<false, true>(flags, exec_mask, mode, d, a, excp_flag_user);
 }
 
@@ -200,8 +220,9 @@ int rj_arith_v_frexp_exp_i32_f64_w64_gfx12(uint64_t flags, uint64_t exec_mask, u
                                            uint32_t *const *d, const uint32_t *const *a,
                                            uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return frexp_exp_wave64<true>(flags, exec_mask, mode, d, a, excp_flag_user);
 }
 
@@ -212,8 +233,9 @@ int rj_arith_v_frexp_exp_i32_f64_w32(uint64_t flags, uint32_t exec_mask, uint64_
                                      uint32_t *const *d, const uint32_t *const *a,
                                      uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return rj_arith_v_frexp_exp_i32_f64_w32_gfx12(flags, exec_mask, mode, d, a, trapsts);
 }
 
@@ -224,7 +246,8 @@ int rj_arith_v_frexp_exp_i32_f64_w64(uint64_t flags, uint64_t exec_mask, uint64_
                                      uint32_t *const *d, const uint32_t *const *a,
                                      uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return rj_arith_v_frexp_exp_i32_f64_w64_gfx12(flags, exec_mask, mode, d, a, trapsts);
 }

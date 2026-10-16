@@ -20,10 +20,12 @@ inline float flush_denorm_f32(float value) {
 
 // Apply ABS then NEG to raw FP32 bits and return the operand value.
 inline float alu_input(uint32_t bits, uint32_t modifiers) {
-  if (modifiers & RJ_ARITH_ALU_ABS_A)
+  if (modifiers & RJ_ARITH_ALU_ABS_A) {
     bits &= 0x7fffffff;
-  if (modifiers & RJ_ARITH_ALU_NEG_A)
+  }
+  if (modifiers & RJ_ARITH_ALU_NEG_A) {
     bits ^= 0x80000000;
+  }
   return as_float(bits);
 }
 
@@ -40,8 +42,9 @@ inline float alu_output(float value, uint32_t modifiers) {
     value *= 0.5f;
     break;
   }
-  if (modifiers & RJ_ARITH_ALU_CLAMP)
+  if (modifiers & RJ_ARITH_ALU_CLAMP) {
     value = !(value > 0) ? 0 : (value > 1 ? 1 : value);
+  }
   return value;
 }
 
@@ -51,11 +54,12 @@ inline float alu_output(float value, uint32_t modifiers) {
 inline float alu_output_f16(float value, uint32_t modifiers) {
   if (modifiers & RJ_ARITH_ALU_OMOD_HALF) {
     uint32_t bits = as_bits(value), magnitude = bits & 0x7fffffffu;
-    if (magnitude < 0x38800000u)
+    if (magnitude < 0x38800000u) {
       value = 0;
-    else if ((modifiers & RJ_ARITH_ALU_OMOD_HALF) == RJ_ARITH_ALU_OMOD_HALF &&
-             magnitude < 0x39000000u)
+    } else if ((modifiers & RJ_ARITH_ALU_OMOD_HALF) == RJ_ARITH_ALU_OMOD_HALF &&
+               magnitude < 0x39000000u) {
       value = as_float(bits & 0x80000000u);
+    }
   }
   return alu_output(value, modifiers);
 }
@@ -64,13 +68,16 @@ inline float alu_output_f16(float value, uint32_t modifiers) {
 // directed overflow. Integer exponent adjustment is independent of host controls.
 inline uint32_t scale_omod_f32_bits(uint32_t bits, unsigned omod, unsigned rounding) {
   const uint32_t magnitude = bits & 0x7fffffff;
-  if (!omod || magnitude >= 0x7f800000)
+  if (!omod || magnitude >= 0x7f800000) {
     return bits;
+  }
   const unsigned exponent = magnitude >> 23;
-  if (!exponent)
+  if (!exponent) {
     return 0;
-  if (omod == 3)
+  }
+  if (omod == 3) {
     return exponent == 1 ? bits & 0x80000000 : bits - 0x800000;
+  }
   if (exponent + omod >= 255) {
     const bool infinity = rounding == 0 || rounding == (bits >> 31 ? 2u : 1u);
     return (bits & 0x80000000) | (infinity ? 0x7f800000 : 0x7f7fffff);
@@ -85,10 +92,11 @@ inline float alu_output_f32(float value, uint32_t modifiers) {
   unsigned omod = (modifiers >> 6) & 3;
   if (omod) {
     uint32_t raw = as_bits(value), magnitude = raw & 0x7fffffff;
-    if (magnitude < 0x00800000)
+    if (magnitude < 0x00800000) {
       value = 0.0f;
-    else if (omod == 3 && magnitude < 0x01000000)
+    } else if (omod == 3 && magnitude < 0x01000000) {
       value = as_float(raw & 0x80000000);
+    }
   }
   return alu_output(value, modifiers);
 }

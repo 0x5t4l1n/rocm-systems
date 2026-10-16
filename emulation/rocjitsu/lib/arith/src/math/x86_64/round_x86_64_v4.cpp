@@ -41,8 +41,9 @@ void round(uint32_t exec_mask, uint32_t mode, uint32_t *d, const uint32_t *a, ui
         value = _mm512_min_ps(_mm512_set1_ps(1), _mm512_max_ps(_mm512_setzero_ps(), value));
         auto zero = _mm512_cmp_ps_mask(value, _mm512_setzero_ps(), _CMP_EQ_OQ);
         value = _mm512_mask_mov_ps(value, zero, _mm512_setzero_ps());
-      } else
+      } else {
         value = _mm512_min_ps(_mm512_max_ps(value, _mm512_setzero_ps()), _mm512_set1_ps(1));
+      }
     }
     _mm512_mask_storeu_ps(d + lane, __mmask16(exec_mask >> lane), value);
   }

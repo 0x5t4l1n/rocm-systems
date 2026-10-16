@@ -50,8 +50,9 @@ uint64_t rj_arith_init_cpu_flags(void) {
 
   // CPUID(1, 0).ECX: XSAVE (26) and OSXSAVE (27) make XGETBV available.
   constexpr uint32_t xgetbv_leaf1_ecx = 0x0c000000;
-  if ((s.leaf1_ecx & xgetbv_leaf1_ecx) == xgetbv_leaf1_ecx)
+  if ((s.leaf1_ecx & xgetbv_leaf1_ecx) == xgetbv_leaf1_ecx) {
     s.xcr0 = read_xcr0();
+  }
 
   return rocjitsu::arith::decode_cpu(s);
 #else

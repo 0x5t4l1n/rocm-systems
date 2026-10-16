@@ -23,19 +23,21 @@ int swmmac(uint64_t flags, uint32_t mode, uint32_t *const *d, const uint32_t *co
            const uint32_t *const *b, const uint32_t *const *index) {
   if (int error = rocjitsu::arith::validate(
           flags, mode & ~(RJ_ARITH_SWMMAC_INDEX_KEY_1 | (Wave64 ? RJ_ARITH_SWMMAC_INDEX_KEY_2 : 0)),
-          true, rocjitsu::arith::matrix_ignored_fp_flags))
+          true, rocjitsu::arith::matrix_ignored_fp_flags)) {
     return error;
+  }
   // Existing accumulation kernels use eight 32-lane destination sections.
   // Wave64 stores the upper four sections in the upper lanes of D[0..3].
   uint32_t *dest[8];
-  for (int reg = 0; reg < 8; ++reg)
+  for (int reg = 0; reg < 8; ++reg) {
     dest[reg] = Wave64 ? d[reg % 4] + 32 * (reg / 4) : d[reg];
+  }
   unsigned key = Wave64 ? 8 * ((mode >> 7) & 3) : (mode & RJ_ARITH_SWMMAC_INDEX_KEY_1 ? 16 : 0);
   // Compressed K remains contiguous for sparse DOT8 steps. Snapshot all
   // results before any stores because D can overlap A, B or the index VGPR.
   if (rocjitsu::arith::is_exact(flags)) {
     uint32_t result[8][32];
-    for (int row = 0; row < 16; ++row)
+    for (int row = 0; row < 16; ++row) {
       for (int col = 0; col < 16; ++col) {
         int reg = row % 8, out_lane = col + 16 * (row / 8);
         uint32_t acc = dest[reg][out_lane];
@@ -56,14 +58,17 @@ int swmmac(uint64_t flags, uint32_t mode, uint32_t *const *d, const uint32_t *co
         }
         result[reg][out_lane] = acc;
       }
-    for (int reg = 0; reg < 8; ++reg)
-      for (int lane = 0; lane < 32; ++lane)
+    }
+    for (int reg = 0; reg < 8; ++reg) {
+      for (int lane = 0; lane < 32; ++lane) {
         dest[reg][lane] = result[reg][lane];
+      }
+    }
     return RJ_ARITH_SUCCESS;
   }
   // Loose backends share decoded FP32 operands, independent of FP8/BF8 packing.
   rocjitsu::arith::SwmmacFloatInputs input;
-  for (int row = 0; row < 16; ++row)
+  for (int row = 0; row < 16; ++row) {
     for (int ck = 0; ck < 16; ++ck) {
       int lane = row + 16 * (ck / 8) + (Wave64 ? 32 * ((ck / 4) % 2) : 0);
       int slot = ck % (Wave64 ? 4 : 8);
@@ -71,15 +76,19 @@ int swmmac(uint64_t flags, uint32_t mode, uint32_t *const *d, const uint32_t *co
           rocjitsu::arith::fp8_to_float<Bf8A>(uint8_t(a[slot / 4][lane] >> (8 * (slot % 4))));
       input.selected[row][ck] = uint8_t(4 * (ck / 2) + ((index[0][lane] >> (key + 2 * slot)) & 3));
     }
-  for (int k = 0; k < 32; ++k)
+  }
+  for (int k = 0; k < 32; ++k) {
     for (int col = 0; col < 16; ++col) {
       int lane = col + 16 * (k / 16) + (Wave64 ? 32 * ((k / 8) % 2) : 0);
       int reg = (k % (Wave64 ? 8 : 16)) / 4;
       input.b[k][col] = rocjitsu::arith::fp8_to_float<Bf8B>(uint8_t(b[reg][lane] >> (8 * (k % 4))));
     }
-  for (int row = 0; row < 16; ++row)
-    for (int col = 0; col < 16; ++col)
+  }
+  for (int row = 0; row < 16; ++row) {
+    for (int col = 0; col < 16; ++col) {
       input.acc[row][col] = rocjitsu::arith::as_float(dest[row % 8][col + 16 * (row / 8)]);
+    }
+  }
 #if defined(RJ_ARITH_HAVE_X86_64_V4)
   if ((flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V4) {
     rocjitsu::arith::swmmac_float_x86_64_v4<false, false>(0, dest, input, false);
@@ -95,9 +104,11 @@ int swmmac(uint64_t flags, uint32_t mode, uint32_t *const *d, const uint32_t *co
   rocjitsu::arith::swmmac_float_accumulate(0, input);
   uint32_t result[8][32];
   rocjitsu::arith::swmmac_float_pack<false, false>(result, input.acc, false);
-  for (int reg = 0; reg < 8; ++reg)
-    for (int lane = 0; lane < 32; ++lane)
+  for (int reg = 0; reg < 8; ++reg) {
+    for (int lane = 0; lane < 32; ++lane) {
       dest[reg][lane] = result[reg][lane];
+    }
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -112,10 +123,12 @@ int rj_arith_v_swmmac_f32_16x16x32_fp8_fp8_w32(uint64_t flags, uint64_t instruct
                                                const uint32_t *const *index) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return swmmac<false, false>(flags, instruction_flags, d, a, b, index);
 }
 
@@ -128,10 +141,12 @@ int rj_arith_v_swmmac_f32_16x16x32_fp8_bf8_w32(uint64_t flags, uint64_t instruct
                                                const uint32_t *const *index) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return swmmac<false, true>(flags, instruction_flags, d, a, b, index);
 }
 
@@ -144,10 +159,12 @@ int rj_arith_v_swmmac_f32_16x16x32_bf8_fp8_w32(uint64_t flags, uint64_t instruct
                                                const uint32_t *const *index) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return swmmac<true, false>(flags, instruction_flags, d, a, b, index);
 }
 
@@ -160,10 +177,12 @@ int rj_arith_v_swmmac_f32_16x16x32_bf8_bf8_w32(uint64_t flags, uint64_t instruct
                                                const uint32_t *const *index) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return swmmac<true, true>(flags, instruction_flags, d, a, b, index);
 }
 
@@ -176,10 +195,12 @@ int rj_arith_v_swmmac_f32_16x16x32_fp8_fp8_w64(uint64_t flags, uint64_t instruct
                                                const uint32_t *const *index) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return swmmac<false, false, true>(flags, instruction_flags, d, a, b, index);
 }
 
@@ -192,10 +213,12 @@ int rj_arith_v_swmmac_f32_16x16x32_fp8_bf8_w64(uint64_t flags, uint64_t instruct
                                                const uint32_t *const *index) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return swmmac<false, true, true>(flags, instruction_flags, d, a, b, index);
 }
 
@@ -208,10 +231,12 @@ int rj_arith_v_swmmac_f32_16x16x32_bf8_fp8_w64(uint64_t flags, uint64_t instruct
                                                const uint32_t *const *index) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return swmmac<true, false, true>(flags, instruction_flags, d, a, b, index);
 }
 
@@ -224,9 +249,11 @@ int rj_arith_v_swmmac_f32_16x16x32_bf8_bf8_w64(uint64_t flags, uint64_t instruct
                                                const uint32_t *const *index) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return swmmac<true, true, true>(flags, instruction_flags, d, a, b, index);
 }

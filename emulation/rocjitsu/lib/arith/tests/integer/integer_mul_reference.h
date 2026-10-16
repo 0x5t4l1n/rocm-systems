@@ -33,11 +33,13 @@ inline uint32_t integer_mul_reference(Multiply operation, uint32_t a, uint32_t b
   // Multiply magnitudes; restore the sign after applying the range limit.
   uint64_t product = magnitude_a * magnitude_b;
   bool negative = negative_a != negative_b;
-  if (clamp)
+  if (clamp) {
     product = std::min<uint64_t>(product, signed_op ? (negative ? 0x80000000ULL : 0x7fffffffULL)
                                                     : uint64_t(UINT32_MAX));
-  if (negative)
+  }
+  if (negative) {
     product = 0ULL - product;
+  }
   return uint32_t(high ? product >> 32 : product);
 }
 

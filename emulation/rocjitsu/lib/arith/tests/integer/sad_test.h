@@ -27,8 +27,9 @@ template <int Words, int Lanes, class Call> void check_sad(Call call, Sad operat
   // Near-limit addends expose independent saturation/wrap in each result;
   // zero B bytes distinguish masked SAD from ordinary absolute differences.
   for (int lane = 0; lane < 16; ++lane) {
-    for (int word = 0; word < Words; ++word)
+    for (int word = 0; word < Words; ++word) {
       input.v[4 + word][lane] = (Words == 2 ? 0xfff0fff0U : 0xfffffff0U) + uint32_t(lane);
+    }
     input.v[2][lane] &= lane % 2 ? 0x00ff00ffU : UINT32_MAX;
   }
   expect_alu_invalid_flags<Words == 1>(
@@ -43,8 +44,8 @@ template <int Words, int Lanes, class Call> void check_sad(Call call, Sad operat
       RJ_ARITH_ALU_CLAMP);
   const auto modes = integer_modes(RJ_ARITH_ALU_CLAMP, Words == 1);
   const auto cpu_levels = supported_cpu_levels();
-  for (uint64_t cpu : cpu_levels)
-    for (uint64_t semantics : semantics_modes())
+  for (uint64_t cpu : cpu_levels) {
+    for (uint64_t semantics : semantics_modes()) {
       for (int scenario = 0; scenario < 5 + int(modes.size()); ++scenario) {
         uint64_t mode = scenario < 5 ? 0 : modes[scenario - 5];
         Mask exec_mask = exec_mask_for_case<Lanes>(scenario < 5 ? scenario : scenario % 2 ? 0 : 3);
@@ -53,16 +54,19 @@ template <int Words, int Lanes, class Call> void check_sad(Call call, Sad operat
           auto r = input, expected = input;
           for (int lane = 0; lane < Lanes; ++lane) {
             int source;
-            if (!integer_source(mode, exec_mask, lane, source))
+            if (!integer_source(mode, exec_mask, lane, source)) {
               continue;
+            }
             uint32_t c[4];
-            for (int word = 0; word < 4; ++word)
+            for (int word = 0; word < 4; ++word) {
               c[word] = input.v[4 + word][lane];
+            }
             auto result =
                 sad_reference(operation, source < 0 ? 0 : input.v[0][source], input.v[1][lane],
                               input.v[2][lane], c, mode & RJ_ARITH_ALU_CLAMP);
-            for (int word = 0; word < Words; ++word)
+            for (int word = 0; word < Words; ++word) {
               expected.v[aliasing_offset + word][lane] = result[word];
+            }
           }
           ASSERT_EQ(call(cpu | semantics, exec_mask, mode,
                          exec_mask ? r.v + aliasing_offset : nullptr, exec_mask ? r.v : nullptr,
@@ -71,6 +75,8 @@ template <int Words, int Lanes, class Call> void check_sad(Call call, Sad operat
           expect_integer_registers(r, expected);
         }
       }
+    }
+  }
 }
 
 } // namespace rocjitsu::arith::test

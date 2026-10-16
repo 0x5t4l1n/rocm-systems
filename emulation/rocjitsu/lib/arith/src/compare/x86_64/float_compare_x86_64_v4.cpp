@@ -18,10 +18,11 @@ template <int Bits> struct Lanes {
 
   // Broadcast the supplied bit pattern to each vector lane.
   static V set(uint64_t x) {
-    if constexpr (Bits == 64)
+    if constexpr (Bits == 64) {
       return _mm512_set1_epi64(int64_t(x));
-    else
+    } else {
       return _mm512_set1_epi32(int(x));
+    }
   }
 
   // Load source values in the vector layout expected by this kernel.
@@ -32,8 +33,9 @@ template <int Bits> struct Lanes {
       auto high =
           _mm512_cvtepu32_epi64(_mm256_loadu_si256(reinterpret_cast<const __m256i *>(p[1] + lane)));
       return _mm512_or_si512(low, _mm512_slli_epi64(high, 32));
-    } else
+    } else {
       return _mm512_loadu_si512(reinterpret_cast<const V *>(p[0] + lane));
+    }
   }
 
   // Return the bitwise intersection of the vector operands.
@@ -47,26 +49,29 @@ template <int Bits> struct Lanes {
 
   // Return the lane mask for equal operands.
   static M eq(V a, V b) {
-    if constexpr (Bits == 64)
+    if constexpr (Bits == 64) {
       return _mm512_cmpeq_epi64_mask(a, b);
-    else
+    } else {
       return _mm512_cmpeq_epi32_mask(a, b);
+    }
   }
 
   // Return the lane mask for signed a > b.
   static M gt(V a, V b) {
-    if constexpr (Bits == 64)
+    if constexpr (Bits == 64) {
       return _mm512_cmpgt_epi64_mask(a, b);
-    else
+    } else {
       return _mm512_cmpgt_epi32_mask(a, b);
+    }
   }
 
   // Select values lane by lane according to the supplied predicate.
   static V select(M mask, V no, V yes) {
-    if constexpr (Bits == 64)
+    if constexpr (Bits == 64) {
       return _mm512_mask_blend_epi64(__mmask8(mask), no, yes);
-    else
+    } else {
       return _mm512_mask_blend_epi32(__mmask16(mask), no, yes);
+    }
   }
 
   // Collect per-lane predicates into a scalar bit mask.
@@ -74,10 +79,11 @@ template <int Bits> struct Lanes {
 
   // Return the lane mask for unsigned a < b.
   static M lt_unsigned(V a, V b) {
-    if constexpr (Bits == 64)
+    if constexpr (Bits == 64) {
       return _mm512_cmplt_epu64_mask(a, b);
-    else
+    } else {
       return _mm512_cmplt_epu32_mask(a, b);
+    }
   }
 };
 

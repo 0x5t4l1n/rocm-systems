@@ -44,11 +44,12 @@ TEST(s_ctz_i32_b32, Arithmetic) {
         uint64_t value = raw_a & 0xffffffffULL;
 
         result = UINT32_MAX;
-        for (int bit = 0; bit < 32; ++bit)
+        for (int bit = 0; bit < 32; ++bit) {
           if ((value >> bit) & 1) {
             result = bit;
             break;
           }
+        }
         return std::make_pair(result, cc);
       },
       false);
@@ -65,11 +66,12 @@ TEST(s_clz_i32_u32, Arithmetic) {
         uint64_t value = raw_a & 0xffffffffULL;
 
         result = UINT32_MAX;
-        for (int bit = 0; bit < 32; ++bit)
+        for (int bit = 0; bit < 32; ++bit) {
           if ((value >> (31 - bit)) & 1) {
             result = bit;
             break;
           }
+        }
         return std::make_pair(result, cc);
       },
       false);
@@ -84,14 +86,16 @@ TEST(s_cls_i32, Arithmetic) {
       [](uint64_t raw_a, uint64_t, uint32_t cc) {
         uint64_t result = 0;
         uint64_t value = raw_a & 0xffffffffULL;
-        if (value & (1ULL << 31))
+        if (value & (1ULL << 31)) {
           value ^= 0xffffffffULL;
+        }
         result = UINT32_MAX;
-        for (int bit = 0; bit < 32; ++bit)
+        for (int bit = 0; bit < 32; ++bit) {
           if ((value >> (31 - bit)) & 1) {
             result = bit;
             break;
           }
+        }
         return std::make_pair(result, cc);
       },
       false);
@@ -136,11 +140,12 @@ TEST(s_ctz_i32_b64, Arithmetic) {
         uint64_t value = raw_a & UINT64_MAX;
 
         result = UINT32_MAX;
-        for (int bit = 0; bit < 64; ++bit)
+        for (int bit = 0; bit < 64; ++bit) {
           if ((value >> bit) & 1) {
             result = bit;
             break;
           }
+        }
         return std::make_pair(result, cc);
       },
       false);
@@ -157,11 +162,12 @@ TEST(s_clz_i32_u64, Arithmetic) {
         uint64_t value = raw_a & UINT64_MAX;
 
         result = UINT32_MAX;
-        for (int bit = 0; bit < 64; ++bit)
+        for (int bit = 0; bit < 64; ++bit) {
           if ((value >> (63 - bit)) & 1) {
             result = bit;
             break;
           }
+        }
         return std::make_pair(result, cc);
       },
       false);
@@ -176,14 +182,16 @@ TEST(s_cls_i32_i64, Arithmetic) {
       [](uint64_t raw_a, uint64_t, uint32_t cc) {
         uint64_t result = 0;
         uint64_t value = raw_a & UINT64_MAX;
-        if (value & (1ULL << 63))
+        if (value & (1ULL << 63)) {
           value ^= UINT64_MAX;
+        }
         result = UINT32_MAX;
-        for (int bit = 0; bit < 64; ++bit)
+        for (int bit = 0; bit < 64; ++bit) {
           if ((value >> (63 - bit)) & 1) {
             result = bit;
             break;
           }
+        }
         return std::make_pair(result, cc);
       },
       false);

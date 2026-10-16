@@ -38,23 +38,27 @@ void half_sfu_exact_x86_64_v3(uint64_t flags, uint32_t exec_mask, uint32_t mode,
   // clamped/scaled/flushed until they have been narrowed to the half format.
 #if defined(RJ_ARITH_HAVE_X86_64_V4)
   if ((flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V4) {
-    if constexpr (Op == Unary::Rcp)
+    if constexpr (Op == Unary::Rcp) {
       rcp_exact_x86_64_v4(0, 0xffffffffU, 0, output, input, quiet_snan);
+    }
 
     // Evaluate root exact for the caller-selected operation.
     // Requires the named CPU features and validated instruction controls.
-    else
+    else {
       root_exact_x86_64_v4(Op == Unary::Rsq, 0, 0xffffffffU, 0, output, input, quiet_snan, false);
+    }
   } else
 #endif
   {
-    if constexpr (Op == Unary::Rcp)
+    if constexpr (Op == Unary::Rcp) {
       rcp_exact_x86_64_v3(0, 0xffffffffU, 0, output, input, quiet_snan);
+    }
 
     // Evaluate root exact for the caller-selected operation.
     // Requires the named CPU features and validated instruction controls.
-    else
+    else {
       root_exact_x86_64_v3(Op == Unary::Rsq, 0, 0xffffffffU, 0, output, input, quiet_snan, false);
+    }
   }
   for (int lane = 0; lane < 32; lane += 8) {
     auto wide = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(output + lane));
@@ -85,9 +89,10 @@ void half_sfu_exact_x86_64_v3(uint64_t flags, uint32_t exec_mask, uint32_t mode,
         scaled = _mm256_blendv_epi8(scaled, limit, overflow);
       }
       if constexpr (Op == Unary::Rcp) {
-        if (omod == 3)
+        if (omod == 3) {
           scaled = _mm256_blendv_epi8(scaled, _mm256_and_si256(value, _mm256_set1_epi32(0x8000)),
                                       _mm256_cmpgt_epi32(_mm256_set1_epi32(0x800), magnitude));
+        }
       }
       auto zero = Op == Unary::Rcp ? _mm256_cmpgt_epi32(_mm256_set1_epi32(0x400), magnitude)
                                    : _mm256_cmpeq_epi32(magnitude, _mm256_setzero_si256());

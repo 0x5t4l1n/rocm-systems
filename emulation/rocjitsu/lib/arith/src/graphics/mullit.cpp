@@ -27,29 +27,36 @@ template <bool Rdna3>
     float z = rocjitsu::arith::alu_input(c[0][lane], mode >> 2);
     uint32_t ybits = rocjitsu::arith::as_bits(y);
     float value;
-    if (ybits == 0xff7fffff || ybits == 0xff800000 || std::isnan(y) || !(z > 0))
+    if (ybits == 0xff7fffff || ybits == 0xff800000 || std::isnan(y) || !(z > 0)) {
       value = rocjitsu::arith::as_float(0xff7fffff);
-    else
+    } else {
       value = x == 0 || y == 0 ? 0.0f : x * y;
+    }
     unsigned scale = (mode >> 6) & 3;
     if (scale) {
       // RDNA4 flushes before scaling; RDNA3 can normalize a tiny product.
-      if constexpr (!Rdna3)
-        if (!(rocjitsu::arith::as_bits(value) & 0x7f800000))
+      if constexpr (!Rdna3) {
+        if (!(rocjitsu::arith::as_bits(value) & 0x7f800000)) {
           value = 0;
+        }
+      }
       value *= scale == 1 ? 2.0f : scale == 2 ? 4.0f : 0.5f;
       uint32_t bits = rocjitsu::arith::as_bits(value);
-      if (!(bits & 0x7f800000))
+      if (!(bits & 0x7f800000)) {
         value = Rdna3 ? 0.0f : rocjitsu::arith::as_float(bits & 0x80000000);
+      }
     }
     if ((mode & RJ_ARITH_ALU_CLAMP) &&
-        !(Rdna3 && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF) && std::isnan(value)))
+        !(Rdna3 && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF) && std::isnan(value))) {
       value = !(value > 0) ? 0 : value > 1 ? 1 : value;
+    }
     result[lane] = rocjitsu::arith::as_bits(value);
   }
-  for (int lane = 0; lane < 32; ++lane)
-    if ((exec_mask >> lane) & 1)
+  for (int lane = 0; lane < 32; ++lane) {
+    if ((exec_mask >> lane) & 1) {
       d[0][lane] = result[lane];
+    }
+  }
 }
 
 // Dispatch validated Wave32 lit-multiply arithmetic to the selected CPU backend.
@@ -79,7 +86,7 @@ template <bool Rdna3>
                                        const uint32_t *const *b, const uint32_t *const *c) {
   uint32_t inputs[3][32], result[32];
   const uint32_t *sources[] = {a[0], b[0], c[0]};
-  if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)
+  if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) {
     for (int operand = 0; operand < 3; ++operand) {
       for (int lane = 0; lane < 32; ++lane) {
         uint32_t bits = sources[operand][lane];
@@ -87,14 +94,17 @@ template <bool Rdna3>
       }
       sources[operand] = inputs[operand];
     }
+  }
   uint32_t *dest = result;
   compute<Rdna3>(flags, UINT32_MAX, mode, &dest, &sources[0], &sources[1], &sources[2]);
   for (int lane = 0; lane < 32; ++lane) {
     uint32_t bits = result[lane];
-    if ((flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) && (bits & 0x7fffffff) < 0x00800000)
+    if ((flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) && (bits & 0x7fffffff) < 0x00800000) {
       bits &= 0x80000000;
-    if ((exec_mask >> lane) & 1)
+    }
+    if ((exec_mask >> lane) & 1) {
       d[0][lane] = bits;
+    }
   }
 }
 
@@ -104,30 +114,37 @@ template <bool Rdna3>
 int run(uint64_t flags, uint32_t exec_mask, uint64_t instruction_flags, uint32_t *const *d,
         const uint32_t *const *a, const uint32_t *const *b, const uint32_t *const *c,
         [[maybe_unused]] uint32_t *excp_flag_user) {
-  if (rocjitsu::arith::reports_fp_status(flags))
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return rocjitsu::arith::execute_dpp(flags, exec_mask, instruction_flags, a,
                                         [&](uint32_t exec_mask, const uint32_t *const *source) {
                                           return run<Rdna3>(flags, exec_mask,
                                                             uint32_t(instruction_flags), d, source,
                                                             b, c, nullptr);
                                         });
+  }
   if (int error = rocjitsu::arith::validate(flags, instruction_flags & ~0x1ffU, false,
                                             RJ_ARITH_FP_FLUSH_INPUT_DENORMALS |
                                                 RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS |
                                                 RJ_ARITH_FP_IEEE_MODE | RJ_ARITH_FP_ROUND_MASK |
-                                                (Rdna3 ? RJ_ARITH_FP_DX10_CLAMP_OFF : 0)))
+                                                (Rdna3 ? RJ_ARITH_FP_DX10_CLAMP_OFF : 0))) {
     return error;
-  if constexpr (Rdna3)
-    if (!(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) || (flags & RJ_ARITH_FP_IEEE_MODE))
+  }
+  if constexpr (Rdna3) {
+    if (!(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) || (flags & RJ_ARITH_FP_IEEE_MODE)) {
       instruction_flags &= ~uint64_t(RJ_ARITH_ALU_OMOD_HALF);
-  if (!exec_mask)
+    }
+  }
+  if (!exec_mask) {
     return RJ_ARITH_SUCCESS;
-  if (flags & (RJ_ARITH_FP_FLUSH_INPUT_DENORMALS | RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
+  }
+  if (flags & (RJ_ARITH_FP_FLUSH_INPUT_DENORMALS | RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) {
     compute_flushed<Rdna3>(flags, exec_mask, instruction_flags, d, a, b, c);
-  else
+  } else {
     compute<Rdna3>(flags, exec_mask, instruction_flags, d, a, b, c);
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -138,10 +155,12 @@ int run_wave64(uint64_t flags, uint64_t exec_mask, uint64_t mode, uint32_t *cons
                const uint32_t *const *a, const uint32_t *const *b, const uint32_t *const *c,
                [[maybe_unused]] uint32_t *excp_flag_user) {
   // Validate before either Wave64 half can modify outputs, even when EXEC is empty.
-  if (int error = run<Rdna3>(flags, 0, mode, nullptr, nullptr, nullptr, nullptr, excp_flag_user))
+  if (int error = run<Rdna3>(flags, 0, mode, nullptr, nullptr, nullptr, nullptr, excp_flag_user)) {
     return error;
-  if (!exec_mask)
+  }
+  if (!exec_mask) {
     return RJ_ARITH_SUCCESS;
+  }
   for (int half = 0; half < 2; ++half) {
     uint64_t half_mode = mode;
     if (mode & RJ_ARITH_DPP16) {
@@ -153,8 +172,9 @@ int run_wave64(uint64_t flags, uint64_t exec_mask, uint64_t mode, uint32_t *cons
     uint32_t *dest = d[0] + half * 32;
     const uint32_t *av = a[0] + half * 32, *bv = b[0] + half * 32, *cv = c[0] + half * 32;
     if (int error = run<Rdna3>(flags, uint32_t(exec_mask >> (half * 32)), half_mode, &dest, &av,
-                               &bv, &cv, excp_flag_user))
+                               &bv, &cv, excp_flag_user)) {
       return error;
+    }
   }
   return RJ_ARITH_SUCCESS;
 }
@@ -168,8 +188,9 @@ int rj_arith_v_mullit_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode,
                               const uint32_t *const *a, const uint32_t *const *b,
                               const uint32_t *const *c, uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return run<true>(flags, exec_mask, mode, d, a, b, c, trapsts);
 }
 
@@ -180,8 +201,9 @@ int rj_arith_v_mullit_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode,
                               const uint32_t *const *a, const uint32_t *const *b,
                               const uint32_t *const *c, uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return run_wave64<true>(flags, exec_mask, mode, d, a, b, c, trapsts);
 }
 
@@ -193,8 +215,9 @@ int rj_arith_v_mullit_f32_w32_gfx12(uint64_t flags, uint32_t exec_mask, uint64_t
                                     const uint32_t *const *b, const uint32_t *const *c,
                                     [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return run<false>(flags, exec_mask, mode, d, a, b, c, excp_flag_user);
 }
 
@@ -206,7 +229,8 @@ int rj_arith_v_mullit_f32_w64_gfx12(uint64_t flags, uint64_t exec_mask, uint64_t
                                     const uint32_t *const *b, const uint32_t *const *c,
                                     [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return run_wave64<false>(flags, exec_mask, mode, d, a, b, c, excp_flag_user);
 }

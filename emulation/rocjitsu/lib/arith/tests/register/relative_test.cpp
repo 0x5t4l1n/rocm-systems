@@ -19,20 +19,23 @@ TEST(v_movrels_b32_w32, Arithmetic) {
         uint32_t m0 = offsets[s % 10];
         uint64_t a_offset = m0;
         uint64_t d_offset = 0;
-        if (d_offset > 255 || uint64_t(d) + d_offset >= 6)
+        if (d_offset > 255 || uint64_t(d) + d_offset >= 6) {
           return;
+        }
         d += int(d_offset);
         int a = 0;
         if (a_offset > 255 || a_offset >= 6) {
           a = 0;
-        } else
+        } else {
           a = int(a_offset);
+        }
         for (int lane = 0; lane < 32; ++lane) {
           int source = lane;
           if (!((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                     ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                    : bool((e >> lane) & 1)))
+                    : bool((e >> lane) & 1))) {
             continue;
+          }
           out.v[d][lane] = rocjitsu::arith::test::moved_word(source < 0 ? 0 : in.v[a][source],
                                                              in.v[d][lane], m, false);
         }
@@ -50,20 +53,23 @@ TEST(v_movreld_b32_w32, Arithmetic) {
         uint32_t m0 = offsets[s % 10];
         uint64_t a_offset = 0;
         uint64_t d_offset = m0;
-        if (d_offset > 255 || uint64_t(d) + d_offset >= 6)
+        if (d_offset > 255 || uint64_t(d) + d_offset >= 6) {
           return;
+        }
         d += int(d_offset);
         int a = 0;
         if (a_offset > 255 || a_offset >= 6) {
           a = 0;
-        } else
+        } else {
           a = int(a_offset);
+        }
         for (int lane = 0; lane < 32; ++lane) {
           int source = lane;
           if (!((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                     ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                    : bool((e >> lane) & 1)))
+                    : bool((e >> lane) & 1))) {
             continue;
+          }
           out.v[d][lane] = rocjitsu::arith::test::moved_word(source < 0 ? 0 : in.v[a][source],
                                                              in.v[d][lane], m, false);
         }
@@ -81,20 +87,23 @@ TEST(v_movrelsd_b32_w32, Arithmetic) {
         uint32_t m0 = offsets[s % 10];
         uint64_t a_offset = m0;
         uint64_t d_offset = m0;
-        if (d_offset > 255 || uint64_t(d) + d_offset >= 6)
+        if (d_offset > 255 || uint64_t(d) + d_offset >= 6) {
           return;
+        }
         d += int(d_offset);
         int a = 0;
         if (a_offset > 255 || a_offset >= 6) {
           a = 0;
-        } else
+        } else {
           a = int(a_offset);
+        }
         for (int lane = 0; lane < 32; ++lane) {
           int source = lane;
           if (!((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                     ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                    : bool((e >> lane) & 1)))
+                    : bool((e >> lane) & 1))) {
             continue;
+          }
           out.v[d][lane] = rocjitsu::arith::test::moved_word(source < 0 ? 0 : in.v[a][source],
                                                              in.v[d][lane], m, false);
         }
@@ -112,20 +121,23 @@ TEST(v_movrelsd_2_b32_w32, Arithmetic) {
         uint32_t m0 = offsets[s % 10];
         uint64_t a_offset = (m0 & 0x3ff);
         uint64_t d_offset = (m0 >> 16) & 0x3ff;
-        if (d_offset > 255 || uint64_t(d) + d_offset >= 6)
+        if (d_offset > 255 || uint64_t(d) + d_offset >= 6) {
           return;
+        }
         d += int(d_offset);
         int a = 0;
         if (a_offset > 255 || a_offset >= 6) {
           a = 0;
-        } else
+        } else {
           a = int(a_offset);
+        }
         for (int lane = 0; lane < 32; ++lane) {
           int source = lane;
           if (!((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                     ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                    : bool((e >> lane) & 1)))
+                    : bool((e >> lane) & 1))) {
             continue;
+          }
           out.v[d][lane] = rocjitsu::arith::test::moved_word(source < 0 ? 0 : in.v[a][source],
                                                              in.v[d][lane], m, false);
         }
@@ -143,20 +155,23 @@ TEST(v_swaprel_b32_w32, Arithmetic) {
         uint32_t m0 = offsets[s % 10];
         uint64_t a_offset = (m0 & 0x3ff);
         uint64_t d_offset = (m0 >> 16) & 0x3ff;
-        if (d_offset > 255 || uint64_t(d) + d_offset >= 6)
+        if (d_offset > 255 || uint64_t(d) + d_offset >= 6) {
           return;
+        }
         d += int(d_offset);
         int a = 0;
         if (a_offset > 255 || a_offset >= 6) {
           return;
-        } else
+        } else {
           a = int(a_offset);
+        }
         for (int lane = 0; lane < 32; ++lane) {
           int source = lane;
           if (!((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                     ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                    : bool((e >> lane) & 1)))
+                    : bool((e >> lane) & 1))) {
             continue;
+          }
           out.v[d][lane] = in.v[a][lane];
           out.v[a][lane] = in.v[d][lane];
         }
@@ -174,20 +189,23 @@ TEST(v_movrels_b32_w64, Arithmetic) {
         uint32_t m0 = offsets[s % 10];
         uint64_t a_offset = m0;
         uint64_t d_offset = 0;
-        if (d_offset > 255 || uint64_t(d) + d_offset >= 6)
+        if (d_offset > 255 || uint64_t(d) + d_offset >= 6) {
           return;
+        }
         d += int(d_offset);
         int a = 0;
         if (a_offset > 255 || a_offset >= 6) {
           a = 0;
-        } else
+        } else {
           a = int(a_offset);
+        }
         for (int lane = 0; lane < 64; ++lane) {
           int source = lane;
           if (!((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                     ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                    : bool((e >> lane) & 1)))
+                    : bool((e >> lane) & 1))) {
             continue;
+          }
           out.v[d][lane] = rocjitsu::arith::test::moved_word(source < 0 ? 0 : in.v[a][source],
                                                              in.v[d][lane], m, false);
         }
@@ -205,20 +223,23 @@ TEST(v_movreld_b32_w64, Arithmetic) {
         uint32_t m0 = offsets[s % 10];
         uint64_t a_offset = 0;
         uint64_t d_offset = m0;
-        if (d_offset > 255 || uint64_t(d) + d_offset >= 6)
+        if (d_offset > 255 || uint64_t(d) + d_offset >= 6) {
           return;
+        }
         d += int(d_offset);
         int a = 0;
         if (a_offset > 255 || a_offset >= 6) {
           a = 0;
-        } else
+        } else {
           a = int(a_offset);
+        }
         for (int lane = 0; lane < 64; ++lane) {
           int source = lane;
           if (!((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                     ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                    : bool((e >> lane) & 1)))
+                    : bool((e >> lane) & 1))) {
             continue;
+          }
           out.v[d][lane] = rocjitsu::arith::test::moved_word(source < 0 ? 0 : in.v[a][source],
                                                              in.v[d][lane], m, false);
         }
@@ -236,20 +257,23 @@ TEST(v_movrelsd_b32_w64, Arithmetic) {
         uint32_t m0 = offsets[s % 10];
         uint64_t a_offset = m0;
         uint64_t d_offset = m0;
-        if (d_offset > 255 || uint64_t(d) + d_offset >= 6)
+        if (d_offset > 255 || uint64_t(d) + d_offset >= 6) {
           return;
+        }
         d += int(d_offset);
         int a = 0;
         if (a_offset > 255 || a_offset >= 6) {
           a = 0;
-        } else
+        } else {
           a = int(a_offset);
+        }
         for (int lane = 0; lane < 64; ++lane) {
           int source = lane;
           if (!((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                     ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                    : bool((e >> lane) & 1)))
+                    : bool((e >> lane) & 1))) {
             continue;
+          }
           out.v[d][lane] = rocjitsu::arith::test::moved_word(source < 0 ? 0 : in.v[a][source],
                                                              in.v[d][lane], m, false);
         }
@@ -267,20 +291,23 @@ TEST(v_movrelsd_2_b32_w64, Arithmetic) {
         uint32_t m0 = offsets[s % 10];
         uint64_t a_offset = (m0 & 0x3ff);
         uint64_t d_offset = (m0 >> 16) & 0x3ff;
-        if (d_offset > 255 || uint64_t(d) + d_offset >= 6)
+        if (d_offset > 255 || uint64_t(d) + d_offset >= 6) {
           return;
+        }
         d += int(d_offset);
         int a = 0;
         if (a_offset > 255 || a_offset >= 6) {
           a = 0;
-        } else
+        } else {
           a = int(a_offset);
+        }
         for (int lane = 0; lane < 64; ++lane) {
           int source = lane;
           if (!((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                     ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                    : bool((e >> lane) & 1)))
+                    : bool((e >> lane) & 1))) {
             continue;
+          }
           out.v[d][lane] = rocjitsu::arith::test::moved_word(source < 0 ? 0 : in.v[a][source],
                                                              in.v[d][lane], m, false);
         }
@@ -298,20 +325,23 @@ TEST(v_swaprel_b32_w64, Arithmetic) {
         uint32_t m0 = offsets[s % 10];
         uint64_t a_offset = (m0 & 0x3ff);
         uint64_t d_offset = (m0 >> 16) & 0x3ff;
-        if (d_offset > 255 || uint64_t(d) + d_offset >= 6)
+        if (d_offset > 255 || uint64_t(d) + d_offset >= 6) {
           return;
+        }
         d += int(d_offset);
         int a = 0;
         if (a_offset > 255 || a_offset >= 6) {
           return;
-        } else
+        } else {
           a = int(a_offset);
+        }
         for (int lane = 0; lane < 64; ++lane) {
           int source = lane;
           if (!((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                     ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                    : bool((e >> lane) & 1)))
+                    : bool((e >> lane) & 1))) {
             continue;
+          }
           out.v[d][lane] = in.v[a][lane];
           out.v[a][lane] = in.v[d][lane];
         }

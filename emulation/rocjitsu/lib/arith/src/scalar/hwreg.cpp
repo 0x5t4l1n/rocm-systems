@@ -30,12 +30,15 @@ int rj_arith_s_getreg_b32(uint64_t flags, uint64_t instruction_flags, uint32_t *
                           uint32_t ib_sts2, uint64_t shader_cycles) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = rocjitsu::arith::validate(flags, uint32_t(instruction_flags), true))
+  }
+  if (int error = rocjitsu::arith::validate(flags, uint32_t(instruction_flags), true)) {
     return error;
+  }
   uint32_t value;
   switch (hwreg & 63) {
   case 1:
@@ -130,18 +133,22 @@ int rj_arith_s_getreg_b32_gfx12(uint64_t flags, uint64_t instruction_flags, uint
                                 uint32_t *perf_snapshot_data1, uint32_t *perf_snapshot_data2) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
 
   // PC_HI reads unlock the snapshot. Its precise state update is not modeled.
   if ((hwreg & 63) == 12 && (flags & RJ_ARITH_SEMANTICS_MASK) != RJ_ARITH_SEMANTICS_LOOSE &&
       (perf_snapshot_data || perf_snapshot_pc_lo || perf_snapshot_pc_hi || perf_snapshot_data1 ||
-       perf_snapshot_data2))
+       perf_snapshot_data2)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_REGISTER_STATE;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = rocjitsu::arith::validate(flags, uint32_t(instruction_flags), true))
+  }
+  if (int error = rocjitsu::arith::validate(flags, uint32_t(instruction_flags), true)) {
     return error;
+  }
   uint32_t value;
   switch (hwreg & 63) {
   case 1:
@@ -218,18 +225,22 @@ int rj_arith_s_setreg_b32(uint64_t flags, uint64_t instruction_flags, uint16_t h
                           uint32_t *flush_ib, uint64_t *flat_scratch) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   unsigned id = hwreg & 63;
   bool privileged = status_in & (1U << 5);
   if ((flags & RJ_ARITH_SEMANTICS_MASK) != RJ_ARITH_SEMANTICS_LOOSE &&
       ((id == 14 && flush_ib) ||
-       ((id == 20 || id == 21) && privileged && (flat_scratch || status))))
+       ((id == 20 || id == 21) && privileged && (flat_scratch || status)))) {
     return RJ_ARITH_ERROR_UNSUPPORTED_REGISTER_STATE;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = rocjitsu::arith::validate(flags, uint32_t(instruction_flags), true))
+  }
+  if (int error = rocjitsu::arith::validate(flags, uint32_t(instruction_flags), true)) {
     return error;
+  }
 
   unsigned offset = (hwreg >> 6) & 31;
   unsigned width = (hwreg >> 11) + 1;
@@ -290,8 +301,9 @@ int rj_arith_s_setreg_b32(uint64_t flags, uint64_t instruction_flags, uint16_t h
     return RJ_ARITH_ERROR_INVALID_FLAGS;
   }
   uint32_t mask = field_mask & writable;
-  if (mask && destination)
+  if (mask && destination) {
     *destination = (*destination & ~mask) | ((a << offset) & mask);
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -303,8 +315,9 @@ int rj_arith_s_setreg_imm32_b32(uint64_t flags, uint64_t instruction_flags, uint
                                 uint64_t *flat_scratch) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return rj_arith_s_setreg_b32(flags, instruction_flags, hwreg, immediate, status_in, mode, status,
                                trapsts, flush_ib, flat_scratch);
 }
@@ -318,20 +331,24 @@ int rj_arith_s_setreg_b32_gfx12(uint64_t flags, uint64_t instruction_flags, uint
                                 uint32_t *trap_ctrl, uint64_t *scratch_base) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   unsigned id = hwreg & 63;
   bool privileged = status & (1U << 5);
 
   // The alignment requirement does not establish the scratch write mask or
   // whether writing it affects STATE_PRIV.SCRATCH_EN. Do not invent updates.
   if ((id == 20 || id == 21) && privileged && (scratch_base || state_priv) &&
-      (flags & RJ_ARITH_SEMANTICS_MASK) != RJ_ARITH_SEMANTICS_LOOSE)
+      (flags & RJ_ARITH_SEMANTICS_MASK) != RJ_ARITH_SEMANTICS_LOOSE) {
     return RJ_ARITH_ERROR_UNSUPPORTED_REGISTER_STATE;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = rocjitsu::arith::validate(flags, uint32_t(instruction_flags), true))
+  }
+  if (int error = rocjitsu::arith::validate(flags, uint32_t(instruction_flags), true)) {
     return error;
+  }
 
   unsigned offset = (hwreg >> 6) & 31;
   unsigned width = (hwreg >> 11) + 1;
@@ -395,8 +412,9 @@ int rj_arith_s_setreg_b32_gfx12(uint64_t flags, uint64_t instruction_flags, uint
     return RJ_ARITH_ERROR_INVALID_FLAGS;
   }
   uint32_t mask = field_mask & writable;
-  if (mask && destination)
+  if (mask && destination) {
     *destination = (*destination & ~mask) | ((a << offset) & mask);
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -410,8 +428,9 @@ int rj_arith_s_setreg_imm32_b32_gfx12(uint64_t flags, uint64_t instruction_flags
                                       uint64_t *scratch_base) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return rj_arith_s_setreg_b32_gfx12(flags, instruction_flags, hwreg, immediate, status, mode,
                                      state_priv, excp_flag_priv, excp_flag_user, trap_ctrl,
                                      scratch_base);

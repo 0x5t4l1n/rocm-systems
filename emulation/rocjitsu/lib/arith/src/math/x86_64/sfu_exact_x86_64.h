@@ -191,10 +191,11 @@ template <bool Rsq, class V> V reciprocal_polynomial(V mantissa, V constant, V l
   V middle = (p00 >> 32) + (p01 & 0xffffffffULL) + (p10 & 0xffffffffULL);
   V high = (p01 >> 32) + (p10 >> 32) + p11 + (middle >> 32);
   quadratic = (high << 13) | ((middle & 0xffffffffULL) >> 19);
-  if constexpr (Rsq)
+  if constexpr (Rsq) {
     return 0x3e800000ULL + ((constant * 32ULL - linear + quadratic * 4ULL + 64ULL) >> 7);
-  else
+  } else {
     return 0x3e800000ULL + ((constant * 16ULL - linear + quadratic * 2ULL + 32ULL) >> 6);
+  }
 }
 
 } // namespace rocjitsu::arith::sfu_simd

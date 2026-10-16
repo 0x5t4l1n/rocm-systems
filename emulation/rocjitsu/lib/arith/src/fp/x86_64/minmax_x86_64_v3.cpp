@@ -21,10 +21,12 @@ template <bool FirstMaximum, bool SecondMaximum, bool Propagate, bool Median = f
 void run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *d, const uint32_t *a,
          const uint32_t *b, const uint32_t *c) {
   // Dispatch the guest input-denormal policy once, outside the four SIMD chunks.
-  if constexpr (!FlushInput)
-    if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)
+  if constexpr (!FlushInput) {
+    if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) {
       return run<FirstMaximum, SecondMaximum, Propagate, Median, Rdna3, true>(flags, exec_mask,
                                                                               mode, d, a, b, c);
+    }
+  }
   const auto ka = _mm256_set1_epi32(mode & RJ_ARITH_ALU_ABS_A ? INT32_MAX : -1);
   const auto kb = _mm256_set1_epi32(mode & RJ_ARITH_ALU_ABS_B ? INT32_MAX : -1);
   const auto kc = _mm256_set1_epi32(mode & RJ_ARITH_ALU_ABS_C ? INT32_MAX : -1);
@@ -46,11 +48,12 @@ void run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *d, const u
       z = flush_denorm_f32(z);
     }
     __m256 value;
-    if constexpr (Rdna3)
+    if constexpr (Rdna3) {
       value = minmax3_rdna3<FirstMaximum, SecondMaximum, Median>(x, y, z,
                                                                  flags & RJ_ARITH_FP_IEEE_MODE);
-    else
+    } else {
       value = minmax3_value<FirstMaximum, SecondMaximum, Propagate, Median>(x, y, z);
+    }
     if (mode & RJ_ARITH_ALU_OMOD_HALF) {
       value = prepare_omod_f32(value, mode);
       value = _mm256_mul_ps(value, scale);

@@ -58,8 +58,9 @@ TEST(s_cvt_i32_f32, Arithmetic) {
       [](uint32_t a, uint32_t b, auto, bool flush) {
         (void)b;
 
-        if (flush && !(a & 0x7f800000U))
+        if (flush && !(a & 0x7f800000U)) {
           a &= 0x80000000U;
+        }
 
         return rocjitsu::arith::test::conversion32_reference(2, a, 0);
       },
@@ -77,8 +78,9 @@ TEST(s_cvt_u32_f32, Arithmetic) {
       [](uint32_t a, uint32_t b, auto, bool flush) {
         (void)b;
 
-        if (flush && !(a & 0x7f800000U))
+        if (flush && !(a & 0x7f800000U)) {
           a &= 0x80000000U;
+        }
 
         return rocjitsu::arith::test::conversion32_reference(3, a, 0);
       },
@@ -96,8 +98,9 @@ TEST(s_cvt_f16_f32, Arithmetic) {
       [](uint32_t a, uint32_t b, auto, bool flush) {
         (void)b;
 
-        if (flush && !(a & 0x7f800000U))
+        if (flush && !(a & 0x7f800000U)) {
           a &= 0x80000000U;
+        }
 
         return rocjitsu::arith::test::conversion16_reference(4, a, 0, 0, false);
       },
@@ -115,8 +118,9 @@ TEST(s_cvt_f32_f16, Arithmetic) {
       [](uint32_t a, uint32_t b, auto, bool flush) {
         (void)b;
 
-        if (flush && !(a & 0x7c00U))
+        if (flush && !(a & 0x7c00U)) {
           a &= 0x8000U;
+        }
 
         return rocjitsu::arith::test::conversion16_reference(5, a, 0, 0, false);
       },
@@ -134,8 +138,9 @@ TEST(s_cvt_hi_f32_f16, Arithmetic) {
       [](uint32_t a, uint32_t b, auto, bool flush) {
         (void)b;
         a >>= 16;
-        if (flush && !(a & 0x7c00U))
+        if (flush && !(a & 0x7c00U)) {
           a &= 0x8000U;
+        }
 
         return rocjitsu::arith::test::conversion16_reference(5, a, 0, 0, false);
       },
@@ -153,10 +158,12 @@ TEST(s_cvt_pk_rtz_f16_f32, Arithmetic) {
       [](uint32_t a, uint32_t b, auto, bool flush) {
         (void)b;
 
-        if (flush && !(a & 0x7f800000U))
+        if (flush && !(a & 0x7f800000U)) {
           a &= 0x80000000U;
-        if (flush && !(b & 0x7f800000U))
+        }
+        if (flush && !(b & 0x7f800000U)) {
           b &= 0x80000000U;
+        }
         return rocjitsu::arith::test::packed_conversion_reference(0, a, b, 0);
       },
       false, 1);

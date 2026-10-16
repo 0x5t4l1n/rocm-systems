@@ -33,7 +33,7 @@ void integer_wmma_impl(uint32_t modifiers, uint32_t *const *d, const uint32_t *c
   // Widen factors to signed 16-bit pairs, including unsigned bytes (0..255).
   // Byte-pair saturation would lose information before GPU stage saturation.
   uint32_t packed[Groups][2][K / 2][16];
-  for (int group = 0; group < Groups; ++group)
+  for (int group = 0; group < Groups; ++group) {
     for (int operand = 0; operand < 2; ++operand) {
       const uint32_t *const *v = operand ? b : a;
       int sign = operand ? sign_b : sign_a;
@@ -53,6 +53,7 @@ void integer_wmma_impl(uint32_t modifiers, uint32_t *const *d, const uint32_t *c
         }
       }
     }
+  }
 
   uint32_t result[256 / Lanes][Lanes];
   constexpr bool clamp = Clamp;
@@ -65,20 +66,23 @@ void integer_wmma_impl(uint32_t modifiers, uint32_t *const *d, const uint32_t *c
     int reg = Rdna3 ? row / Groups : row % 8;
     int lane = Rdna3 ? 16 * group : 16 * (row / 8);
     V acc[16 / Ops::width];
-    for (int chunk = 0; chunk < 16 / Ops::width; ++chunk)
+    for (int chunk = 0; chunk < 16 / Ops::width; ++chunk) {
       acc[chunk] = Ops::load(c[reg] + lane + chunk * Ops::width);
+    }
     for (int stage = 0; stage < stages; ++stage) {
       V sums[16 / Ops::width];
-      for (auto &sum : sums)
+      for (auto &sum : sums) {
         sum = Ops::splat(0);
+      }
       for (int local = 0; local < K / stages; local += 2) {
         int k = Rdna3   ? stage * (K / stages) + local
                 : clamp ? 16 * (local / 8) + 8 * stage + local % 8
                         : local;
         V left = Ops::splat_bits(packed[group][0][k / 2][row]);
-        for (int chunk = 0; chunk < 16 / Ops::width; ++chunk)
+        for (int chunk = 0; chunk < 16 / Ops::width; ++chunk) {
           sums[chunk] =
               Ops::dot(sums[chunk], left, Ops::load(packed[group][1][k / 2] + chunk * Ops::width));
+        }
       }
       for (int chunk = 0; chunk < 16 / Ops::width; ++chunk) {
         V sum = Ops::add(acc[chunk], sums[chunk]);
@@ -92,13 +96,16 @@ void integer_wmma_impl(uint32_t modifiers, uint32_t *const *d, const uint32_t *c
         acc[chunk] = sum;
       }
     }
-    for (int chunk = 0; chunk < 16 / Ops::width; ++chunk)
+    for (int chunk = 0; chunk < 16 / Ops::width; ++chunk) {
       Ops::store(result[reg] + lane + chunk * Ops::width, acc[chunk]);
+    }
   }
   // All source reads precede writes, including when D shares A/B/C VGPRs.
-  for (int reg = 0; reg < 256 / Lanes; ++reg)
-    for (int lane = 0; lane < Lanes; lane += Ops::width)
+  for (int reg = 0; reg < 256 / Lanes; ++reg) {
+    for (int lane = 0; lane < Lanes; lane += Ops::width) {
       Ops::store(d[reg] + lane, Ops::load(result[reg] + lane));
+    }
+  }
 }
 
 // Compute integer A*B+C with the CLAMP mode in validated modifiers.
@@ -106,10 +113,11 @@ void integer_wmma_impl(uint32_t modifiers, uint32_t *const *d, const uint32_t *c
 template <int Bits, int K, class Ops, int Lanes = 32, bool Rdna3 = false>
 void integer_wmma(uint32_t modifiers, uint32_t *const *d, const uint32_t *const *a,
                   const uint32_t *const *b, const uint32_t *const *c) {
-  if (modifiers & RJ_ARITH_WMMA_CLAMP)
+  if (modifiers & RJ_ARITH_WMMA_CLAMP) {
     integer_wmma_impl<Bits, K, true, Ops, Lanes, Rdna3>(modifiers, d, a, b, c);
-  else
+  } else {
     integer_wmma_impl<Bits, K, false, Ops, Lanes, Rdna3>(modifiers, d, a, b, c);
+  }
 }
 
 } // namespace rocjitsu::arith

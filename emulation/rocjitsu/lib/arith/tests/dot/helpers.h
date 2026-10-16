@@ -24,13 +24,17 @@ namespace rocjitsu::arith::test {
 // Enumerate supported dot modifiers, including combined and DPP cases.
 inline std::vector<uint64_t> dot_modes(uint32_t modifiers) {
   std::vector<uint64_t> modes{0};
-  for (int bit = 0; bit < 32; ++bit)
-    if (modifiers & (1U << bit))
+  for (int bit = 0; bit < 32; ++bit) {
+    if (modifiers & (1U << bit)) {
       modes.push_back(1U << bit);
-  if (modifiers)
+    }
+  }
+  if (modifiers) {
     modes.push_back(modifiers);
-  for (uint64_t dpp : dpp_modes)
+  }
+  for (uint64_t dpp : dpp_modes) {
     modes.push_back(dpp | modifiers);
+  }
   return modes;
 }
 
@@ -39,15 +43,17 @@ inline std::vector<uint64_t> dot_modes(uint32_t modifiers) {
 template <int Lanes, bool Bf16, bool HalfOutput> Registers<4, Lanes> dot2_inputs() {
   Registers<4, Lanes> input;
   std::minstd_rand random;
-  for (int reg = 0; reg < 4; ++reg)
+  for (int reg = 0; reg < 4; ++reg) {
     for (int lane = 0; lane < Lanes; ++lane) {
       if (reg < 2 || HalfOutput) {
         uint16_t lo = Bf16 ? random_bf16_bits(random) : random_f16_bits(random);
         uint16_t hi = Bf16 ? random_bf16_bits(random) : random_f16_bits(random);
         input.v[reg][lane] = lo | (uint32_t(hi) << 16);
-      } else
+      } else {
         input.v[reg][lane] = bit_cast<uint32_t>(float(int(random() >> 7) - 0x800000) * 0x1p-21f);
+      }
     }
+  }
   for (int reg = 0; reg < 3; ++reg) {
     int lane = 2 + reg * 4;
     if (reg < 2 || HalfOutput) {
@@ -69,12 +75,13 @@ template <bool Accumulate, bool HasStatus, class Call, class Mask>
 int invoke_dot(Call call, uint64_t flags, Mask exec_mask, uint64_t mode, uint32_t *const *d,
                const uint32_t *const *a, const uint32_t *const *b, const uint32_t *const *c,
                uint32_t *status) {
-  if constexpr (Accumulate)
+  if constexpr (Accumulate) {
     return call(flags, exec_mask, mode, d, a, b, status);
-  else if constexpr (HasStatus)
+  } else if constexpr (HasStatus) {
     return call(flags, exec_mask, mode, d, a, b, c, status);
-  else
+  } else {
     return call(flags, exec_mask, mode, d, a, b, c);
+  }
 }
 
 // Only loose arithmetic uses the mathematical reference. Exact DOT2 uses its
@@ -99,10 +106,11 @@ void check_loose_dot(Call call, const Registers<4, Lanes> &input, Check check, u
       modifiers);
   auto modes = dot_modes(modifiers);
   auto cpu_levels = supported_cpu_levels();
-  for (uint64_t cpu : cpu_levels)
+  for (uint64_t cpu : cpu_levels) {
     for (uint64_t semantics : semantics_modes()) {
-      if (has_exact && semantics != RJ_ARITH_SEMANTICS_LOOSE)
+      if (has_exact && semantics != RJ_ARITH_SEMANTICS_LOOSE) {
         continue;
+      }
       for (int scenario = 0; scenario < 5 + int(modes.size()); ++scenario) {
         uint64_t mode = scenario < 5 ? 0 : modes[scenario - 5];
         Mask exec_mask = exec_mask_for_case<Lanes>(scenario < 5 ? scenario : scenario % 2 ? 0 : 3);
@@ -150,6 +158,7 @@ void check_loose_dot(Call call, const Registers<4, Lanes> &input, Check check, u
         }
       }
     }
+  }
 }
 
 } // namespace rocjitsu::arith::test

@@ -22,8 +22,9 @@ inline double half_unary(int op, double x) {
   case 1:
     return std::ceil(x);
   case 2: {
-    if (!std::isfinite(x) || x == 0)
+    if (!std::isfinite(x) || x == 0) {
       return x;
+    }
     double low = std::floor(x), tail = x - low;
     double result = low + (tail > 0.5 || (tail == 0.5 && std::fmod(low, 2) != 0));
     return std::copysign(std::abs(result), x);
@@ -60,34 +61,42 @@ inline uint16_t half_unary_reference(int op, uint32_t input, uint32_t mode, bool
   double x =
       rocjitsu::arith::test::half_value(uint16_t(input >> (mode & RJ_ARITH_ALU_HIGH_A ? 16 : 0)));
   if ((op == 7 || op == 8) && (fp_flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) &&
-      std::abs(x) < 0x1p-14)
+      std::abs(x) < 0x1p-14) {
     x = std::copysign(0.0, x);
-  if (mode & RJ_ARITH_ALU_ABS_A)
+  }
+  if (mode & RJ_ARITH_ALU_ABS_A) {
     x = std::abs(x);
-  if (mode & RJ_ARITH_ALU_NEG_A)
+  }
+  if (mode & RJ_ARITH_ALU_NEG_A) {
     x = -x;
+  }
   double result = rocjitsu::arith::test::half_unary(op, x);
   if (op >= 4 && op <= 8) {
-    if ((op == 5 || op == 6) && x == 0 && saturate)
+    if ((op == 5 || op == 6) && x == 0 && saturate) {
       result = std::copysign(65504.0, result);
-    if (op == 8 && x == 0 && saturate)
+    }
+    if (op == 8 && x == 0 && saturate) {
       result = -65504;
+    }
     result = rocjitsu::arith::test::half_value(rocjitsu::arith::test::half_bits(result, saturate));
   }
   if ((op == 7 || op == 8) && (fp_flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) &&
-      std::abs(result) < 0x1p-14)
+      std::abs(result) < 0x1p-14) {
     result = std::copysign(0.0, result);
+  }
   const double scales[] = {1, 2, 4, 0.5};
   if (mode & RJ_ARITH_ALU_OMOD_HALF) {
-    if (std::abs(result) < 0x1p-14)
+    if (std::abs(result) < 0x1p-14) {
       result = 0;
-    else if ((mode & RJ_ARITH_ALU_OMOD_HALF) == RJ_ARITH_ALU_OMOD_HALF &&
-             std::abs(result) < 0x1p-13)
+    } else if ((mode & RJ_ARITH_ALU_OMOD_HALF) == RJ_ARITH_ALU_OMOD_HALF &&
+               std::abs(result) < 0x1p-13) {
       result = std::copysign(0.0, result);
+    }
   }
   result *= scales[(mode >> 6) & 3];
-  if (mode & RJ_ARITH_ALU_CLAMP)
+  if (mode & RJ_ARITH_ALU_CLAMP) {
     result = !(result > 0) ? 0 : std::min(result, 1.0);
+  }
   return rocjitsu::arith::test::half_bits(result, saturate);
 }
 

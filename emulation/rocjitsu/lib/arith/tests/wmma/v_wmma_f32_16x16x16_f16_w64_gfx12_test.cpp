@@ -34,12 +34,16 @@ TEST(WmmaF32F16W64Gfx12, Arithmetic) {
   // and the high 24 bits for FP32 accumulators. Never select only low bits.
   // Full fractional significands and varied exponents exercise GPU rounding.
   std::minstd_rand random;
-  for (int reg = 0; reg < 4; ++reg)
-    for (int lane = 0; lane < 64; ++lane)
+  for (int reg = 0; reg < 4; ++reg) {
+    for (int lane = 0; lane < 64; ++lane) {
       input.v[reg][lane] = rocjitsu::arith::test::random_f16_pair(random);
-  for (int reg = 4; reg < 8; ++reg)
-    for (int lane = 0; lane < 64; ++lane)
+    }
+  }
+  for (int reg = 4; reg < 8; ++reg) {
+    for (int lane = 0; lane < 64; ++lane) {
       input.v[reg][lane] = rocjitsu::arith::test::random_f32_bits(random);
+    }
+  }
 
   // Exactly one NaN and Inf per operand, with distinct K positions. NaN
   // classification is checked without requiring a particular payload.
@@ -91,14 +95,14 @@ TEST(WmmaF32F16W64Gfx12, Arithmetic) {
   // cover A/B overlap, partial A/B/C overlap, B/C overlap, C alias, and disjoint D.
   const auto cpu_levels = rocjitsu::arith::test::supported_cpu_levels();
   for (uint64_t cpu : cpu_levels) {
-    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes())
+    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes()) {
       for (int aliasing_offset : {0, 1, 2, 4, 8}) {
         SCOPED_TRACE(::testing::Message() << cpu << '/' << semantics << '/' << aliasing_offset);
         Registers r = input;
         ASSERT_EQ(rj_arith_v_wmma_f32_16x16x16_f16_w64_gfx12(
                       cpu | semantics, 0, r.v + aliasing_offset, r.v, r.v + 2, r.v + 4),
                   RJ_ARITH_SUCCESS);
-        for (int row = 0; row < 16; ++row)
+        for (int row = 0; row < 16; ++row) {
           for (int col = 0; col < 16; ++col) {
             float expected = golden[row][col];
             uint32_t actual =
@@ -106,8 +110,10 @@ TEST(WmmaF32F16W64Gfx12, Arithmetic) {
             rocjitsu::arith::test::expect_f32(actual, expected, semantics, /*atol=*/1e-5,
                                               /*rtol=*/1e-5);
           }
+        }
         r.expect_preserved(input, aliasing_offset, 4);
       }
+    }
   }
   rocjitsu::arith::test::expect_wmma_exact_simd<false, 64, false, false>(
       rj_arith_v_wmma_f32_16x16x16_f16_w64_gfx12);

@@ -40,8 +40,9 @@ template <int RegisterCount, int LaneCount> struct Registers {
 
   // Copy all data and guards, preserving this object's register pointers.
   Registers &operator=(const Registers &other) {
-    if (this != &other)
+    if (this != &other) {
       std::memcpy(words, other.words, sizeof(words));
+    }
     return *this;
   }
 
@@ -52,14 +53,16 @@ template <int RegisterCount, int LaneCount> struct Registers {
     ASSERT_GE(written_count, 0);
     ASSERT_LE(first_written, RegisterCount);
     ASSERT_LE(written_count, RegisterCount - first_written);
-    for (int reg = 0; reg < RegisterCount; ++reg)
-      for (int word = 0; word < LaneCount + 2; ++word)
+    for (int reg = 0; reg < RegisterCount; ++reg) {
+      for (int word = 0; word < LaneCount + 2; ++word) {
         if (reg < first_written || reg >= first_written + written_count || word == 0 ||
             word == LaneCount + 1) {
           EXPECT_EQ(words[RegisterCount - 1 - reg][word],
                     before.words[RegisterCount - 1 - reg][word])
               << "register=" << reg << ", word=" << word;
         }
+      }
+    }
   }
 };
 

@@ -36,9 +36,9 @@ void conversion64_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *const *
     auto low = _mm_loadu_si128(reinterpret_cast<const __m128i *>(a[0] + lane));
     __m256d value;
     if constexpr (from_integer) {
-      if constexpr (Op == Conversion64::SignedToDouble)
+      if constexpr (Op == Conversion64::SignedToDouble) {
         value = _mm256_cvtepi32_pd(low);
-      else {
+      } else {
         // FP64 represents every uint32_t exactly, so adding 2^32 to
         // the signed conversion for high-bit inputs cannot double-round.
         value = _mm256_cvtepi32_pd(low);
@@ -62,8 +62,9 @@ void conversion64_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *const *
         value = prepare_omod_f64(value, mode);
         value = _mm256_mul_pd(value, _mm256_set1_pd(scales[(mode >> 6) & 3]));
       }
-      if (mode & RJ_ARITH_ALU_CLAMP)
+      if (mode & RJ_ARITH_ALU_CLAMP) {
         value = _mm256_min_pd(_mm256_max_pd(value, zero), _mm256_set1_pd(1));
+      }
       auto raw = _mm256_castpd_si256(value);
       _mm_storeu_si128(reinterpret_cast<__m128i *>(result[0] + lane), low_words(raw));
       _mm_storeu_si128(reinterpret_cast<__m128i *>(result[1] + lane),
@@ -79,8 +80,9 @@ void conversion64_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *const *
           x = prepare_omod_f32(x, mode);
           x = _mm_mul_ps(x, _mm_set1_ps(float(scales[(mode >> 6) & 3])));
         }
-        if (mode & RJ_ARITH_ALU_CLAMP)
+        if (mode & RJ_ARITH_ALU_CLAMP) {
           x = _mm_min_ps(_mm_max_ps(x, _mm_setzero_ps()), _mm_set1_ps(1));
+        }
         output = _mm_castps_si128(x);
       } else if constexpr (Op == Conversion64::DoubleToSigned) {
         auto nan = _mm256_cmp_pd(value, value, _CMP_UNORD_Q);
@@ -100,7 +102,7 @@ void conversion64_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *const *
   }
   // Delay stores to allow cross-half source/destination aliases. Store D0
   // before D1, so D1 wins when both destination halves share storage.
-  for (int reg = 0; reg < (to_double ? 2 : 1); ++reg)
+  for (int reg = 0; reg < (to_double ? 2 : 1); ++reg) {
     for (int lane = 0; lane < 32; lane += 8) {
       auto lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                               _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));
@@ -108,6 +110,7 @@ void conversion64_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *const *
           reinterpret_cast<int *>(d[reg] + lane), lane_exec_mask,
           _mm256_loadu_si256(reinterpret_cast<const __m256i *>(result[reg] + lane)));
     }
+  }
 }
 
 template void conversion64_x86_64_v3<Conversion64::SignedToDouble>(uint32_t, uint32_t,

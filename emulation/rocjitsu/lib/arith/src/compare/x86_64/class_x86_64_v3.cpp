@@ -33,12 +33,14 @@ uint32_t class_x86_64_v3(uint32_t mode, const uint32_t *const *a, const uint32_t
     auto exponent =
         _mm256_and_si256(_mm256_srli_epi32(high, fraction_bits), _mm256_set1_epi32(exponent_mask));
     auto fraction = _mm256_and_si256(high, _mm256_set1_epi32((1u << fraction_bits) - 1));
-    if constexpr (Bits == 64)
+    if constexpr (Bits == 64) {
       fraction = _mm256_or_si256(
           fraction, _mm256_loadu_si256(reinterpret_cast<const __m256i *>(a[0] + lane)));
+    }
     auto signed_high = high;
-    if constexpr (Bits == 16)
+    if constexpr (Bits == 16) {
       signed_high = _mm256_slli_epi32(high, 16);
+    }
     auto quiet = _mm256_and_si256(_mm256_srli_epi32(high, fraction_bits - 1), _mm256_set1_epi32(1));
     auto zero_fraction = _mm256_cmpeq_epi32(fraction, _mm256_setzero_si256());
     auto zero_exponent = _mm256_cmpeq_epi32(exponent, _mm256_setzero_si256());

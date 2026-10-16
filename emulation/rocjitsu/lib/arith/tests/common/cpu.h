@@ -24,8 +24,9 @@ inline std::vector<uint64_t> supported_cpu_levels() {
   std::vector<uint64_t> levels;
   for (uint64_t level : {RJ_ARITH_CPU_BASELINE, RJ_ARITH_CPU_X86_64_V3, RJ_ARITH_CPU_X86_64_V4,
                          RJ_ARITH_CPU_X86_64_ZEN4}) {
-    if (!cpu_level_supported(level, supported_flags))
+    if (!cpu_level_supported(level, supported_flags)) {
       break;
+    }
     levels.push_back(level);
   }
   return levels;

@@ -12,16 +12,21 @@ namespace rocjitsu::arith {
 
 // Combine less/equal masks into the requested integer predicate mask.
 template <unsigned Predicate> uint32_t integer_compare_result(uint32_t less, uint32_t equal) {
-  if constexpr (Predicate == 1)
+  if constexpr (Predicate == 1) {
     return less;
-  if constexpr (Predicate == 2)
+  }
+  if constexpr (Predicate == 2) {
     return equal;
-  if constexpr (Predicate == 3)
+  }
+  if constexpr (Predicate == 3) {
     return less | equal;
-  if constexpr (Predicate == 4)
+  }
+  if constexpr (Predicate == 4) {
     return ~(less | equal);
-  if constexpr (Predicate == 5)
+  }
+  if constexpr (Predicate == 5) {
     return ~equal;
+  }
   return ~less;
 }
 

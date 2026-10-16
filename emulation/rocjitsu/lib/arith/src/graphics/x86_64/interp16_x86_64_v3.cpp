@@ -29,12 +29,13 @@ void interp16_x86_64_v3(bool saturate, uint32_t exec_mask, uint32_t mode, uint32
                          _mm256_set1_epi32(mode & RJ_ARITH_ALU_NEG_B ? INT32_MIN : 0)));
     auto cw = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(c + lane));
     __m256 z;
-    if constexpr (P2)
+    if constexpr (P2) {
       z = _mm256_castsi256_ps(
           _mm256_xor_si256(cw, _mm256_set1_epi32(mode & RJ_ARITH_ALU_NEG_C ? INT32_MIN : 0)));
-    else
+    } else {
       z = _mm256_permute_ps(half_input<false>(cw, mode & RJ_ARITH_ALU_HIGH_C ? 16 : 0, mode >> 2),
                             _MM_SHUFFLE(0, 0, 0, 0));
+    }
     __m256i result;
     if constexpr (P2) {
       auto lo =
@@ -55,14 +56,16 @@ void interp16_x86_64_v3(bool saturate, uint32_t exec_mask, uint32_t mode, uint32
         _mm256_store_si256(reinterpret_cast<__m256i *>(xs), _mm256_castps_si256(x));
         _mm256_store_si256(reinterpret_cast<__m256i *>(ys), _mm256_castps_si256(y));
         _mm256_store_si256(reinterpret_cast<__m256i *>(zs), _mm256_castps_si256(z));
-        for (int i = 0; i < 8; ++i)
+        for (int i = 0; i < 8; ++i) {
           results[i] = as_bits(interp16_rtz_float(xs[i], ys[i], zs[i]));
+        }
         value = _mm256_castsi256_ps(_mm256_load_si256(reinterpret_cast<const __m256i *>(results)));
       } else {
         value = _mm256_fmadd_ps(x, y, z);
       }
-      if (mode & RJ_ARITH_ALU_CLAMP)
+      if (mode & RJ_ARITH_ALU_CLAMP) {
         value = _mm256_min_ps(_mm256_max_ps(value, _mm256_setzero_ps()), _mm256_set1_ps(1));
+      }
       result = _mm256_castps_si256(value);
     }
     auto lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),

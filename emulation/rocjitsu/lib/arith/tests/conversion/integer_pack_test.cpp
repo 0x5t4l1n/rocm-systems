@@ -31,9 +31,11 @@ void check_integer(Call call, IntegerConversion operation) {
   // Signed limits and saturation boundaries for both packed sources.
   const uint32_t edges[] = {0xffffffffU, 0x80000000U, 0x7fffffffU, 32767, 32768,
                             65535,       65536,       255,         256};
-  for (int reg : {0, 2})
-    for (int lane = 0; lane < 9; ++lane)
+  for (int reg : {0, 2}) {
+    for (int lane = 0; lane < 9; ++lane) {
       input.v[reg][lane] = edges[(lane + reg) % 9];
+    }
+  }
   uint64_t modifiers = op < 2    ? RJ_ARITH_ALU_HIGH_A
                        : op == 4 ? RJ_ARITH_ALU_HIGH_D | RJ_ARITH_ALU_CLAMP
                                  : 0;

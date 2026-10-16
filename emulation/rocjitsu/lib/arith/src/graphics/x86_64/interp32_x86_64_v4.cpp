@@ -29,11 +29,13 @@ void interp32_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *d, const ui
 
     // Each shuffle reads all four source lanes, regardless of EXEC.
     x = _mm512_permute_ps(x, P2 ? _MM_SHUFFLE(2, 2, 2, 2) : _MM_SHUFFLE(1, 1, 1, 1));
-    if constexpr (!P2)
+    if constexpr (!P2) {
       z = _mm512_permute_ps(z, _MM_SHUFFLE(0, 0, 0, 0));
+    }
     auto value = _mm512_fmadd_ps(x, y, z);
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       value = _mm512_min_ps(_mm512_max_ps(value, _mm512_setzero_ps()), _mm512_set1_ps(1));
+    }
     _mm512_mask_storeu_epi32(d + lane, __mmask16(exec_mask >> lane), _mm512_castps_si512(value));
   }
 }

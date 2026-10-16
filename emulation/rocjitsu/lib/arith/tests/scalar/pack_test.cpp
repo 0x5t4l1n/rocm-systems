@@ -29,9 +29,11 @@ TEST(s_quadmask_b32, Arithmetic) {
       [](uint64_t raw_a, uint64_t, uint32_t cc) {
         uint32_t a = uint32_t(raw_a);
         uint64_t result = 0;
-        for (int quad = 0; quad < 8; ++quad)
-          if ((a >> (4 * quad)) & 15)
+        for (int quad = 0; quad < 8; ++quad) {
+          if ((a >> (4 * quad)) & 15) {
             result |= 1ULL << quad;
+          }
+        }
         cc = result != 0;
         return std::make_pair(result, cc);
       },
@@ -47,9 +49,11 @@ TEST(s_wqm_b32, Arithmetic) {
       [](uint64_t raw_a, uint64_t, uint32_t cc) {
         uint32_t a = uint32_t(raw_a);
         uint64_t result = 0;
-        for (int quad = 0; quad < 8; ++quad)
-          if ((a >> (4 * quad)) & 15)
+        for (int quad = 0; quad < 8; ++quad) {
+          if ((a >> (4 * quad)) & 15) {
             result |= 15ULL << (4 * quad);
+          }
+        }
         cc = result != 0;
         return std::make_pair(result, cc);
       },
@@ -80,9 +84,11 @@ TEST(s_quadmask_b64, Arithmetic) {
       [](uint64_t raw_a, uint64_t, uint32_t cc) {
         uint64_t a = uint64_t(raw_a);
         uint64_t result = 0;
-        for (int quad = 0; quad < 16; ++quad)
-          if ((a >> (4 * quad)) & 15)
+        for (int quad = 0; quad < 16; ++quad) {
+          if ((a >> (4 * quad)) & 15) {
             result |= 1ULL << quad;
+          }
+        }
         cc = result != 0;
         return std::make_pair(result, cc);
       },
@@ -98,9 +104,11 @@ TEST(s_wqm_b64, Arithmetic) {
       [](uint64_t raw_a, uint64_t, uint32_t cc) {
         uint64_t a = uint64_t(raw_a);
         uint64_t result = 0;
-        for (int quad = 0; quad < 16; ++quad)
-          if ((a >> (4 * quad)) & 15)
+        for (int quad = 0; quad < 16; ++quad) {
+          if ((a >> (4 * quad)) & 15) {
             result |= 15ULL << (4 * quad);
+          }
+        }
         cc = result != 0;
         return std::make_pair(result, cc);
       },
@@ -176,9 +184,11 @@ TEST(s_bitreplicate_b64_b32, Arithmetic) {
       [](uint64_t raw_a, uint64_t, uint32_t cc) {
         uint64_t a = uint64_t(raw_a);
         uint64_t result = 0;
-        for (int bit = 0; bit < 32; ++bit)
-          if ((a >> bit) & 1)
+        for (int bit = 0; bit < 32; ++bit) {
+          if ((a >> bit) & 1) {
             result |= 3ULL << (2 * bit);
+          }
+        }
         return std::make_pair(result, cc);
       },
       false);

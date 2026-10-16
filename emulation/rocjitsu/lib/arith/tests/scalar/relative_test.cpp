@@ -20,12 +20,13 @@ inline bool relative_range(uint32_t base, uint32_t offset, int count, int words)
 template <int Words, bool Read, class Call> void check_relative(Call call) {
   std::array<uint32_t, 128> input;
   std::minstd_rand random;
-  for (auto &v : input)
+  for (auto &v : input) {
     v = rocjitsu::arith::test::random_word(random);
-  for (auto cpu : rocjitsu::arith::test::supported_cpu_levels())
-    for (auto semantics : rocjitsu::arith::test::semantics_modes())
-      for (int count : {0, 1, 107, 108, 124, 128})
-        for (uint32_t base : {0U, 106U, 108U, 122U, 124U, UINT32_MAX})
+  }
+  for (auto cpu : rocjitsu::arith::test::supported_cpu_levels()) {
+    for (auto semantics : rocjitsu::arith::test::semantics_modes()) {
+      for (int count : {0, 1, 107, 108, 124, 128}) {
+        for (uint32_t base : {0U, 106U, 108U, 122U, 124U, UINT32_MAX}) {
           for (uint32_t offset : {0U, 1U, 2U, 16U, 256U, UINT32_MAX}) {
             auto actual = input, expected = input;
             uint64_t result = 0xdeadbeefU;
@@ -34,12 +35,14 @@ template <int Words, bool Read, class Call> void check_relative(Call call) {
             if constexpr (Read) {
               int index = valid ? int(base + offset) : 0;
               value = count ? input[index] : 0;
-              if (Words == 2 && count > 1)
+              if (Words == 2 && count > 1) {
                 value |= uint64_t(input[index + 1]) << 32;
+              }
             } else if (valid) {
               expected[base + offset] = uint32_t(value);
-              if (Words == 2)
+              if (Words == 2) {
                 expected[base + offset + 1] = uint32_t(value >> 32);
+              }
             }
             ASSERT_EQ(call(cpu | semantics, 0, actual.data(), &result, count, base, offset),
                       RJ_ARITH_SUCCESS);
@@ -48,6 +51,10 @@ template <int Words, bool Read, class Call> void check_relative(Call call) {
               EXPECT_EQ(result, value);
             }
           }
+        }
+      }
+    }
+  }
   uint64_t result = 123;
   auto actual = input;
   rocjitsu::arith::test::expect_invalid_flags(
@@ -77,8 +84,9 @@ TEST(s_movrels_b32, Arithmetic) {
       [](auto f, auto m, auto data, auto result, auto count, auto base, auto offset) {
         uint32_t output = uint32_t(*result);
         int error = rj_arith_s_movrels_b32(f, m, &output, data, count, base, offset);
-        if (!error)
+        if (!error) {
           *result = output;
+        }
         return error;
       });
 }
@@ -99,8 +107,9 @@ TEST(s_movrels_b64, Arithmetic) {
       [](auto f, auto m, auto data, auto result, auto count, auto base, auto offset) {
         uint64_t output = uint64_t(*result);
         int error = rj_arith_s_movrels_b64(f, m, &output, data, count, base, offset);
-        if (!error)
+        if (!error) {
           *result = output;
+        }
         return error;
       });
 }
@@ -109,23 +118,28 @@ TEST(s_movrels_b64, Arithmetic) {
 TEST(s_movrelsd_2_b32, Arithmetic) {
   std::array<uint32_t, 128> input;
   std::minstd_rand random;
-  for (auto &v : input)
+  for (auto &v : input) {
     v = rocjitsu::arith::test::random_word(random);
-  for (auto cpu : rocjitsu::arith::test::supported_cpu_levels())
-    for (auto semantics : rocjitsu::arith::test::semantics_modes())
-      for (uint32_t offset : {0U, 1U, 2U, 16U, 256U, 1023U})
+  }
+  for (auto cpu : rocjitsu::arith::test::supported_cpu_levels()) {
+    for (auto semantics : rocjitsu::arith::test::semantics_modes()) {
+      for (uint32_t offset : {0U, 1U, 2U, 16U, 256U, 1023U}) {
         for (uint32_t base : {0U, 106U, 108U, 122U, 124U, UINT32_MAX}) {
           auto actual = input, expected = input;
           uint32_t destination = offset / 2;
           int source = relative_range(base, offset, 128, 1) ? int(base + offset) : 0;
-          if (relative_range(base, destination, 128, 1))
+          if (relative_range(base, destination, 128, 1)) {
             expected[base + destination] = input[source];
+          }
           ASSERT_EQ(rj_arith_s_movrelsd_2_b32(cpu | semantics, 0, actual.data(), actual.data(), 128,
                                               128, base, base,
                                               0xfc00fc00U | offset | (destination << 16)),
                     RJ_ARITH_SUCCESS);
           EXPECT_EQ(actual, expected);
         }
+      }
+    }
+  }
   auto actual = input;
   rocjitsu::arith::test::expect_invalid_flags(
       [&](auto f, auto m) {

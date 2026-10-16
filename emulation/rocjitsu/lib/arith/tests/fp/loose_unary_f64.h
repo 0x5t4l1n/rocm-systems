@@ -46,11 +46,11 @@ void check_loose_unary_f64(Call call, Reference reference) {
   // strict numeric semantics and required reporting are checked as error contracts.
   const auto cpu_levels = rocjitsu::arith::test::supported_cpu_levels();
   for (uint64_t cpu : cpu_levels) {
-    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes())
+    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes()) {
       for (uint64_t mode :
-           {uint64_t(0), uint64_t(RJ_ARITH_ALU_NEG_A), uint64_t(RJ_ARITH_ALU_CLAMP)})
+           {uint64_t(0), uint64_t(RJ_ARITH_ALU_NEG_A), uint64_t(RJ_ARITH_ALU_CLAMP)}) {
         for (Mask exec_mask :
-             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)})
+             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)}) {
           for (int aliasing_offset : {6, 0, 2, 1}) {
             SCOPED_TRACE(::testing::Message() << cpu << '/' << semantics << '/' << mode << '/'
                                               << exec_mask << '/' << aliasing_offset);
@@ -74,18 +74,23 @@ void check_loose_unary_f64(Call call, Reference reference) {
             ASSERT_EQ(result, RJ_ARITH_SUCCESS);
             EXPECT_EQ(fp_status, 0x80000000U);
             for (int lane = 0; lane < Lanes; ++lane) {
-              if (!((exec_mask >> lane) & 1))
+              if (!((exec_mask >> lane) & 1)) {
                 continue;
+              }
               double x = modified_fp(fp_value(read_fp(input.v, lane, 64), 64), mode, 0);
               double value = reference(x);
-              if (mode & RJ_ARITH_ALU_CLAMP)
+              if (mode & RJ_ARITH_ALU_CLAMP) {
                 value = !(value > 0) ? 0 : std::min(value, 1.0);
+              }
               write_fp(expected_registers.v + aliasing_offset, lane, 64, fp_bits(value, 64));
             }
 
             expect_fp_result<64>(input, r, expected_registers, exec_mask, aliasing_offset, mode,
                                  RJ_ARITH_SEMANTICS_LOOSE, /*atol=*/1e-14, /*rtol=*/1e-14);
           }
+        }
+      }
+    }
   }
 }
 

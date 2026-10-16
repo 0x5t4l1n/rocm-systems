@@ -23,16 +23,19 @@ inline uint32_t packed_mad_reference(bool sign, uint32_t a, uint32_t b, uint32_t
       bool high = half ? !(mode & (RJ_ARITH_PK_HI_A_LOW << source))
                        : bool(mode & (RJ_ARITH_PK_LO_A_HIGH << source));
       input[source] = (words[source] >> (high ? 16 : 0)) & 65535;
-      if (sign && input[source] > 32767)
+      if (sign && input[source] > 32767) {
         input[source] -= 65536;
+      }
     }
     int64_t value = input[0] * input[1] + input[2];
     if (mode & RJ_ARITH_PK_CLAMP) {
       const int64_t low = sign ? -32768 : 0, high = sign ? 32767 : 65535;
-      if (value < low)
+      if (value < low) {
         value = low;
-      if (value > high)
+      }
+      if (value > high) {
         value = high;
+      }
     }
     result |= (uint32_t(value) & 65535) << (half * 16);
   }

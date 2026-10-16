@@ -18,8 +18,9 @@ inline uint32_t mul_exceptions_f32(uint32_t a, uint32_t b, unsigned omod, bool r
   a &= 0x7fffffffU;
   b &= 0x7fffffffU;
   uint32_t causes = ((a && a < 0x00800000U) || (b && b < 0x00800000U)) ? 2U : 0U;
-  if (a >= 0x7f800000U || b >= 0x7f800000U)
+  if (a >= 0x7f800000U || b >= 0x7f800000U) {
     return causes;
+  }
 
   // A finite FP32 product has at most 48 significant bits and is normal in
   // FP64. Thus the existing round-to-odd helper represents it exactly.
@@ -35,14 +36,18 @@ inline uint32_t mul_exceptions_f32(uint32_t a, uint32_t b, unsigned omod, bool r
       rounded = fma_narrow_f32(fma_finite_round_odd(rounded, scale, 0), false);
     }
   }
-  if (rounded == 0x7f800000U)
+  if (rounded == 0x7f800000U) {
     causes |= 8U;
-  if (exact && rounded < 0x00800000U)
+  }
+  if (exact && rounded < 0x00800000U) {
     causes |= 16U;
-  if (rounded == 0x7f800000U || fma_finite_round_odd(rounded, 0x3f800000U, 0) != exact)
+  }
+  if (rounded == 0x7f800000U || fma_finite_round_odd(rounded, 0x3f800000U, 0) != exact) {
     causes |= 32U;
-  if (omod && !rdna3)
+  }
+  if (omod && !rdna3) {
     causes &= ~(16U | 32U);
+  }
   return causes;
 }
 

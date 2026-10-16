@@ -18,10 +18,11 @@ template <Integer16 Op, bool Signed, bool Packed>
 void integer16_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *d, const uint32_t *a,
                          const uint32_t *b) {
   const int d_shift = mode & RJ_ARITH_ALU_HIGH_D ? 16 : 0;
-  if constexpr (!Packed)
+  if constexpr (!Packed) {
     mode = (mode & RJ_ARITH_ALU_HIGH_A ? RJ_ARITH_PK_LO_A_HIGH : 0) |
            (mode & RJ_ARITH_ALU_HIGH_B ? RJ_ARITH_PK_LO_B_HIGH : 0) |
            (mode & RJ_ARITH_ALU_CLAMP ? RJ_ARITH_PK_CLAMP : 0);
+  }
   auto sa = packed_integer_selection(mode & RJ_ARITH_PK_LO_A_HIGH, mode & RJ_ARITH_PK_HI_A_LOW);
   auto sb = packed_integer_selection(mode & RJ_ARITH_PK_LO_B_HIGH, mode & RJ_ARITH_PK_HI_B_LOW);
   for (int lane = 0; lane < 32; lane += 8) {
@@ -40,12 +41,15 @@ void integer16_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *d, const u
                    ? (Signed ? _mm256_subs_epi16(x, y) : _mm256_subs_epu16(x, y))
                    : _mm256_sub_epi16(x, y);
     }
-    if constexpr (Op == Integer16::Min)
+    if constexpr (Op == Integer16::Min) {
       result = Signed ? _mm256_min_epi16(x, y) : _mm256_min_epu16(x, y);
-    if constexpr (Op == Integer16::Max)
+    }
+    if constexpr (Op == Integer16::Max) {
       result = Signed ? _mm256_max_epi16(x, y) : _mm256_max_epu16(x, y);
-    if constexpr (Op == Integer16::Mul)
+    }
+    if constexpr (Op == Integer16::Mul) {
       result = _mm256_mullo_epi16(x, y);
+    }
     if constexpr (Op == Integer16::ShiftLeft || Op == Integer16::ShiftRight) {
       const auto halves = _mm256_set1_epi32(65535);
       auto count_lo = _mm256_and_si256(x, _mm256_set1_epi32(15));

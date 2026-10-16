@@ -25,13 +25,15 @@ template <typename T, bool Compress> T quad(T a) {
   a |= a >> 1;
   a |= a >> 2;
   a &= T(0x1111111111111111ULL);
-  if constexpr (!Compress)
+  if constexpr (!Compress) {
     return a * 15;
+  }
   a = (a | (a >> 3)) & T(0x0303030303030303ULL);
   a = (a | (a >> 6)) & T(0x000f000f000f000fULL);
   a = (a | (a >> 12)) & T(0x000000ff000000ffULL);
-  if constexpr (sizeof(T) == 8)
+  if constexpr (sizeof(T) == 8) {
     a = (a | (a >> 24)) & 65535;
+  }
   return a;
 }
 
@@ -43,12 +45,15 @@ int rj_arith_s_pack_ll_b32_b16(uint64_t flags, uint64_t instruction_flags, uint3
                                uint32_t b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   uint32_t result = ((a >> 0) & 65535) | ((b >> 0) << 16);
   *d = result;
   return RJ_ARITH_SUCCESS;
@@ -60,12 +65,15 @@ int rj_arith_s_pack_lh_b32_b16(uint64_t flags, uint64_t instruction_flags, uint3
                                uint32_t b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   uint32_t result = ((a >> 0) & 65535) | ((b >> 16) << 16);
   *d = result;
   return RJ_ARITH_SUCCESS;
@@ -77,12 +85,15 @@ int rj_arith_s_pack_hl_b32_b16(uint64_t flags, uint64_t instruction_flags, uint3
                                uint32_t b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   uint32_t result = ((a >> 16) & 65535) | ((b >> 0) << 16);
   *d = result;
   return RJ_ARITH_SUCCESS;
@@ -94,12 +105,15 @@ int rj_arith_s_pack_hh_b32_b16(uint64_t flags, uint64_t instruction_flags, uint3
                                uint32_t b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   uint32_t result = ((a >> 16) & 65535) | ((b >> 16) << 16);
   *d = result;
   return RJ_ARITH_SUCCESS;
@@ -111,12 +125,15 @@ int rj_arith_s_bitreplicate_b64_b32(uint64_t flags, uint64_t instruction_flags, 
                                     uint32_t a) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   uint64_t x = a;
   x = (x | (x << 16)) & 0x0000ffff0000ffffULL;
   x = (x | (x << 8)) & 0x00ff00ff00ff00ffULL;
@@ -134,12 +151,15 @@ int rj_arith_s_cselect_b32(uint64_t flags, uint64_t instruction_flags, uint32_t 
                            uint32_t b, uint32_t input_scc) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   uint32_t result = (input_scc & 1) ? a : b;
   *d = result;
   return RJ_ARITH_SUCCESS;
@@ -151,12 +171,15 @@ int rj_arith_s_cselect_b64(uint64_t flags, uint64_t instruction_flags, uint64_t 
                            uint64_t b, uint32_t input_scc) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   uint64_t result = (input_scc & 1) ? a : b;
   *d = result;
   return RJ_ARITH_SUCCESS;
@@ -168,12 +191,15 @@ int rj_arith_s_quadmask_b32(uint64_t flags, uint64_t instruction_flags, uint32_t
                             uint32_t *scc) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   uint32_t result = quad<uint32_t, true>(a);
   *d = result;
   uint32_t cc = result != 0;
@@ -187,12 +213,15 @@ int rj_arith_s_quadmask_b64(uint64_t flags, uint64_t instruction_flags, uint64_t
                             uint32_t *scc) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   uint64_t result = quad<uint64_t, true>(a);
   *d = result;
   uint32_t cc = result != 0;
@@ -206,12 +235,15 @@ int rj_arith_s_wqm_b32(uint64_t flags, uint64_t instruction_flags, uint32_t *d, 
                        uint32_t *scc) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   uint32_t result = quad<uint32_t, false>(a);
   *d = result;
   uint32_t cc = result != 0;
@@ -225,12 +257,15 @@ int rj_arith_s_wqm_b64(uint64_t flags, uint64_t instruction_flags, uint64_t *d, 
                        uint32_t *scc) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   uint64_t result = quad<uint64_t, false>(a);
   *d = result;
   uint32_t cc = result != 0;

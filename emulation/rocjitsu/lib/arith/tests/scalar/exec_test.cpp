@@ -8,7 +8,7 @@
 namespace {
 // Check EXEC transformations, saved masks, and SCC results for the supplied entry point.
 template <class Word, class Call> void check_exec(Call call, int truth, bool save) {
-  for (auto cpu : rocjitsu::arith::test::supported_cpu_levels())
+  for (auto cpu : rocjitsu::arith::test::supported_cpu_levels()) {
     for (auto semantics : rocjitsu::arith::test::semantics_modes()) {
       std::minstd_rand random;
       for (int sample = 0; sample < 128; ++sample) {
@@ -33,6 +33,7 @@ template <class Word, class Call> void check_exec(Call call, int truth, bool sav
         }
       }
     }
+  }
   Word d = 123, e = 789;
   uint32_t cc = 456;
   rocjitsu::arith::test::expect_invalid_flags(

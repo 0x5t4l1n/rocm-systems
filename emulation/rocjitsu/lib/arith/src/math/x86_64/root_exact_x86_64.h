@@ -56,8 +56,9 @@ static_assert([] {
   for (int bucket = 0; bucket < 512; ++bucket) {
     int count = detail::kAmdgpuRsqCorrectionOffsets[bucket + 1] -
                 detail::kAmdgpuRsqCorrectionOffsets[bucket];
-    if (count > 32)
+    if (count > 32) {
       return false;
+    }
   }
   return true;
 }());
@@ -97,10 +98,13 @@ template <class V> V sqrt(V index) {
       ((V)((remainder > 0x800000ULL) | ((remainder == 0x800000ULL) & ((quotient & 1ULL) != 0ULL))) &
        1ULL);
   V repair = (V)(remainder >= 0x800000ULL - 8192) & (V)(remainder <= 0x800000ULL + 8192);
-  if (bits(repair))
-    for (int lane = 0; lane < int(sizeof(V) / sizeof(uint64_t)); ++lane)
-      if (repair[lane])
+  if (bits(repair)) {
+    for (int lane = 0; lane < int(sizeof(V) / sizeof(uint64_t)); ++lane) {
+      if (repair[lane]) {
         value[lane] = detail::amdgpu_sqrt_correct(uint32_t(index[lane]), uint32_t(value[lane]));
+      }
+    }
+  }
   return value;
 }
 
@@ -113,16 +117,19 @@ uint32_t run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *d, con
   uint32_t result[32], invalid = 0;
   for (int base = 0; base < 32; base += Lanes) {
     V input = load(a + base, V{});
-    if (mode & RJ_ARITH_ALU_ABS_A)
+    if (mode & RJ_ARITH_ALU_ABS_A) {
       input &= 0x7fffffffULL;
-    if (mode & RJ_ARITH_ALU_NEG_A)
+    }
+    if (mode & RJ_ARITH_ALU_NEG_A) {
       input ^= 0x80000000ULL;
+    }
     V sign = input & 0x80000000ULL, magnitude = input & 0x7fffffffULL, zero{};
     if constexpr (!Reciprocal) {
-      if (reporting)
+      if (reporting) {
         invalid |=
             bits((V)(sign != 0ULL) & (V)(magnitude != 0ULL) & (V)(magnitude <= 0x7f800000ULL))
             << base;
+      }
     }
     // Special-only blocks need classification/finalization, but no polynomial.
     // This depends on operand values, never on EXEC density. Mixed blocks keep SIMD.
@@ -131,18 +138,20 @@ uint32_t run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *d, con
     if (bits(ordinary)) {
       V index = (input ^ 0x800000ULL) & 0xffffffULL;
       V normalized;
-      if constexpr (Reciprocal)
+      if constexpr (Reciprocal) {
         normalized = rsq(index);
-      else
+      } else {
         normalized = sqrt(index);
+      }
 
       // floor((biased exponent - 127) / 2), represented with unsigned wrapping.
       V half_exponent = (((magnitude >> 23) + 1ULL) >> 1) - 64ULL;
       V exponent;
-      if constexpr (Reciprocal)
+      if constexpr (Reciprocal) {
         exponent = (normalized >> 23) - half_exponent;
-      else
+      } else {
         exponent = (normalized >> 23) + half_exponent;
+      }
       value = (exponent << 23) | (normalized & 0x7fffffULL);
     }
     value = choose((V)(magnitude == 0x7f800000ULL), Reciprocal ? zero : input, value);

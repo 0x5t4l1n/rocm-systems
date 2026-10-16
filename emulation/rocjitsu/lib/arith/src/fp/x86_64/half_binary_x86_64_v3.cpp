@@ -52,24 +52,33 @@ void half_binary_x86_64_v3(uint64_t flags, uint32_t exec_mask, uint32_t mode, ui
         y = flush_input(y);
       }
       __m256 value;
-      if constexpr (Op == Binary::Add)
+      if constexpr (Op == Binary::Add) {
         value = _mm256_add_ps(x, y);
-      if constexpr (Op == Binary::Sub)
+      }
+      if constexpr (Op == Binary::Sub) {
         value = _mm256_sub_ps(x, y);
-      if constexpr (Op == Binary::Subrev)
+      }
+      if constexpr (Op == Binary::Subrev) {
         value = _mm256_sub_ps(y, x);
-      if constexpr (Op == Binary::Mul)
+      }
+      if constexpr (Op == Binary::Mul) {
         value = _mm256_mul_ps(x, y);
-      if constexpr (Op == Binary::MinLegacy || Op == Binary::MaxLegacy)
+      }
+      if constexpr (Op == Binary::MinLegacy || Op == Binary::MaxLegacy) {
         value = minmax_rdna3<Op == Binary::MaxLegacy>(x, y, flags & RJ_ARITH_FP_IEEE_MODE);
-      if constexpr (Op == Binary::MinNum)
+      }
+      if constexpr (Op == Binary::MinNum) {
         value = minmax<false, false>(x, y);
-      if constexpr (Op == Binary::MaxNum)
+      }
+      if constexpr (Op == Binary::MaxNum) {
         value = minmax<true, false>(x, y);
-      if constexpr (Op == Binary::Minimum)
+      }
+      if constexpr (Op == Binary::Minimum) {
         value = minmax<false, true>(x, y);
-      if constexpr (Op == Binary::Maximum)
+      }
+      if constexpr (Op == Binary::Maximum) {
         value = minmax<true, true>(x, y);
+      }
       if (m & RJ_ARITH_ALU_OMOD_HALF) {
         value = prepare_omod_f16(value, m);
         value = _mm256_mul_ps(value, _mm256_set1_ps(scales[(m >> 6) & 3]));
@@ -91,10 +100,11 @@ void half_binary_x86_64_v3(uint64_t flags, uint32_t exec_mask, uint32_t mode, ui
         auto sign = _mm256_and_si256(encoded, _mm256_set1_epi32(0x8000));
         encoded = _mm256_blendv_epi8(encoded, sign, tiny);
       }
-      if constexpr (Packed)
+      if constexpr (Packed) {
         result = _mm256_or_si256(result, _mm256_sll_epi32(encoded, _mm_cvtsi32_si128(16 * half)));
-      else
+      } else {
         result = _mm256_sll_epi32(encoded, _mm_cvtsi32_si128(d_shift));
+      }
     }
     if constexpr (!Packed) {
       auto old = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(d + lane));

@@ -49,8 +49,9 @@ struct Operands {
 
   // Restore the accumulator registers to their initial values.
   void reset_accumulator() {
-    for (int reg = 0; reg < accumulator_registers; ++reg)
+    for (int reg = 0; reg < accumulator_registers; ++reg) {
       std::memcpy(d[reg], initial_d[reg], wave * sizeof(uint32_t));
+    }
   }
 };
 
@@ -72,13 +73,16 @@ double measure(Call call, Operands &r, uint64_t flags, double min_ms, uint64_t &
       std::atomic_signal_fence(std::memory_order_seq_cst);
     }
     auto elapsed = std::chrono::steady_clock::now() - start;
-    if (status != RJ_ARITH_SUCCESS)
+    if (status != RJ_ARITH_SUCCESS) {
       throw std::runtime_error("API failed during measurement");
+    }
     double ms = std::chrono::duration<double, std::milli>(elapsed).count();
-    if (ms >= min_ms && ms > 0)
+    if (ms >= min_ms && ms > 0) {
       return (ms / iterations) * 1e6;
-    if (iterations > std::numeric_limits<uint64_t>::max() / 2)
+    }
+    if (iterations > std::numeric_limits<uint64_t>::max() / 2) {
       throw std::runtime_error("Iteration count overflow");
+    }
     iterations *= 2;
   }
 }
@@ -91,21 +95,23 @@ template <class Call>
 void add(std::vector<Benchmark> &cases, const char *category, const char *instruction, Call call) {
   for (bool one_nan_lane : {false, true}) {
     auto operands = std::make_shared<Operands>(instruction, one_nan_lane);
-    if (one_nan_lane && !operands->floating_point)
+    if (one_nan_lane && !operands->floating_point) {
       break;
+    }
     const uint64_t modes[] = {RJ_ARITH_SEMANTICS_LOOSE,
                               RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS,
                               RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL};
     const char *names[] = {"loose", "bit_exact_empirical_no_fp_status", "bit_exact_empirical"};
-    for (int mode = 0; mode < 3; ++mode)
+    for (int mode = 0; mode < 3; ++mode) {
       for (uint64_t cpu : cpu_levels()) {
         Benchmark row;
         row.non_finite_inputs = one_nan_lane ? "one NaN lane" : "";
         row.category = category;
         row.instruction = instruction;
         row.wave = operands->wave;
-        if (operands->accumulator_registers != 0)
+        if (operands->accumulator_registers != 0) {
           row.variants.push_back("accumulator reset");
+        }
         row.semantics = names[mode];
         row.cpu = rj_arith_cpu_name(cpu);
         uint64_t flags = modes[mode] | cpu;
@@ -122,6 +128,7 @@ void add(std::vector<Benchmark> &cases, const char *category, const char *instru
         }
         cases.push_back(std::move(row));
       }
+    }
   }
 }
 

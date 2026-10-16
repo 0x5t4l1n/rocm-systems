@@ -67,15 +67,17 @@ template <InputFormat Format> struct Factor {
 
   // Return whether the encoded value is a NaN.
   bool nan() const {
-    if constexpr (is_f8 && !is_bfloat)
+    if constexpr (is_f8 && !is_bfloat) {
       return (bits & magnitude_mask) == 0x7f;
+    }
     return (bits & magnitude_mask) > infinity;
   }
 
   // Return whether the encoded value is an infinity.
   bool inf() const {
-    if constexpr (is_f8 && !is_bfloat)
+    if constexpr (is_f8 && !is_bfloat) {
       return false;
+    }
     return (bits & magnitude_mask) == infinity;
   }
 
@@ -87,8 +89,9 @@ template <InputFormat Format> struct Factor {
 
   // Return the integer significand, including the implicit leading bit for normal values.
   uint64_t significand() const {
-    if (exponent_field())
+    if (exponent_field()) {
       return (1u << fraction_bits) | (bits & fraction_mask);
+    }
     return bits & fraction_mask;
   }
 
@@ -105,10 +108,12 @@ template <InputFormat Format> struct Factor {
 
 // Scale an unsigned integer by a binary shift, rounding discarded bits to nearest-even.
 inline uint64_t shift_round_even(uint64_t value, int shift) {
-  if (shift <= 0)
+  if (shift <= 0) {
     return value << -shift;
-  if (shift >= 64)
+  }
+  if (shift >= 64) {
     return 0;
+  }
   const uint64_t tail = value & ((uint64_t{1} << shift) - 1);
   const uint64_t halfway = uint64_t{1} << (shift - 1);
   return (value >> shift) + (tail > halfway || (tail == halfway && ((value >> shift) & 1)));
@@ -116,8 +121,9 @@ inline uint64_t shift_round_even(uint64_t value, int shift) {
 
 // Round signed grid units to an FP32 encoding, handling zero, subnormal, and overflow results.
 inline uint32_t pack(int64_t units, int grid) {
-  if (!units)
+  if (!units) {
     return 0;
+  }
   const uint32_t sign = uint32_t(units < 0) << 31;
   const uint64_t magnitude = units < 0 ? uint64_t(-units) : uint64_t(units);
   const int top = int(bit_width(magnitude)) - 1;
@@ -133,8 +139,9 @@ inline uint32_t pack(int64_t units, int grid) {
     significand >>= 1;
     ++exponent;
   }
-  if (exponent > 127)
+  if (exponent > 127) {
     return sign | 0x7f800000u;
+  }
   return sign | (uint32_t(exponent + 127) << 23) | (uint32_t(significand) & 0x7fffff);
 }
 
@@ -162,8 +169,9 @@ inline uint32_t dot_bits(const std::array<Raw, N> &a, const std::array<Raw, N> &
   static_assert(is_f8 ? (N == 8 && !Packed) : (N == 2 || N == 4));
   static_assert(is_f8 || LeftFormat == RightFormat);
   const auto special = [](uint32_t bits) -> uint32_t {
-    if constexpr (Packed)
+    if constexpr (Packed) {
       return packed16::special<is_bf16>(bits);
+    }
     return bits;
   };
 
@@ -177,14 +185,16 @@ inline uint32_t dot_bits(const std::array<Raw, N> &a, const std::array<Raw, N> &
   for (int i = 0; i < int(N); ++i) {
     const Factor<LeftFormat> left{a[i]};
     const Factor<RightFormat> right{b[i]};
-    if (left.nan() || right.nan())
+    if (left.nan() || right.nan()) {
       return special(kFactorNan);
+    }
     invalid |= (left.inf() && !right.significand()) || (right.inf() && !left.significand());
     if (left.inf() || right.inf()) {
-      if (left.negative() != right.negative())
+      if (left.negative() != right.negative()) {
         negative_inf = true;
-      else
+      } else {
         positive_inf = true;
+      }
     }
     products[i] = left.product(right);
     product_grids[i] = products[i].significand
@@ -193,16 +203,19 @@ inline uint32_t dot_bits(const std::array<Raw, N> &a, const std::array<Raw, N> &
     product_grid = std::max(product_grid, product_grids[i]);
   }
   // Factor NaNs, then invalid products, precede an accumulator NaN.
-  if (invalid || (positive_inf && negative_inf))
+  if (invalid || (positive_inf && negative_inf)) {
     return special(is_f8 ? kFactorNan : kInvalidProductNan);
-  if ((acc & 0x7fffffff) > 0x7f800000)
+  }
+  if ((acc & 0x7fffffff) > 0x7f800000) {
     return special(acc | kQuietNanBit);
+  }
   positive_inf |= acc == 0x7f800000;
   negative_inf |= acc == 0xff800000;
-  if (positive_inf || negative_inf)
+  if (positive_inf || negative_inf) {
     return special(positive_inf && negative_inf ? (is_f8 ? kFactorNan : kInvalidProductNan)
                    : negative_inf               ? 0xff800000
                                                 : 0x7f800000);
+  }
 
   const unsigned acc_exp = (acc >> 23) & 255;
   const Term c{acc_exp ? (acc & 0x7fffff) | 0x800000u : acc & 0x7fffff,
@@ -217,21 +230,24 @@ inline uint32_t dot_bits(const std::array<Raw, N> &a, const std::array<Raw, N> &
   constexpr int group_size = is_f8 ? 4 : 2;
   for (int i = 0; i < int(N); i += group_size) {
     int group_grid = kEmptyExponent;
-    for (int j = i; j < i + group_size; ++j)
+    for (int j = i; j < i + group_size; ++j) {
       group_grid = std::max(group_grid, product_grids[j]);
+    }
     int64_t group = 0;
-    for (int j = i; j < i + group_size; ++j)
+    for (int j = i; j < i + group_size; ++j) {
       group += align(products[j], group_grid);
+    }
     const Term sum{uint64_t(group < 0 ? -group : group), group_grid, group < 0};
     total += align(sum, grid);
   }
   // Group alignment retains at most 28 magnitude bits; the final sum and C
   // fit comfortably in int64_t. Zero, including underflow to zero, is positive.
   if constexpr (Packed) {
-    if constexpr (is_bf16)
+    if constexpr (is_bf16) {
       return pack(total, grid) >> 16;
-    else
+    } else {
       return packed16::pack_f16(total, grid, false, fp16_ovfl);
+    }
   }
   return pack(total, grid);
 }

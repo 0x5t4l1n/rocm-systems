@@ -21,58 +21,65 @@ template <bool Wide> struct Ops {
 
   // Broadcast the supplied bit pattern to each vector lane.
   static V set(uint64_t x) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm256_set1_epi64x(int64_t(x));
-    else
+    } else {
       return _mm256_set1_epi32(int32_t(x));
+    }
   }
 
   // Add corresponding integer lanes with unsigned wraparound.
   static V add(V a, V b) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm256_add_epi64(a, b);
-    else
+    } else {
       return _mm256_add_epi32(a, b);
+    }
   }
 
   // Subtract corresponding integer lanes with unsigned wraparound.
   static V sub(V a, V b) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm256_sub_epi64(a, b);
-    else
+    } else {
       return _mm256_sub_epi32(a, b);
+    }
   }
 
   // Shift each unsigned lane right by the supplied count.
   static V shr(V a, int count) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm256_srli_epi64(a, count);
-    else
+    } else {
       return _mm256_srli_epi32(a, count);
+    }
   }
 
   // Shift each lane left by the supplied count.
   static V shl(V a, int count) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm256_slli_epi64(a, count);
-    else
+    } else {
       return _mm256_slli_epi32(a, count);
+    }
   }
 
   // Return the lane mask for signed a > b.
   static Mask gt(V a, V b) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm256_cmpgt_epi64(a, b);
-    else
+    } else {
       return _mm256_cmpgt_epi32(a, b);
+    }
   }
 
   // Return the lane mask for equal operands.
   static Mask eq(V a, V b) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm256_cmpeq_epi64(a, b);
-    else
+    } else {
       return _mm256_cmpeq_epi32(a, b);
+    }
   }
 
   // Intersect lane predicates.
@@ -130,12 +137,13 @@ __m256i scale_value(__m256i a, __m256i b, __m256i c, uint32_t mode, bool quiet_n
   auto magic = O::set(uint64_t(F::bias + F::fraction) << F::fraction);
   auto encoded = _mm256_or_si256(magic, fraction);
   __m256i normalized;
-  if constexpr (Width == 64)
+  if constexpr (Width == 64) {
     normalized =
         _mm256_castpd_si256(_mm256_sub_pd(_mm256_castsi256_pd(encoded), _mm256_set1_pd(0x1p52)));
-  else
+  } else {
     normalized =
         _mm256_castps_si256(_mm256_sub_ps(_mm256_castsi256_ps(encoded), _mm256_set1_ps(0x1p23f)));
+  }
   auto original_exponent = O::shr(_mm256_and_si256(a, inf), F::fraction);
   auto subnormal = O::eq(original_exponent, zero);
   auto small_exponent = O::sub(O::shr(_mm256_and_si256(normalized, inf), F::fraction),
@@ -180,9 +188,10 @@ __m256i scale_value(__m256i a, __m256i b, __m256i c, uint32_t mode, bool quiet_n
                      _mm256_or_si256(a, quiet), result);
   result = O::select(O::either(O::eq(bm, zero), O::eq(cm, zero)),
                      O::set(F::sign | F::infinity | F::quiet), result);
-  if (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)
+  if (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) {
     result = O::select(O::eq(_mm256_and_si256(result, inf), zero),
                        _mm256_and_si256(result, signbit), result);
+  }
   unsigned omod = (mode >> 6) & 3;
   if (omod) {
     auto output_negative = O::inverse(O::eq(_mm256_and_si256(result, signbit), zero));
@@ -194,9 +203,9 @@ __m256i scale_value(__m256i a, __m256i b, __m256i c, uint32_t mode, bool quiet_n
     auto exponent = _mm256_and_si256(result, inf), output_sign = _mm256_and_si256(result, signbit),
          step = O::set(uint64_t(1) << F::fraction);
     __m256i scaled;
-    if (omod == 3)
+    if (omod == 3) {
       scaled = O::select(O::eq(exponent, step), output_sign, O::sub(result, step));
-    else {
+    } else {
       auto increment = O::set(uint64_t(omod) << F::fraction);
       scaled = O::select(O::inverse(O::gt(O::sub(inf, increment), exponent)),
                          _mm256_or_si256(output_sign, overflow), O::add(result, increment));
@@ -248,10 +257,11 @@ uint32_t div_scale_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *const 
     typename Ops<Width == 64>::Mask post;
     auto result = scale_value<Width>(load<Width>(a, lane, mode, 0), load<Width>(b, lane, mode, 1),
                                      load<Width>(c, lane, mode, 2), mode, quiet_nan, flags, post);
-    if constexpr (Width == 64)
+    if constexpr (Width == 64) {
       conditions |= uint32_t(_mm256_movemask_pd(_mm256_castsi256_pd(post))) << lane;
-    else
+    } else {
       conditions |= uint32_t(_mm256_movemask_ps(_mm256_castsi256_ps(post))) << lane;
+    }
     if constexpr (Width == 64) {
       auto words = _mm256_permutevar8x32_epi32(result, _mm256_setr_epi32(0, 2, 4, 6, 1, 3, 5, 7));
       _mm_storeu_si128(reinterpret_cast<__m128i *>(staged[0] + lane),
@@ -265,14 +275,16 @@ uint32_t div_scale_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *const 
     }
   }
   // Preserve cross-half aliases by committing D0 then D1 after all reads.
-  if constexpr (Width == 64)
-    for (int reg = 0; reg < 2; ++reg)
+  if constexpr (Width == 64) {
+    for (int reg = 0; reg < 2; ++reg) {
       for (int lane = 0; lane < 32; lane += 8) {
         auto result = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(staged[reg] + lane));
         auto lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                                 _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));
         _mm256_maskstore_epi32(reinterpret_cast<int *>(d[reg] + lane), lane_exec_mask, result);
       }
+    }
+  }
   return conditions & exec_mask;
 }
 

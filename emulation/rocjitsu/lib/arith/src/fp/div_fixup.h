@@ -29,10 +29,12 @@ fixup_value(typename DivisionFormat<Width>::Bits p, typename DivisionFormat<Widt
   using T = typename F::Bits;
   T inputs[] = {p, b, c};
   for (int i = 0; i < 3; ++i) {
-    if (mode & (RJ_ARITH_ALU_ABS_A << i))
+    if (mode & (RJ_ARITH_ALU_ABS_A << i)) {
       inputs[i] &= F::sign - 1;
-    if (mode & (RJ_ARITH_ALU_NEG_A << i))
+    }
+    if (mode & (RJ_ARITH_ALU_NEG_A << i)) {
       inputs[i] ^= F::sign;
+    }
   }
   p = inputs[0];
   b = inputs[1];
@@ -40,29 +42,30 @@ fixup_value(typename DivisionFormat<Width>::Bits p, typename DivisionFormat<Widt
   T bm = b & (F::sign - 1), cm = c & (F::sign - 1), pm = p & (F::sign - 1),
     sign = (b ^ c) & F::sign, result;
   T overflow = Width == 16 ? F::infinity - saturate : division_overflow<Width>(sign != 0, rounding);
-  if (cm > F::infinity)
+  if (cm > F::infinity) {
     result = c | F::quiet;
-  else if (bm > F::infinity)
+  } else if (bm > F::infinity) {
     result = b | F::quiet;
-  else if ((bm == 0 && cm == 0) || (bm == F::infinity && cm == F::infinity))
+  } else if ((bm == 0 && cm == 0) || (bm == F::infinity && cm == F::infinity)) {
     result = F::sign | F::infinity | F::quiet;
-  else if (bm == 0 || cm == F::infinity)
+  } else if (bm == 0 || cm == F::infinity) {
     result = sign | F::infinity;
-  else if (cm == 0 || bm == F::infinity)
+  } else if (cm == 0 || bm == F::infinity) {
     result = sign;
-  else if (Width != 16 &&
-           int(cm >> F::fraction) - int(bm >> F::fraction) < -(F::bias + F::fraction))
+  } else if (Width != 16 &&
+             int(cm >> F::fraction) - int(bm >> F::fraction) < -(F::bias + F::fraction)) {
     // rocjitsu div_fixup rounds its extreme-underflow recovery with div_round.
     // It is below half the smallest subnormal: only rounding away from zero
     // can retain one, and guest output flushing then removes it.
     result = sign | T(!flush_output && rounding == (sign ? 2U : 1U));
-  else {
+  } else {
     // rocjitsu div_fixup_f16 selects infinity or max-half before promoted
     // scaling and nearest-even narrowing. RDNA4 additionally saturates this
     // provisional overflow, as established by the existing FP16_OVFL captures.
     T recovery = division_overflow<Width>(sign != 0, rounding);
-    if (Width == 16 && !Rdna3Half && saturate)
+    if (Width == 16 && !Rdna3Half && saturate) {
       recovery = F::infinity - 1;
+    }
     result = sign | (pm >= F::infinity ? recovery : pm);
   }
   if constexpr (Rdna3Half) {
@@ -74,13 +77,16 @@ fixup_value(typename DivisionFormat<Width>::Bits p, typename DivisionFormat<Widt
     if (omod) {
       bool finite = (result & (F::sign - 1)) < F::infinity;
       result = division_scale_bits<16>(result, omod == 3 ? -1 : int(omod));
-      if (saturate && finite && (result & (F::sign - 1)) == F::infinity)
+      if (saturate && finite && (result & (F::sign - 1)) == F::infinity) {
         result = (result & F::sign) | (F::infinity - 1);
-      if (!(result & F::infinity))
+      }
+      if (!(result & F::infinity)) {
         result = 0;
+      }
     }
-    if (dx10_clamp_off && (result & (F::sign - 1)) > F::infinity)
+    if (dx10_clamp_off && (result & (F::sign - 1)) > F::infinity) {
       return result;
+    }
     return division_output<16>(result, mode & RJ_ARITH_ALU_CLAMP);
   }
   return division_output<Width>(result, mode, overflow);
@@ -98,28 +104,37 @@ inline uint32_t fixup_exceptions(typename DivisionFormat<Width>::Bits p,
   p &= F::sign - 1;
   b &= F::sign - 1;
   c &= F::sign - 1;
-  if (mode & RJ_ARITH_ALU_CLAMP)
+  if (mode & RJ_ARITH_ALU_CLAMP) {
     return 0;
-  if ((b > F::infinity && !(b & F::quiet)) || (c > F::infinity && !(c & F::quiet)))
+  }
+  if ((b > F::infinity && !(b & F::quiet)) || (c > F::infinity && !(c & F::quiet))) {
     return RJ_ARITH_EXCEPTION_INVALID;
-  if (b > F::infinity || c > F::infinity)
+  }
+  if (b > F::infinity || c > F::infinity) {
     return 0;
-  if ((!b && !c) || (b == F::infinity && c == F::infinity))
+  }
+  if ((!b && !c) || (b == F::infinity && c == F::infinity)) {
     return RJ_ARITH_EXCEPTION_INVALID;
-  if (!b && c && c < F::infinity)
+  }
+  if (!b && c && c < F::infinity) {
     return RJ_ARITH_EXCEPTION_FLOAT_DIV0;
+  }
   uint32_t exceptions = ((b && b < (1ULL << F::fraction)) || (c && c < (1ULL << F::fraction)))
                             ? RJ_ARITH_EXCEPTION_INPUT_DENORM
                             : 0;
-  if (!b || !c || b >= F::infinity || c >= F::infinity)
+  if (!b || !c || b >= F::infinity || c >= F::infinity) {
     return exceptions;
+  }
   unsigned omod = (mode >> 6) & 3;
-  if (Width != 16 && int(c >> F::fraction) - int(b >> F::fraction) < -(F::bias + F::fraction))
+  if (Width != 16 && int(c >> F::fraction) - int(b >> F::fraction) < -(F::bias + F::fraction)) {
     return exceptions | (omod ? 0 : RJ_ARITH_EXCEPTION_UNDERFLOW | RJ_ARITH_EXCEPTION_INEXACT);
-  if (p >= F::infinity)
+  }
+  if (p >= F::infinity) {
     return exceptions | RJ_ARITH_EXCEPTION_OVERFLOW | (omod ? 0 : RJ_ARITH_EXCEPTION_INEXACT);
-  if ((omod == 1 || omod == 2) && (p >> F::fraction) + omod >= unsigned(2 * F::bias + 1))
+  }
+  if ((omod == 1 || omod == 2) && (p >> F::fraction) + omod >= unsigned(2 * F::bias + 1)) {
     exceptions |= RJ_ARITH_EXCEPTION_OVERFLOW;
+  }
   return exceptions;
 }
 

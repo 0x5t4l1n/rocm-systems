@@ -49,42 +49,47 @@ inline uint32_t cube_value(uint32_t x, uint32_t y, uint32_t z, uint32_t mode, bo
   uint32_t magnitude = cube_magnitude(major);
   bool negative = (major >> 31) && magnitude && magnitude <= 0x7f800000;
   uint32_t sign = negative ? 0x80000000 : 0, result;
-  if constexpr (Op == Cube::Id)
+  if constexpr (Op == Cube::Id) {
     result = z_axis   ? (negative ? 0x40a00000 : 0x40800000)
              : y_axis ? (negative ? 0x40400000 : 0x40000000)
                       : (negative ? 0x3f800000 : 0);
-  else if constexpr (Op == Cube::Sc)
+  } else if constexpr (Op == Cube::Sc) {
     result = z_axis ? x ^ sign : y_axis ? x : z ^ sign ^ 0x80000000;
-  else if constexpr (Op == Cube::Tc)
+  } else if constexpr (Op == Cube::Tc) {
     result = !z_axis && y_axis ? z ^ sign : y ^ 0x80000000;
-  else {
+  } else {
     result = magnitude >= 0x7f000000 ? cube_overflow(major & 0x80000000, round_mode)
                                      : major + 0x00800000;
-    if (magnitude >= 0x7f800000)
+    if (magnitude >= 0x7f800000) {
       result = major;
-    if (!magnitude)
+    }
+    if (!magnitude) {
       result = round_mode == 2 ? major & 0x80000000 : 0;
+    }
   }
-  if (quiet_nan && (result & 0x7fffffff) > 0x7f800000)
+  if (quiet_nan && (result & 0x7fffffff) > 0x7f800000) {
     result |= 0x00400000;
+  }
   unsigned omod = (mode >> 6) & 3;
   if (omod) {
     uint32_t exponent = result & 0x7f800000, output_sign = result & 0x80000000;
-    if (!exponent)
+    if (!exponent) {
       result = 0;
-    else if (exponent != 0x7f800000) {
-      if (omod == 3)
+    } else if (exponent != 0x7f800000) {
+      if (omod == 3) {
         result = exponent == 0x00800000 ? output_sign : result - 0x00800000;
-      else
+      } else {
         result = exponent >= 0x7f800000 - omod * 0x00800000 ? cube_overflow(output_sign, round_mode)
                                                             : result + omod * 0x00800000;
+      }
     }
   }
   if ((mode & RJ_ARITH_ALU_CLAMP) && (clamp_nan || (result & 0x7fffffff) <= 0x7f800000)) {
-    if ((result >> 31) || result > 0x7f800000)
+    if ((result >> 31) || result > 0x7f800000) {
       result = 0;
-    else if (result > 0x3f800000)
+    } else if (result > 0x3f800000) {
       result = 0x3f800000;
+    }
   }
   return result;
 }

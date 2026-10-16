@@ -22,8 +22,9 @@ bool half_fma_exact_x86_64_v3(uint64_t flags, uint32_t exec_mask, uint32_t mode,
                               const uint32_t *a, const uint32_t *b, const uint32_t *c, uint32_t *,
                               bool rdna3) {
   if ((flags & RJ_ARITH_FP_ROUND_MASK) ||
-      (reports_fp_status(flags) && !(mode & RJ_ARITH_ALU_CLAMP)))
+      (reports_fp_status(flags) && !(mode & RJ_ARITH_ALU_CLAMP))) {
     return false;
+  }
   uint32_t output[32];
   for (int lane = 0; lane < 32; lane += 8) {
     const uint32_t *sources[] = {a, b, c};
@@ -36,16 +37,18 @@ bool half_fma_exact_x86_64_v3(uint64_t flags, uint32_t exec_mask, uint32_t mode,
       auto bits = _mm256_castps_si256(x);
       auto magnitude = _mm256_and_si256(bits, _mm256_set1_epi32(INT32_MAX));
       bad = _mm256_or_si256(bad, _mm256_cmpgt_epi32(magnitude, _mm256_set1_epi32(0x7f7fffff)));
-      if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)
+      if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) {
         bits = _mm256_blendv_epi8(bits, _mm256_and_si256(bits, _mm256_set1_epi32(INT32_MIN)),
                                   _mm256_cmpgt_epi32(_mm256_set1_epi32(0x38800000), magnitude));
+      }
 
       // The mixed helper's special repair implements a different model. Feed
       // it harmless finite values; ordinary-FMA repair below owns these lanes.
       values[src] = _mm256_castsi256_ps(bits);
     }
-    for (auto &value : values)
+    for (auto &value : values) {
       value = _mm256_andnot_ps(_mm256_castsi256_ps(bad), value);
+    }
     unsigned omod = (mode >> 6) & 3;
     __m128i halves[2];
     for (int part = 0; part < 2; ++part) {
@@ -67,16 +70,18 @@ bool half_fma_exact_x86_64_v3(uint64_t flags, uint32_t exec_mask, uint32_t mode,
     }
     _mm256_storeu_si256(reinterpret_cast<__m256i *>(output + lane), result);
     unsigned repair = unsigned(_mm256_movemask_ps(_mm256_castsi256_ps(bad)));
-    if (repair)
+    if (repair) {
       for (int i = 0; i < 8; ++i) {
-        if (!((repair >> i) & 1))
+        if (!((repair >> i) & 1)) {
           continue;
+        }
         uint16_t x = uint16_t(a[lane + i] >> (mode & RJ_ARITH_ALU_HIGH_A ? 16 : 0));
         uint16_t y = uint16_t(b[lane + i] >> (mode & RJ_ARITH_ALU_HIGH_B ? 16 : 0));
         uint16_t z = uint16_t(c[lane + i] >> (mode & RJ_ARITH_ALU_HIGH_C ? 16 : 0));
         output[lane + i] = rdna3 ? half_fma_value<true>(x, y, z, mode, flags)
                                  : half_fma_value<false>(x, y, z, mode, flags);
       }
+    }
   }
   int shift = mode & RJ_ARITH_ALU_HIGH_D ? 16 : 0;
   for (int lane = 0; lane < 32; lane += 8) {
@@ -101,12 +106,14 @@ bool packed_fma_exact_x86_64_v3(uint64_t flags, uint32_t exec_mask, const uint32
                                 uint32_t *d, const uint32_t *a, const uint32_t *b,
                                 const uint32_t *c, uint32_t *state, bool rdna3) {
   uint32_t staged[32];
-  for (int lane = 0; lane < 32; ++lane)
+  for (int lane = 0; lane < 32; ++lane) {
     staged[lane] = d[lane];
+  }
   if (!half_fma_exact_x86_64_v3(flags, exec_mask, modes[0], staged, a, b, c, state, rdna3) ||
       !half_fma_exact_x86_64_v3(flags, exec_mask, modes[1] | RJ_ARITH_ALU_HIGH_D, staged, a, b, c,
-                                state, rdna3))
+                                state, rdna3)) {
     return false;
+  }
   for (int lane = 0; lane < 32; lane += 8) {
     auto mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                   _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));

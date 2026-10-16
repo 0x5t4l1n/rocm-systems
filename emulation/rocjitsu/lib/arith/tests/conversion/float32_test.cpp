@@ -29,23 +29,26 @@ template <int Lanes, bool Gfx12, class Call> void check_float32(Call call, Conve
   auto input = conversion_inputs<Lanes>(32);
   if (op < 2) {
     const uint32_t edges[] = {0, 1, 3, 16777217, 16777219, 0xffffffffU, 0x80000000U, 0x7fffffffU};
-    for (int lane = 0; lane < 8; ++lane)
+    for (int lane = 0; lane < 8; ++lane) {
       input.v[0][lane] = edges[lane];
+    }
   }
   uint64_t modifiers = RJ_ARITH_ALU_CLAMP | (op < 4 ? RJ_ARITH_ALU_OMOD_HALF : 0) |
                        (op < 2 ? 0 : RJ_ARITH_ALU_ABS_A | RJ_ARITH_ALU_NEG_A);
   check_conversion<Lanes, 1, 1, 1, true>(
       call, input,
       [=](uint64_t a, uint32_t, uint32_t, uint32_t, uint64_t flags, uint32_t mode) {
-        if (op < 2)
+        if (op < 2) {
           mode = conversion_effective_mode(flags, mode, Gfx12);
+        }
         return conversion32_reference(op, uint32_t(a), mode);
       },
       [=](uint64_t actual, uint64_t expected, uint64_t flags, uint32_t mode) {
-        if (op < 2)
+        if (op < 2) {
           conversion_float(actual, expected, 32);
-        else
+        } else {
           conversion_bits(actual, expected, flags, mode);
+        }
       },
       modifiers, false,
       RJ_ARITH_FP_IEEE_MODE | RJ_ARITH_FP_FLUSH_INPUT_DENORMALS |

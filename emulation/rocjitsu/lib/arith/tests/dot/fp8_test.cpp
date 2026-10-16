@@ -38,8 +38,9 @@ template <int Lanes, bool Bf8A, bool Bf8B, class Call> void check_fp8_dot(Call c
     input.v[3][lane] = random_f32_bits(random);
   }
   input.v[0][2] = (input.v[0][2] & 0xffffff00U) | (Bf8A ? kBF8QuietNaNBits : kFP8QuietNaNBits);
-  if constexpr (Bf8A)
+  if constexpr (Bf8A) {
     input.v[0][3] = (input.v[0][3] & 0xffffff00U) | kBF8PositiveInfinityBits;
+  }
   input.v[1][4] = (input.v[1][4] & 0xffffff00U) | (Bf8B ? kBF8QuietNaNBits : kFP8QuietNaNBits);
   input.v[1][5] =
       (input.v[1][5] & 0xffffff00U) | (Bf8B ? kBF8PositiveInfinityBits : kFP8QuietNaNBits);
@@ -54,14 +55,17 @@ template <int Lanes, bool Bf8A, bool Bf8B, class Call> void check_fp8_dot(Call c
   check_loose_dot<Lanes, false, false>(
       call, input,
       [](uint32_t actual, uint32_t a, uint32_t b, uint32_t c, uint32_t, uint64_t, uint32_t mode) {
-        if (mode & RJ_ARITH_DOT_ABS_C)
+        if (mode & RJ_ARITH_DOT_ABS_C) {
           c &= 0x7fffffffU;
-        if (mode & RJ_ARITH_DOT_NEG_C)
+        }
+        if (mode & RJ_ARITH_DOT_NEG_C) {
           c ^= 0x80000000U;
+        }
         double sum = bit_cast<float>(c);
-        for (int byte = 0; byte < 4; ++byte)
+        for (int byte = 0; byte < 4; ++byte) {
           sum += double(bit_cast<float>(fp8_conversion_reference(Bf8A, uint8_t(a >> (8 * byte))))) *
                  double(bit_cast<float>(fp8_conversion_reference(Bf8B, uint8_t(b >> (8 * byte)))));
+        }
         // Inherited bounded-factor DOT4 tolerance, also checked by this sample.
         expect_f32(actual, float(sum), RJ_ARITH_SEMANTICS_LOOSE, /*atol=*/4e-6, /*rtol=*/2e-7);
       },

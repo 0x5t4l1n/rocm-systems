@@ -34,9 +34,9 @@ void conversion64_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *const *
     auto low = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(a[0] + lane));
     __m512d value;
     if constexpr (from_integer) {
-      if constexpr (Op == Conversion64::SignedToDouble)
+      if constexpr (Op == Conversion64::SignedToDouble) {
         value = _mm512_cvtepi32_pd(low);
-      else {
+      } else {
         value = _mm512_cvtepu32_pd(low);
       }
     } else if constexpr (Op == Conversion64::FloatToDouble) {
@@ -56,8 +56,9 @@ void conversion64_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *const *
         value = prepare_omod_f64(value, mode);
         value = _mm512_mul_pd(value, _mm512_set1_pd(scales[(mode >> 6) & 3]));
       }
-      if (mode & RJ_ARITH_ALU_CLAMP)
+      if (mode & RJ_ARITH_ALU_CLAMP) {
         value = _mm512_min_pd(_mm512_max_pd(value, zero), _mm512_set1_pd(1));
+      }
       auto raw = _mm512_castpd_si512(value);
       _mm256_storeu_si256(reinterpret_cast<__m256i *>(result[0] + lane), low_words(raw));
       _mm256_storeu_si256(reinterpret_cast<__m256i *>(result[1] + lane),
@@ -74,8 +75,9 @@ void conversion64_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *const *
           x = prepare_omod_f32(x, mode);
           x = _mm256_mul_ps(x, _mm256_set1_ps(float(scales[(mode >> 6) & 3])));
         }
-        if (mode & RJ_ARITH_ALU_CLAMP)
+        if (mode & RJ_ARITH_ALU_CLAMP) {
           x = _mm256_min_ps(_mm256_max_ps(x, _mm256_setzero_ps()), _mm256_set1_ps(1));
+        }
         output = _mm256_castps_si256(x);
       } else if constexpr (Op == Conversion64::DoubleToUnsigned) {
         value = _mm512_min_pd(_mm512_max_pd(value, zero), _mm512_set1_pd(4294967295.0));
@@ -92,11 +94,12 @@ void conversion64_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *const *
   }
   // Delay stores to allow cross-half source/destination aliases. Store D0
   // before D1, so D1 wins when both destination halves share storage.
-  for (int reg = 0; reg < (to_double ? 2 : 1); ++reg)
+  for (int reg = 0; reg < (to_double ? 2 : 1); ++reg) {
     for (int lane = 0; lane < 32; lane += 16) {
       _mm512_mask_storeu_epi32(d[reg] + lane, __mmask16(exec_mask >> lane),
                                _mm512_loadu_si512(result[reg] + lane));
     }
+  }
 }
 
 template void conversion64_x86_64_v4<Conversion64::SignedToDouble>(uint32_t, uint32_t,

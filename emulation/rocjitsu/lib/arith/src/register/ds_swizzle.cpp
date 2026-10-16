@@ -19,12 +19,15 @@ namespace {
 template <int Lanes>
 int swizzle(uint64_t flags, uint64_t exec_mask, uint64_t instruction_flags, uint32_t *const *d,
             const uint32_t *const *a, uint16_t offset) {
-  if (instruction_flags >> 32)
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = rocjitsu::arith::validate(flags, uint32_t(instruction_flags), true))
+  }
+  if (int error = rocjitsu::arith::validate(flags, uint32_t(instruction_flags), true)) {
     return error;
-  if (!exec_mask)
+  }
+  if (!exec_mask) {
     return RJ_ARITH_SUCCESS;
+  }
 #if defined(RJ_ARITH_HAVE_X86_64_V3)
   if ((flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V3) {
     rocjitsu::arith::ds_swizzle_x86_64_v3(Lanes, exec_mask, d[0], a[0], offset);
@@ -32,8 +35,9 @@ int swizzle(uint64_t flags, uint64_t exec_mask, uint64_t instruction_flags, uint
   }
 #endif
   unsigned mask = offset & 31, mask_bits = 0;
-  for (unsigned bit = 0; bit < 5; ++bit)
+  for (unsigned bit = 0; bit < 5; ++bit) {
     mask_bits += (mask >> bit) & 1;
+  }
   uint32_t result[Lanes];
   for (int lane = 0; lane < Lanes; ++lane) {
     unsigned source;
@@ -43,8 +47,9 @@ int swizzle(uint64_t flags, uint64_t exec_mask, uint64_t instruction_flags, uint
       source = (reversed >> mask_bits) | (lane & mask);
     } else if (offset >= 0xc000) {
       unsigned rotate = (offset >> 5) & 31;
-      if (offset & 1024)
+      if (offset & 1024) {
         rotate = 0U - rotate;
+      }
       source = (lane & mask) | ((lane + rotate) & ~mask);
     } else if (offset & 0x8000) {
       source = (lane & ~3U) | ((offset >> (2 * (lane & 3))) & 3);
@@ -54,9 +59,11 @@ int swizzle(uint64_t flags, uint64_t exec_mask, uint64_t instruction_flags, uint
     source = (lane & 32) | (source & 31);
     result[lane] = ((exec_mask >> source) & 1) ? a[0][source] : 0;
   }
-  for (int lane = 0; lane < Lanes; ++lane)
-    if ((exec_mask >> lane) & 1)
+  for (int lane = 0; lane < Lanes; ++lane) {
+    if ((exec_mask >> lane) & 1) {
       d[0][lane] = result[lane];
+    }
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -68,8 +75,9 @@ int rj_arith_ds_swizzle_b32_w32(uint64_t flags, uint32_t exec_mask, uint64_t ins
                                 uint32_t *const *d, const uint32_t *const *a, uint16_t offset) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return swizzle<32>(flags, exec_mask, instruction_flags, d, a, offset);
 }
 
@@ -79,7 +87,8 @@ int rj_arith_ds_swizzle_b32_w64(uint64_t flags, uint64_t exec_mask, uint64_t ins
                                 uint32_t *const *d, const uint32_t *const *a, uint16_t offset) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return swizzle<64>(flags, exec_mask, instruction_flags, d, a, offset);
 }

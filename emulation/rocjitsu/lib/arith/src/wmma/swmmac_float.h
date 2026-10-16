@@ -39,7 +39,7 @@ inline void swmmac16_prepare(SwmmacFloatInputs &input, uint32_t mode, uint32_t *
   unsigned key = Wave64 ? 8 * ((mode >> 7) & 3) : (mode & RJ_ARITH_SWMMAC_INDEX_KEY_1 ? 16 : 0);
 
   // Snapshot compressed A and map each retained factor to its dense K position.
-  for (int row = 0; row < 16; ++row)
+  for (int row = 0; row < 16; ++row) {
     for (int ck = 0; ck < 16; ++ck) {
       int group = ck / 2, slot = ck % 2, lane = row + 16 * ((group / 2) & 1),
           reg = 2 * (group / 4) + (group & 1);
@@ -48,15 +48,17 @@ inline void swmmac16_prepare(SwmmacFloatInputs &input, uint32_t mode, uint32_t *
         reg = (ck % 4) / 2;
       }
       uint16_t value = uint16_t(a[reg][lane] >> (16 * slot));
-      if (mode & (slot ? RJ_ARITH_WMMA_NEG_HI_A : RJ_ARITH_WMMA_NEG_LO_A))
+      if (mode & (slot ? RJ_ARITH_WMMA_NEG_HI_A : RJ_ARITH_WMMA_NEG_LO_A)) {
         value ^= 0x8000;
+      }
       input.a[row][ck] = decode(value);
       int local = Wave64 ? ck % 4 : 2 * (group & 1) + 4 * (group / 4) + slot;
       input.selected[row][ck] = uint8_t(4 * group + ((index[0][lane] >> (key + 2 * local)) & 3));
     }
+  }
 
   // Decode dense B separately: its sign modifier depends on compressed position.
-  for (int k = 0; k < 32; ++k)
+  for (int k = 0; k < 32; ++k) {
     for (int col = 0; col < 16; ++col) {
       int lane = col + 16 * ((k / 8) & 1), slot = 8 * (k / 16) + 2 * ((k / 2) & 3) + (k & 1);
       if constexpr (Wave64) {
@@ -65,22 +67,27 @@ inline void swmmac16_prepare(SwmmacFloatInputs &input, uint32_t mode, uint32_t *
       }
       input.b[k][col] = decode(uint16_t(b[slot / 2][lane] >> (16 * (slot % 2))));
     }
+  }
 
   // D is tied to C; read and modify the initial accumulator before any stores.
-  for (int row = 0; row < 16; ++row)
+  for (int row = 0; row < 16; ++row) {
     for (int col = 0; col < 16; ++col) {
       int reg = row % 8, lane = col + 16 * (row / 8);
-      if constexpr (Packed)
+      if constexpr (Packed) {
         input.acc[row][col] = decode(uint16_t(d[reg / 2][lane] >> (16 * (reg % 2))));
-      else
+      } else {
         input.acc[row][col] = as_float(d[reg][lane]);
+      }
       uint32_t acc = as_bits(input.acc[row][col]);
-      if (mode & RJ_ARITH_WMMA_ABS_C)
+      if (mode & RJ_ARITH_WMMA_ABS_C) {
         acc &= 0x7fffffffU;
-      if (mode & RJ_ARITH_WMMA_NEG_C)
+      }
+      if (mode & RJ_ARITH_WMMA_NEG_C) {
         acc ^= 0x80000000U;
+      }
       input.acc[row][col] = as_float(acc);
     }
+  }
 }
 
 // Fill result with a complete tile in 32-lane destination sections. Packed
@@ -88,19 +95,22 @@ inline void swmmac16_prepare(SwmmacFloatInputs &input, uint32_t mode, uint32_t *
 template <bool Bf16, bool Packed>
 inline void swmmac_float_pack(uint32_t (&result)[Packed ? 4 : 8][32], const float (&acc)[16][16],
                               bool saturate) {
-  for (int row = 0; row < 16; ++row)
+  for (int row = 0; row < 16; ++row) {
     for (int col = 0; col < 16; ++col) {
       int reg = row % 8, lane = col + 16 * (row / 8);
       if constexpr (Packed) {
         uint16_t value =
             Bf16 ? uint16_t(as_bits(acc[row][col]) >> 16) : float_to_f16(acc[row][col], saturate);
-        if (reg % 2)
+        if (reg % 2) {
           result[reg / 2][lane] |= uint32_t(value) << 16;
-        else
+        } else {
           result[reg / 2][lane] = value;
-      } else
+        }
+      } else {
         result[reg][lane] = as_bits(acc[row][col]);
+      }
     }
+  }
 }
 
 // Accumulate decoded sparse inputs with loose arithmetic and write D in

@@ -16,13 +16,14 @@ namespace {
 
 // Widen a gfx12 Wave32 FP8/BF8 factor tile into values[k][row_or_column].
 template <bool Bf8> void decode(float (&values)[16][16], const uint32_t *const *v) {
-  for (int k = 0; k < 16; ++k)
+  for (int k = 0; k < 16; ++k) {
     for (int index = 0; index < 16; index += 8) {
       auto words = _mm256_loadu_si256(
           reinterpret_cast<const __m256i *>(v[(k % 8) / 4] + index + 16 * (k / 8)));
       words = _mm256_srl_epi32(words, _mm_cvtsi32_si128(8 * (k % 4)));
       _mm256_storeu_ps(values[k] + index, widen_fp8<Bf8>(words));
     }
+  }
 }
 
 // Compute loose FP8/BF8 A*B+C into FP32 D in gfx12 Wave32 layout.
@@ -53,10 +54,11 @@ void wmma(uint32_t *const *d, const uint32_t *const *a, const uint32_t *const *b
   }
   // Snapshot all inputs and results before writes, including cross-register aliases.
   for (int lane = 0; lane < 32; lane += 8) {
-    for (int reg = 0; reg < 8; ++reg)
+    for (int reg = 0; reg < 8; ++reg) {
       _mm256_storeu_si256(
           reinterpret_cast<__m256i *>(d[reg] + lane),
           _mm256_loadu_si256(reinterpret_cast<const __m256i *>(result[reg] + lane)));
+    }
   }
 }
 
@@ -67,15 +69,17 @@ void wmma(uint32_t *const *d, const uint32_t *const *a, const uint32_t *const *b
 void fp8_wmma_x86_64_v3(bool bf8_a, bool bf8_b, uint32_t *const *d, const uint32_t *const *a,
                         const uint32_t *const *b, const uint32_t *const *c) {
   if (bf8_a) {
-    if (bf8_b)
+    if (bf8_b) {
       wmma<true, true>(d, a, b, c);
-    else
+    } else {
       wmma<true, false>(d, a, b, c);
+    }
   } else {
-    if (bf8_b)
+    if (bf8_b) {
       wmma<false, true>(d, a, b, c);
-    else
+    } else {
       wmma<false, false>(d, a, b, c);
+    }
   }
 }
 

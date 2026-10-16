@@ -38,40 +38,52 @@ inline float rndne(float value) {
 inline uint32_t frexp_mant_f32_bits(uint32_t bits, bool flush_input) {
   uint32_t magnitude = bits & 0x7fffffff;
   unsigned exponent = magnitude >> 23;
-  if (exponent == 255)
+  if (exponent == 255) {
     return bits | (magnitude > 0x7f800000 ? 0x400000 : 0);
-  if (!magnitude || (!exponent && flush_input))
+  }
+  if (!magnitude || (!exponent && flush_input)) {
     return bits & 0x80000000;
+  }
   unsigned shift = exponent ? 0 : bit_count_zero<false>(magnitude) - 8;
   return (bits & 0x80000000) | 0x3f000000 | ((magnitude << shift) & 0x7fffff);
 }
 
 // Return the selected loose unary math result for one value or vector of values.
 template <Unary Op> inline float unary_value(float value) {
-  if constexpr (Op == Unary::FrexpMant)
+  if constexpr (Op == Unary::FrexpMant) {
     return as_float(frexp_mant_f32_bits(as_bits(value), false));
-  if constexpr (Op == Unary::Trunc)
+  }
+  if constexpr (Op == Unary::Trunc) {
     return std::trunc(value);
-  if constexpr (Op == Unary::Ceil)
+  }
+  if constexpr (Op == Unary::Ceil) {
     return std::ceil(value);
-  if constexpr (Op == Unary::Rndne)
+  }
+  if constexpr (Op == Unary::Rndne) {
     return rndne(value);
-  if constexpr (Op == Unary::Floor)
+  }
+  if constexpr (Op == Unary::Floor) {
     return std::floor(value);
-  if constexpr (Op == Unary::Sqrt)
+  }
+  if constexpr (Op == Unary::Sqrt) {
     return std::sqrt(value);
-  if constexpr (Op == Unary::Rcp)
+  }
+  if constexpr (Op == Unary::Rcp) {
     return 1.0f / value;
-  if constexpr (Op == Unary::Rsq)
+  }
+  if constexpr (Op == Unary::Rsq) {
     return 1.0f / std::sqrt(value);
-  if constexpr (Op == Unary::Exp)
+  }
+  if constexpr (Op == Unary::Exp) {
     return std::exp2(value);
+  }
   if constexpr (Op == Unary::Fract) {
     float result = value - std::floor(value);
     return result > as_float(0x3f7fffff) ? as_float(0x3f7fffff) : result;
   }
-  if constexpr (Op == Unary::Log)
+  if constexpr (Op == Unary::Log) {
     return std::log2(value);
+  }
 }
 
 #if defined(RJ_ARITH_HAVE_X86_64_V3)

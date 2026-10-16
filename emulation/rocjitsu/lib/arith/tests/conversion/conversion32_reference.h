@@ -21,11 +21,13 @@ inline uint32_t conversion32_reference(int op, uint32_t raw, uint32_t mode) {
   if (op < 2) {
     bool negative = op == 0 && (raw >> 31);
     uint32_t magnitude = negative ? uint32_t(0) - raw : raw;
-    if (!magnitude)
+    if (!magnitude) {
       return 0;
+    }
     int exponent = 0;
-    for (uint32_t copy = magnitude; copy >>= 1;)
+    for (uint32_t copy = magnitude; copy >>= 1;) {
       ++exponent;
+    }
     uint32_t significand;
     if (exponent <= 23) {
       significand = magnitude << (23 - exponent);
@@ -34,8 +36,9 @@ inline uint32_t conversion32_reference(int op, uint32_t raw, uint32_t mode) {
       significand = magnitude >> shift;
       uint32_t remainder = magnitude & ((uint32_t(1) << shift) - 1);
       uint32_t half = uint32_t(1) << (shift - 1);
-      if (remainder > half || (remainder == half && (significand & 1)))
+      if (remainder > half || (remainder == half && (significand & 1))) {
         ++significand;
+      }
       if (significand == 0x1000000) {
         significand >>= 1;
         ++exponent;
@@ -45,24 +48,30 @@ inline uint32_t conversion32_reference(int op, uint32_t raw, uint32_t mode) {
     uint32_t encoded = (negative ? 0x80000000 : 0) |
                        (uint32_t(int(exponent) + 127 + scale[(mode >> 6) & 3]) << 23) |
                        (significand & 0x7fffff);
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       return negative ? 0 : encoded > 0x3f800000 ? 0x3f800000 : encoded;
+    }
     return encoded;
   }
-  if (mode & RJ_ARITH_ALU_ABS_A)
+  if (mode & RJ_ARITH_ALU_ABS_A) {
     raw &= 0x7fffffff;
-  if (mode & RJ_ARITH_ALU_NEG_A)
+  }
+  if (mode & RJ_ARITH_ALU_NEG_A) {
     raw ^= 0x80000000;
+  }
   bool negative = raw >> 31;
   uint32_t fraction = raw & 0x7fffff;
   int biased = (raw >> 23) & 255;
-  if (biased == 255 && fraction)
+  if (biased == 255 && fraction) {
     return op >= 4 ? (negative ? 0x80000000 : 0x7fffffff) : 0;
-  if (op == 3 && negative)
+  }
+  if (op == 3 && negative) {
     return 0;
+  }
   int exponent = int(biased) - 127;
-  if (exponent >= 32)
+  if (exponent >= 32) {
     return op == 3 ? UINT32_MAX : negative ? 0x80000000 : 0x7fffffff;
+  }
   uint64_t magnitude = 0;
   bool nonzero_fraction = (raw & 0x7fffffff) != 0;
   bool above_half = false, at_half = false;
@@ -80,13 +89,16 @@ inline uint32_t conversion32_reference(int op, uint32_t raw, uint32_t mode) {
     at_half = remainder == half;
   }
   if ((op == 4 && (above_half || (at_half && !negative))) ||
-      (op == 5 && negative && nonzero_fraction))
+      (op == 5 && negative && nonzero_fraction)) {
     ++magnitude;
-  if (op == 3)
+  }
+  if (op == 3) {
     return magnitude > UINT32_MAX ? UINT32_MAX : uint32_t(magnitude);
+  }
   uint64_t limit = negative ? 0x80000000ULL : 0x7fffffffULL;
-  if (magnitude > limit)
+  if (magnitude > limit) {
     magnitude = limit;
+  }
   return negative ? uint32_t(0) - uint32_t(magnitude) : uint32_t(magnitude);
 }
 

@@ -21,8 +21,9 @@ void byte_conversion_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *d, c
     auto raw = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(a + lane));
     raw = _mm256_and_si256(_mm256_srli_epi32(raw, 8 * Byte), _mm256_set1_epi32(255));
     auto value = _mm256_mul_ps(_mm256_cvtepi32_ps(raw), scale);
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       value = _mm256_min_ps(value, _mm256_set1_ps(1));
+    }
     auto lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                             _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));
     _mm256_maskstore_epi32(reinterpret_cast<int *>(d + lane), lane_exec_mask,
@@ -44,8 +45,9 @@ void nibble_offset_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *d, con
     auto raw = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(a + lane));
     auto nibble = _mm256_srai_epi32(_mm256_slli_epi32(raw, 28), 28);
     auto value = _mm256_mul_ps(_mm256_cvtepi32_ps(nibble), scale);
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       value = _mm256_min_ps(_mm256_max_ps(value, _mm256_setzero_ps()), _mm256_set1_ps(1));
+    }
     auto result = _mm256_castps_si256(value);
     auto lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                             _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));

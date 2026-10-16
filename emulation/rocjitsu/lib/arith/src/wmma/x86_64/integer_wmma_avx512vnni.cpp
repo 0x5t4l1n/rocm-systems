@@ -75,12 +75,13 @@ namespace rocjitsu::arith {
 void integer_wmma_avx512vnni(int bits, int k, uint32_t modifiers, uint32_t *const *d,
                              const uint32_t *const *a, const uint32_t *const *b,
                              const uint32_t *const *c) {
-  if (bits == 8)
+  if (bits == 8) {
     integer_wmma<8, 16, Ops>(modifiers, d, a, b, c);
-  else if (k == 16)
+  } else if (k == 16) {
     integer_wmma<4, 16, Ops>(modifiers, d, a, b, c);
-  else
+  } else {
     integer_wmma<4, 32, Ops>(modifiers, d, a, b, c);
+  }
 }
 
 } // namespace rocjitsu::arith

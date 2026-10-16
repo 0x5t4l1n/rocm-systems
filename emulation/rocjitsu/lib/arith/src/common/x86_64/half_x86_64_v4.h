@@ -22,8 +22,9 @@ template <bool Bf16> inline __m512 half_input(__m512i words, int shift, uint32_t
                                         _mm512_setzero_si512());
     halves = _mm512_mask_and_epi32(halves, tiny, halves, _mm512_set1_epi32(0x8000));
     return _mm512_castsi512_ps(_mm512_slli_epi32(halves, 16));
-  } else
+  } else {
     return _mm512_cvtph_ps(_mm512_cvtepi32_epi16(halves));
+  }
 }
 
 // Nearest-even narrowing with the same finite-saturation/NaN policy as the

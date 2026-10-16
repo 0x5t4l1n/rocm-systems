@@ -27,12 +27,13 @@
 TEST(BenchmarkSampling, FixedInterleavedRepetitions) {
   std::vector<rocjitsu::arith::bench::Benchmark> cases(3);
   std::vector<int> order;
-  for (int i = 0; i < 2; ++i)
+  for (int i = 0; i < 2; ++i) {
     cases[i].sample = [&, i, n = 0](double min_ms) mutable {
       EXPECT_DOUBLE_EQ(min_ms, 1);
       order.push_back(i);
       return 100.0 + i + n++;
     };
+  }
   rocjitsu::arith::bench::Options options;
   EXPECT_EQ(options.repetitions, 5);
   rocjitsu::arith::bench::run(cases, options);
@@ -125,11 +126,13 @@ TEST(BenchmarkSampling, TerminalProgressOverwritesAndFinishes) {
   std::string output;
   while (output.find('\n') == std::string::npos) {
     pollfd ready{master, POLLIN, 0};
-    if (poll(&ready, 1, 1000) <= 0)
+    if (poll(&ready, 1, 1000) <= 0) {
       break;
+    }
     auto size = read(master, buffer, sizeof(buffer));
-    if (size <= 0)
+    if (size <= 0) {
       break;
+    }
     output.append(buffer, size);
   }
   std::fclose(progress);
@@ -204,8 +207,9 @@ TEST(BenchmarkInputs, OneQuietNanElement) {
     rocjitsu::arith::bench::Operands finite(test.instruction), nan(test.instruction, true);
     ASSERT_TRUE(nan.floating_point);
     finite.data[test.operand][0][5] = (finite.data[test.operand][0][5] & ~test.mask) | test.low;
-    if (test.high)
+    if (test.high) {
       finite.data[test.operand][1][5] = test.high;
+    }
     // Exactly the selected element changed, including both words for FP64.
     EXPECT_EQ(std::memcmp(finite.data, nan.data, sizeof(nan.data)), 0);
     nan.reset();

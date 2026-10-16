@@ -19,10 +19,12 @@ template <IntegralRound Op, bool Half>
 inline uint32_t round_integral_bits(uint32_t a, bool flush_input) {
   constexpr unsigned fraction = Half ? 10 : 23, bias = Half ? 15 : 127;
   constexpr uint32_t sign_bit = Half ? 0x8000 : 0x80000000, inf = Half ? 0x7c00 : 0x7f800000;
-  if constexpr (Half)
+  if constexpr (Half) {
     a &= 65535;
-  if (flush_input && !(a & inf))
+  }
+  if (flush_input && !(a & inf)) {
     a &= sign_bit;
+  }
   uint32_t magnitude = a & (sign_bit - 1), sign = a & sign_bit, result;
   unsigned exponent = magnitude >> fraction;
   if (magnitude >= inf) {
@@ -31,23 +33,29 @@ inline uint32_t round_integral_bits(uint32_t a, bool flush_input) {
     result = a;
   } else if (exponent < bias) {
     bool up = false;
-    if constexpr (Op == IntegralRound::Ceil)
+    if constexpr (Op == IntegralRound::Ceil) {
       up = !sign && magnitude;
-    if constexpr (Op == IntegralRound::Floor)
+    }
+    if constexpr (Op == IntegralRound::Floor) {
       up = sign && magnitude;
-    if constexpr (Op == IntegralRound::Nearest)
+    }
+    if constexpr (Op == IntegralRound::Nearest) {
       up = magnitude > ((bias - 1) << fraction);
+    }
     result = sign | (up ? bias << fraction : 0);
   } else {
     uint32_t unit = 1u << (bias + fraction - exponent), tail = magnitude & (unit - 1),
              rounded = magnitude & ~(unit - 1);
     bool up = false;
-    if constexpr (Op == IntegralRound::Ceil)
+    if constexpr (Op == IntegralRound::Ceil) {
       up = !sign && tail;
-    if constexpr (Op == IntegralRound::Floor)
+    }
+    if constexpr (Op == IntegralRound::Floor) {
       up = sign && tail;
-    if constexpr (Op == IntegralRound::Nearest)
+    }
+    if constexpr (Op == IntegralRound::Nearest) {
       up = tail > unit / 2 || (tail == unit / 2 && (rounded & unit));
+    }
     result = sign | (rounded + (up ? unit : 0));
   }
   return result;

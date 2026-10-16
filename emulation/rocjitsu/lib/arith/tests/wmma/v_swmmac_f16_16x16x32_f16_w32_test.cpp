@@ -43,15 +43,21 @@ void set_b(uint32_t *const *v, int coordinate, int k, uint32_t bits) {
 TEST(SwmmacF16F16K32W32, Arithmetic) {
   std::minstd_rand random;
   uint32_t a[16][16], b[32][16], c[16][16];
-  for (int row = 0; row < 16; ++row)
-    for (int k = 0; k < 16; ++k)
+  for (int row = 0; row < 16; ++row) {
+    for (int k = 0; k < 16; ++k) {
       a[row][k] = rocjitsu::arith::test::random_f16_bits(random);
-  for (int k = 0; k < 32; ++k)
-    for (int col = 0; col < 16; ++col)
+    }
+  }
+  for (int k = 0; k < 32; ++k) {
+    for (int col = 0; col < 16; ++col) {
       b[k][col] = rocjitsu::arith::test::random_f16_bits(random);
-  for (int row = 0; row < 16; ++row)
-    for (int col = 0; col < 16; ++col)
+    }
+  }
+  for (int row = 0; row < 16; ++row) {
+    for (int col = 0; col < 16; ++col) {
       c[row][col] = rocjitsu::arith::test::random_f16_bits(random);
+    }
+  }
   // Two increasing positions per group of four, using high engine bits.
   int selected[16][16];
   rocjitsu::arith::test::make_sparse_indices(random, selected);
@@ -64,29 +70,36 @@ TEST(SwmmacF16F16K32W32, Arithmetic) {
   c[11][12] = rocjitsu::arith::test::kF16PositiveInfinityBits;
 
   Registers input;
-  for (int row = 0; row < 16; ++row)
-    for (int k = 0; k < 16; ++k)
+  for (int row = 0; row < 16; ++row) {
+    for (int k = 0; k < 16; ++k) {
       set_a(input.v, row, k, a[row][k]);
-  for (int k = 0; k < 32; ++k)
-    for (int col = 0; col < 16; ++col)
+    }
+  }
+  for (int k = 0; k < 32; ++k) {
+    for (int col = 0; col < 16; ++col) {
       set_b(input.v + 4, col, k, b[k][col]);
+    }
+  }
   // C/D layout: register and lane select a row/column; packed gfx12
   // stores adjacent rows in halves, while gfx11 OPSEL preserves the other half.
-  for (int row = 0; row < 16; ++row)
+  for (int row = 0; row < 16; ++row) {
     for (int col = 0; col < 16; ++col) {
       auto &word = input.v[12 + ((row % 8) / 2)][col + 16 * (row / 8)];
       int shift = 16 * ((row % 8) % 2);
       word = (word & ~(0xffffU << shift)) | (c[row][col] << shift);
     }
+  }
   // Each selector set encodes the same pairs, exercising KEY selection
   // without additional golden matrices. Every pair is strictly increasing.
   std::fill_n(input.v[16], 32, 0);
-  for (int row = 0; row < 16; ++row)
+  for (int row = 0; row < 16; ++row) {
     for (int k = 0; k < 16; ++k) {
       int lane = row + 16 * ((k / 4) & 1), local = 2 * ((k / 2) & 1) + 4 * (k / 8) + k % 2;
-      for (int key = 0; key < 32; key += 16)
+      for (int key = 0; key < 32; key += 16) {
         input.v[16][lane] |= uint32_t(selected[row][k] % 4) << (key + 2 * local);
+      }
     }
+  }
 
   // Offline goldens from rocjitsu ad2bb973ec4's original DOT models.
   // Reference computation uses logical matrices, independently of the VGPR
@@ -123,8 +136,8 @@ TEST(SwmmacF16F16K32W32, Arithmetic) {
   const uint64_t modes[] = {0, RJ_ARITH_SWMMAC_INDEX_KEY_1};
   const auto cpu_levels = rocjitsu::arith::test::supported_cpu_levels();
   for (uint64_t cpu : cpu_levels) {
-    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes())
-      for (uint64_t mode : modes)
+    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes()) {
+      for (uint64_t mode : modes) {
         for (int aliasing_offset : {12}) {
           SCOPED_TRACE(::testing::Message()
                        << cpu << '/' << semantics << '/' << mode << '/' << aliasing_offset);
@@ -132,7 +145,7 @@ TEST(SwmmacF16F16K32W32, Arithmetic) {
           ASSERT_EQ(rj_arith_v_swmmac_f16_16x16x32_f16_w32(
                         cpu | semantics, mode, r.v + aliasing_offset, r.v, r.v + 4, r.v + 16),
                     RJ_ARITH_SUCCESS);
-          for (int row = 0; row < 16; ++row)
+          for (int row = 0; row < 16; ++row) {
             for (int col = 0; col < 16; ++col) {
               uint32_t actual = r.v[aliasing_offset + ((row % 8) / 2)][col + 16 * (row / 8)];
               float value =
@@ -141,19 +154,24 @@ TEST(SwmmacF16F16K32W32, Arithmetic) {
                                                 golden[row][col], semantics,
                                                 /*atol=*/1e-5, /*rtol=*/5e-4);
             }
+          }
           r.expect_preserved(input, aliasing_offset, 4);
         }
+      }
+    }
   }
   // Tied C/D makes an overlapping destination change the initial accumulator.
   // Compare each alias with a disjoint snapshot of those same effective inputs;
   // this supplements (and does not replace) the independent goldens above.
   for (uint64_t cpu : cpu_levels) {
-    for (uint64_t semantics : {RJ_ARITH_SEMANTICS_LOOSE, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL})
+    for (uint64_t semantics : {RJ_ARITH_SEMANTICS_LOOSE, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL}) {
       for (int aliasing_offset : {0, 2, 4, 16}) {
         Registers r = input, reference = input;
-        for (int reg = 0; reg < 4; ++reg)
-          for (int lane = 0; lane < 32; ++lane)
+        for (int reg = 0; reg < 4; ++reg) {
+          for (int lane = 0; lane < 32; ++lane) {
             reference.v[48 + reg][lane] = r.v[aliasing_offset + reg][lane];
+          }
+        }
         ASSERT_EQ(rj_arith_v_swmmac_f16_16x16x32_f16_w32(cpu | semantics, 0, reference.v + 48,
                                                          reference.v, reference.v + 4,
                                                          reference.v + 16),
@@ -161,10 +179,13 @@ TEST(SwmmacF16F16K32W32, Arithmetic) {
         ASSERT_EQ(rj_arith_v_swmmac_f16_16x16x32_f16_w32(cpu | semantics, 0, r.v + aliasing_offset,
                                                          r.v, r.v + 4, r.v + 16),
                   RJ_ARITH_SUCCESS);
-        for (int reg = 0; reg < 4; ++reg)
-          for (int lane = 0; lane < 32; ++lane)
+        for (int reg = 0; reg < 4; ++reg) {
+          for (int lane = 0; lane < 32; ++lane) {
             EXPECT_EQ(r.v[aliasing_offset + reg][lane], reference.v[48 + reg][lane]);
+          }
+        }
         r.expect_preserved(input, aliasing_offset, 4);
       }
+    }
   }
 }

@@ -41,15 +41,17 @@ division_scale_bits(typename DivisionFormat<Width>::Bits raw, int adjustment,
   using T = typename F::Bits;
   T sign = raw & F::sign, magnitude = raw & (F::sign - 1),
     fraction_mask = (T(1) << F::fraction) - 1;
-  if (magnitude >= F::infinity)
+  if (magnitude >= F::infinity) {
     return raw | (magnitude > F::infinity ? F::quiet : 0);
-  if (!magnitude)
+  }
+  if (!magnitude) {
     return raw;
+  }
   int exponent = int(magnitude >> F::fraction);
   T significand = magnitude & fraction_mask;
-  if (exponent)
+  if (exponent) {
     significand |= T(1) << F::fraction;
-  else {
+  } else {
     exponent = 1;
     while (significand < (T(1) << F::fraction)) {
       significand <<= 1;
@@ -57,14 +59,17 @@ division_scale_bits(typename DivisionFormat<Width>::Bits raw, int adjustment,
     }
   }
   exponent += adjustment;
-  if (exponent >= 2 * F::bias + 1)
+  if (exponent >= 2 * F::bias + 1) {
     return sign | division_overflow<Width>(sign != 0, rounding);
-  if (exponent > 0)
+  }
+  if (exponent > 0) {
     return sign | (T(exponent) << F::fraction) | (significand & fraction_mask);
+  }
   unsigned shift = unsigned(1 - exponent);
   const bool away = rounding == (sign ? 2U : 1U);
-  if (shift > F::fraction + 1)
+  if (shift > F::fraction + 1) {
     return sign | T(away);
+  }
   const T unit = T(1) << shift;
   T rounded = significand >> shift;
   const T remainder = significand & (unit - 1);
@@ -85,23 +90,25 @@ division_output(typename DivisionFormat<Width>::Bits result, uint32_t mode,
   if (omod) {
     T magnitude = result & (F::sign - 1), out_sign = result & F::sign;
     int exponent = int((result & F::infinity) >> F::fraction);
-    if (!exponent)
+    if (!exponent) {
       result = 0;
-    else if (magnitude < F::infinity) {
+    } else if (magnitude < F::infinity) {
       exponent += omod == 3 ? -1 : int(omod);
-      if (exponent <= 0)
+      if (exponent <= 0) {
         result = out_sign;
-      else if (exponent >= 2 * F::bias + 1)
+      } else if (exponent >= 2 * F::bias + 1) {
         result = out_sign | overflow;
-      else
+      } else {
         result = (result & ~F::infinity) | (T(exponent) << F::fraction);
+      }
     }
   }
   if (mode & RJ_ARITH_ALU_CLAMP) {
-    if ((result & F::sign) || (result > F::infinity))
+    if ((result & F::sign) || (result > F::infinity)) {
       result = 0;
-    else if (result > (T(F::bias) << F::fraction))
+    } else if (result > (T(F::bias) << F::fraction)) {
       result = T(F::bias) << F::fraction;
+    }
   }
   return result;
 }

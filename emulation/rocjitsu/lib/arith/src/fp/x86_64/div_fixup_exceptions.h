@@ -47,15 +47,17 @@ uint32_t fixup_exception_lanes(typename O::V p, typename O::V b, typename O::V c
   auto overflow = O::both(finite, O::inverse(O::gt(inf, p)));
   unsigned omod = (mode >> 6) & 3;
   auto inexact = O::either(underflow, overflow);
-  if (omod == 1 || omod == 2)
+  if (omod == 1 || omod == 2) {
     overflow = O::either(
         overflow,
         O::both(finite, O::gt(O::add(O::shr(p, F::fraction), O::set(omod)), O::set(2 * F::bias))));
+  }
   uint32_t causes = 0;
   // Accumulate cause only when at least one participating lane satisfies mask.
   auto accumulate = [&](typename O::Mask mask, uint32_t cause) {
-    if (O::bits(mask) & exec_mask)
+    if (O::bits(mask) & exec_mask) {
       causes |= cause;
+    }
   };
   accumulate(invalid, RJ_ARITH_EXCEPTION_INVALID);
   accumulate(div0, RJ_ARITH_EXCEPTION_FLOAT_DIV0);

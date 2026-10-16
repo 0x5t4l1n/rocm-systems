@@ -13,10 +13,12 @@ namespace rocjitsu::arith {
 
 // Shift right, retaining a sticky low bit for all discarded nonzero bits.
 inline uint64_t fma_shift_jam(uint64_t value, unsigned shift) {
-  if (!shift)
+  if (!shift) {
     return value;
-  if (shift >= 64)
+  }
+  if (shift >= 64) {
     return value != 0;
+  }
   return (value >> shift) | ((value << (64 - shift)) != 0);
 }
 
@@ -28,10 +30,11 @@ inline uint64_t fma_finite_round_odd(uint32_t a, uint32_t b, uint32_t c) {
   auto decode = [](uint32_t bits, int &exponent) {
     exponent = int((bits >> 23) & 255);
     uint64_t significand = bits & 0x7fffff;
-    if (exponent)
+    if (exponent) {
       significand |= 0x800000;
-    else
+    } else {
       exponent = 1;
+    }
     exponent -= 150;
     return significand;
   };
@@ -54,21 +57,24 @@ inline uint64_t fma_finite_round_odd(uint32_t a, uint32_t b, uint32_t c) {
   normalize(product, ep);
   normalize(mc, ec);
   int exponent = !product ? ec : !mc ? ep : ep > ec ? ep : ec;
-  if (product)
+  if (product) {
     product = fma_shift_jam(product, unsigned(exponent - ep));
-  if (mc)
+  }
+  if (mc) {
     mc = fma_shift_jam(mc, unsigned(exponent - ec));
+  }
   uint64_t sum;
-  if (negative == c_negative)
+  if (negative == c_negative) {
     sum = product + mc;
-  else if (product > mc)
+  } else if (product > mc) {
     sum = product - mc;
-  else {
+  } else {
     sum = mc - product;
     negative = mc > product ? c_negative : false;
   }
-  if (!sum)
+  if (!sum) {
     return uint64_t(negative) << 63;
+  }
   if (sum & (1ULL << 62)) {
     sum = fma_shift_jam(sum, 1);
     ++exponent;
@@ -84,33 +90,40 @@ inline uint64_t fma_finite_round_odd(uint32_t a, uint32_t b, uint32_t c) {
 inline uint32_t fma_narrow_f32(uint64_t bits, bool flush_output, unsigned rounding = 0) {
   uint32_t sign = uint32_t(bits >> 32) & 0x80000000;
   uint64_t magnitude = bits & 0x7fffffffffffffffULL;
-  if (!magnitude)
+  if (!magnitude) {
     return sign;
+  }
   const bool away = rounding == (sign ? 2u : 1u);
   const uint32_t overflow = sign | ((rounding == 0 || away) ? 0x7f800000 : 0x7f7fffff);
   int exponent = int(magnitude >> 52) - 1023;
-  if (exponent > 127)
+  if (exponent > 127) {
     return overflow;
-  if (flush_output && exponent < -127)
+  }
+  if (flush_output && exponent < -127) {
     return sign;
-  if (exponent < -150)
+  }
+  if (exponent < -150) {
     return sign | unsigned(away);
+  }
   unsigned shift = 29 + (!flush_output && exponent < -126 ? -126 - exponent : 0);
   uint64_t significand = (magnitude & 0xfffffffffffffULL) | (1ULL << 52);
   uint32_t rounded = uint32_t(significand >> shift);
   uint64_t unit = 1ULL << shift, remainder = significand & (unit - 1);
   rounded += rounding == 0 ? remainder > unit / 2 || (remainder == unit / 2 && (rounded & 1))
                            : away && remainder != 0;
-  if (!flush_output && exponent < -126)
+  if (!flush_output && exponent < -126) {
     return sign | rounded;
+  }
   if (rounded == (1U << 24)) {
     rounded >>= 1;
     ++exponent;
   }
-  if (exponent > 127)
+  if (exponent > 127) {
     return overflow;
-  if (exponent < -126)
+  }
+  if (exponent < -126) {
     return sign;
+  }
   return sign | (uint32_t(exponent + 127) << 23) | (rounded & 0x7fffff);
 }
 

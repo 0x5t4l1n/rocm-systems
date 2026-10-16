@@ -20,22 +20,29 @@ void integer_ternary_x86_64_v3(uint32_t exec_mask, uint32_t *d, const uint32_t *
          y = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(b + lane)),
          z = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(c + lane));
     __m256i result;
-    if constexpr (Op == IntegerTernary::ShiftAdd)
+    if constexpr (Op == IntegerTernary::ShiftAdd) {
       result =
           _mm256_add_epi32(_mm256_sllv_epi32(x, _mm256_and_si256(y, _mm256_set1_epi32(31))), z);
-    if constexpr (Op == IntegerTernary::AddShift)
+    }
+    if constexpr (Op == IntegerTernary::AddShift) {
       result =
           _mm256_sllv_epi32(_mm256_add_epi32(x, y), _mm256_and_si256(z, _mm256_set1_epi32(31)));
-    if constexpr (Op == IntegerTernary::ShiftOr)
+    }
+    if constexpr (Op == IntegerTernary::ShiftOr) {
       result = _mm256_or_si256(_mm256_sllv_epi32(x, _mm256_and_si256(y, _mm256_set1_epi32(31))), z);
-    if constexpr (Op == IntegerTernary::AndOr)
+    }
+    if constexpr (Op == IntegerTernary::AndOr) {
       result = _mm256_or_si256(_mm256_and_si256(x, y), z);
-    if constexpr (Op == IntegerTernary::Or3)
+    }
+    if constexpr (Op == IntegerTernary::Or3) {
       result = _mm256_or_si256(_mm256_or_si256(x, y), z);
-    if constexpr (Op == IntegerTernary::Xor3)
+    }
+    if constexpr (Op == IntegerTernary::Xor3) {
       result = _mm256_xor_si256(_mm256_xor_si256(x, y), z);
-    if constexpr (Op == IntegerTernary::XorAdd)
+    }
+    if constexpr (Op == IntegerTernary::XorAdd) {
       result = _mm256_add_epi32(_mm256_xor_si256(x, y), z);
+    }
     if constexpr (Op == IntegerTernary::Lerp) {
       // Native byte average rounds up. Subtract one only for an odd sum
       // whose C byte requests truncation; higher C bits are ignored.

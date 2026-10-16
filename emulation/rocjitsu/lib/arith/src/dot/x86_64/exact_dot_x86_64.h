@@ -80,8 +80,9 @@ template <bool Bf16, bool Rdna3, class V> inline Term<V> product(V a, V b, V &gr
 // Widen without changing NaN payloads. Finite F16 values convert exactly;
 // nonfinite lanes use integer widening instead of passing sNaNs to F16C.
 template <bool Bf16, class V> inline V widen(V bits) {
-  if constexpr (Bf16)
+  if constexpr (Bf16) {
     return shift_left(bits, 16);
+  }
   auto magnitude = bit_and(bits, constant<V>(0x7fff));
   auto special = greater(magnitude, constant<V>(0x7bff));
   auto finite = andnot(special, bits);
@@ -105,8 +106,9 @@ inline V pack(V total, V grid, V frame_negative, bool saturate) {
   auto exponent = add(top, grid);
   auto tiny = greater(constant<V>(1 - Bias), exponent);
   auto shift = sub(top, constant<V>(Fraction));
-  if constexpr (!Rdna3 || Half)
+  if constexpr (!Rdna3 || Half) {
     shift = choose(tiny, sub(constant<V>(1 - Bias - Fraction), grid), shift);
+  }
   auto rounded =
       bit_or(shift_right(magnitude, shift), shift_left(magnitude, sub(constant<V>(0), shift)));
   auto tail = bit_and(magnitude, sub(shift_left(constant<V>(1), shift), constant<V>(1)));
@@ -125,20 +127,23 @@ inline V pack(V total, V grid, V frame_negative, bool saturate) {
                      bit_and(significand, constant<V>((1 << Fraction) - 1)));
   auto overflow = constant<V>(Half ? (saturate ? 0x7bff : 0x7c00) : 0x7f800000);
   bits = choose(greater(exponent, constant<V>(Bias)), overflow, bits);
-  if constexpr (!Rdna3 || Half)
+  if constexpr (!Rdna3 || Half) {
     bits = choose(tiny, rounded, bits);
-  else
+  } else {
     bits = andnot(greater(constant<V>(-126), exponent), bits);
+  }
   auto sign = signed_shift_right(total, 31);
-  if constexpr (Rdna3)
+  if constexpr (Rdna3) {
     sign = bit_xor(sign, frame_negative);
+  }
   bits = bit_or(bits, bit_and(sign, constant<V>(Half ? 0x8000 : int(0x80000000U))));
 
   // These models return positive zero on exact zero and on flushed underflow.
   bits = bit_and(bits, bit_and(nonzero(total),
                                nonzero(bit_and(bits, constant<V>(Half ? 0x7fff : 0x7fffffff)))));
-  if constexpr (Packed && Bf16)
+  if constexpr (Packed && Bf16) {
     bits = shift_right(bits, 16);
+  }
   return bits;
 }
 
@@ -161,10 +166,12 @@ inline V dot(const V (&a)[N], const V (&b)[N], V acc, bool saturate) {
             signed_shift_right(acc, 31)};
   auto top = leading(c);
   if constexpr (Rdna3) {
-    if constexpr (Packed && !Bf16)
+    if constexpr (Packed && !Bf16) {
       top = maximum(top, constant<V>(-14));
-    for (auto term : products)
+    }
+    for (auto term : products) {
       top = maximum(top, leading(term));
+    }
   } else {
     top = maximum(top, constant<V>(Packed && !Bf16 ? -14 : -126));
   }
@@ -182,8 +189,9 @@ inline V dot(const V (&a)[N], const V (&b)[N], V acc, bool saturate) {
     total = bit_and(total, nonzero(any));
   } else {
     auto accumulator = constant<V>(-1);
-    if constexpr (Packed && !Bf16)
+    if constexpr (Packed && !Bf16) {
       accumulator = greater(grid, constant<V>(-14));
+    }
     total = align(c, grid, accumulator);
     for (int i = 0; i < N; i += 2) {
       auto group_grid = maximum(grids[i], grids[i + 1]);
@@ -207,12 +215,13 @@ inline V dot(const V (&a)[N], const V (&b)[N], V acc, bool saturate) {
       store(right[i], b[i]);
     }
     for (int lane = 0; lane < Columns; ++lane) {
-      if (!(exceptional & (1 << lane)))
+      if (!(exceptional & (1 << lane))) {
         continue;
-      if constexpr (Rdna3)
+      }
+      if constexpr (Rdna3) {
         values[lane] = gfx11_dot2_bits<Bf16, Packed>(left[0][lane], right[0][lane], left[1][lane],
                                                      right[1][lane], accumulators[lane], saturate);
-      else {
+      } else {
         std::array<uint16_t, N> av, bv;
         for (int i = 0; i < N; ++i) {
           av[i] = uint16_t(left[i][lane]);

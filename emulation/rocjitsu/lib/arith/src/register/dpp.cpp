@@ -39,14 +39,17 @@ void dpp8_source(uint64_t flags, uint32_t exec_mask, uint64_t mode, uint32_t *ou
 // Return whether the high instruction-mode bits encode a supported DPP operation.
 bool valid_dpp(uint64_t mode) {
   uint64_t high = mode & ~0xffffffffULL;
-  if (!high)
+  if (!high) {
     return true;
-  if (mode & RJ_ARITH_DPP8)
+  }
+  if (mode & RJ_ARITH_DPP8) {
     return !(high & ~(RJ_ARITH_DPP8 | RJ_ARITH_DPP_FI | RJ_ARITH_DPP8_SELECT_MASK));
+  }
   if (!(mode & RJ_ARITH_DPP16) ||
       (high & ~(RJ_ARITH_DPP16 | RJ_ARITH_DPP_FI | RJ_ARITH_DPP_BOUND_CTRL |
-                RJ_ARITH_DPP_CTRL_MASK | RJ_ARITH_DPP_ROW_MASK | RJ_ARITH_DPP_BANK_MASK)))
+                RJ_ARITH_DPP_CTRL_MASK | RJ_ARITH_DPP_ROW_MASK | RJ_ARITH_DPP_BANK_MASK))) {
     return false;
+  }
   unsigned ctrl = unsigned((mode & RJ_ARITH_DPP_CTRL_MASK) >> RJ_ARITH_DPP_CTRL_SHIFT);
   return ctrl <= 0xff || (ctrl >= 0x101 && ctrl <= 0x10f) || (ctrl >= 0x111 && ctrl <= 0x11f) ||
          (ctrl >= 0x121 && ctrl <= 0x12f) || ctrl == 0x140 || ctrl == 0x141 ||
@@ -58,16 +61,18 @@ uint32_t dpp16_source(uint64_t flags, uint32_t exec_mask, uint64_t mode, uint32_
                       const uint32_t *a) {
   unsigned ctrl = unsigned((mode & RJ_ARITH_DPP_CTRL_MASK) >> RJ_ARITH_DPP_CTRL_SHIFT);
   unsigned valid_row = 0xffff;
-  if (ctrl >= 0x101 && ctrl <= 0x10f)
+  if (ctrl >= 0x101 && ctrl <= 0x10f) {
     valid_row >>= ctrl & 15;
-  if (ctrl >= 0x111 && ctrl <= 0x11f)
+  }
+  if (ctrl >= 0x111 && ctrl <= 0x11f) {
     valid_row = (valid_row << (ctrl & 15)) & 0xffff;
+  }
   bool fi = (mode & RJ_ARITH_DPP_FI) != 0;
   uint32_t readable = 0;
 #if defined(RJ_ARITH_HAVE_X86_64_V4)
-  if ((flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V4)
+  if ((flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V4) {
     readable = dpp16_x86_64_v4(exec_mask, ctrl, valid_row, fi, out, a);
-  else
+  } else
 #endif
 #if defined(RJ_ARITH_HAVE_X86_64_V3)
       if ((flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V3)
@@ -77,20 +82,21 @@ uint32_t dpp16_source(uint64_t flags, uint32_t exec_mask, uint64_t mode, uint32_
   {
     for (int lane = 0; lane < 32; ++lane) {
       int sub = lane & 15, index = sub;
-      if (ctrl <= 0xff)
+      if (ctrl <= 0xff) {
         index = (sub & ~3u) | ((ctrl >> (2 * (sub & 3))) & 3);
-      else if (ctrl <= 0x10f)
+      } else if (ctrl <= 0x10f) {
         index = (sub + (ctrl & 15)) & 15;
-      else if (ctrl <= 0x12f)
+      } else if (ctrl <= 0x12f) {
         index = (sub - (ctrl & 15)) & 15;
-      else if (ctrl == 0x140)
+      } else if (ctrl == 0x140) {
         index = sub ^ 15;
-      else if (ctrl == 0x141)
+      } else if (ctrl == 0x141) {
         index = sub ^ 7;
-      else if (ctrl <= 0x15f)
+      } else if (ctrl <= 0x15f) {
         index = ctrl & 15;
-      else
+      } else {
         index = sub ^ (ctrl & 15);
+      }
       int src = (lane & 16) | index;
       bool read = ((valid_row >> sub) & 1) && (fi || ((exec_mask >> src) & 1));
       out[lane] = read ? a[src] : 0;

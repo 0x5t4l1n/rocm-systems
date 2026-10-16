@@ -21,35 +21,38 @@ inline uint32_t fma_value_f32(uint32_t a, uint32_t b, uint32_t c, bool clamp, ui
   uint32_t ma = a & 0x7fffffff, mb = b & 0x7fffffff, mc = c & 0x7fffffff;
 
   uint32_t result;
-  if ((ma == 0 && mb == 0x7f800000) || (mb == 0 && ma == 0x7f800000))
+  if ((ma == 0 && mb == 0x7f800000) || (mb == 0 && ma == 0x7f800000)) {
     result = 0xffc00000;
-  else if (ma > 0x7f800000 || mb > 0x7f800000 || mc > 0x7f800000)
+  } else if (ma > 0x7f800000 || mb > 0x7f800000 || mc > 0x7f800000) {
     result = (ma > 0x7f800000   ? a
               : mb > 0x7f800000 ? b
                                 : c) |
              (!rdna3 || (flags & RJ_ARITH_FP_IEEE_MODE) ? 0x00400000 : 0);
-  else if (ma == 0x7f800000 || mb == 0x7f800000) {
+  } else if (ma == 0x7f800000 || mb == 0x7f800000) {
     result = ((a ^ b) & 0x80000000) | 0x7f800000;
-    if (mc == 0x7f800000 && ((result ^ c) & 0x80000000))
+    if (mc == 0x7f800000 && ((result ^ c) & 0x80000000)) {
       result = 0xffc00000;
-  } else if (mc == 0x7f800000)
+    }
+  } else if (mc == 0x7f800000) {
     result = c;
-  else {
+  } else {
     uint64_t value = fma_finite_round_odd(a, b, c);
     const unsigned rounding = unsigned((flags & RJ_ARITH_FP_ROUND_MASK) >> 24);
 
     // Exact cancellation yields -0 only for downward rounding. Equal-sign zero
     // terms retain that sign, as in rocjitsu's directed std::fma model.
     const bool matching_zeros = (ma == 0 || mb == 0) && mc == 0 && ((a ^ b ^ c) & 0x80000000) == 0;
-    if (!(value & 0x7fffffffffffffffULL) && !matching_zeros)
+    if (!(value & 0x7fffffffffffffffULL) && !matching_zeros) {
       value = uint64_t(rounding == 2) << 63;
+    }
     result = fma_narrow_f32(value, flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS, rounding);
   }
   if (clamp &&
-      !(rdna3 && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF) && (result & 0x7fffffff) > 0x7f800000))
+      !(rdna3 && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF) && (result & 0x7fffffff) > 0x7f800000)) {
     result = (result & 0x80000000) || (result & 0x7fffffff) > 0x7f800000 ? 0
              : result > 0x3f800000                                       ? 0x3f800000
                                                                          : result;
+  }
   return result;
 }
 
@@ -60,19 +63,23 @@ inline uint32_t fma_value_f32(uint32_t a, uint32_t b, uint32_t c, bool clamp, ui
   unsigned omod = (mode >> 6) & 3;
   uint32_t input[] = {a, b, c};
   for (int operand = 0; operand < 3; ++operand) {
-    if (mode & (RJ_ARITH_ALU_ABS_A << operand))
+    if (mode & (RJ_ARITH_ALU_ABS_A << operand)) {
       input[operand] &= 0x7fffffff;
-    if (mode & (RJ_ARITH_ALU_NEG_A << operand))
+    }
+    if (mode & (RJ_ARITH_ALU_NEG_A << operand)) {
       input[operand] ^= 0x80000000;
-    if ((flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) && !(input[operand] & 0x7f800000))
+    }
+    if ((flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) && !(input[operand] & 0x7f800000)) {
       input[operand] &= 0x80000000;
+    }
   }
-  if (dx9_zero)
+  if (dx9_zero) {
     if (!(input[0] & 0x7fffffff) || !(input[1] & 0x7fffffff)) {
       // DX9 supplies a positive zero product before adding C.
       input[0] = 0;
       input[1] = 0x3f800000;
     }
+  }
   // OMOD flushes a tiny intermediate before scaling, independently of MODE.
   uint32_t value = rocjitsu::arith::fma_value_f32(
       input[0], input[1], input[2], false, flags | (omod ? RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS : 0),
@@ -81,10 +88,11 @@ inline uint32_t fma_value_f32(uint32_t a, uint32_t b, uint32_t c, bool clamp, ui
                                                unsigned((flags & RJ_ARITH_FP_ROUND_MASK) >> 24));
 
   if ((mode & RJ_ARITH_ALU_CLAMP) &&
-      !((flags & RJ_ARITH_FP_DX10_CLAMP_OFF) && (value & 0x7fffffff) > 0x7f800000))
+      !((flags & RJ_ARITH_FP_DX10_CLAMP_OFF) && (value & 0x7fffffff) > 0x7f800000)) {
     value = (value & 0x80000000) || (value & 0x7fffffff) > 0x7f800000 ? 0
             : value > 0x3f800000                                      ? 0x3f800000
                                                                       : value;
+  }
   return value;
 }
 

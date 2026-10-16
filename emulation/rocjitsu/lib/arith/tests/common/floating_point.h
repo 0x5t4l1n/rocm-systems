@@ -98,8 +98,9 @@ inline uint8_t random_bf8_bits(std::minstd_rand &random) {
 inline float f16_value(uint16_t bits) {
   int exponent = (bits >> 10) & 31;
   uint32_t fraction = bits & 0x3ff;
-  if (exponent == 31)
+  if (exponent == 31) {
     return bit_cast<float>((uint32_t(bits & 0x8000) << 16) | 0x7f800000U | (fraction << 13));
+  }
   float magnitude = exponent ? std::ldexp(float(1024 + fraction), exponent - 25)
                              : std::ldexp(float(fraction), -24);
   return bits & 0x8000 ? -magnitude : magnitude;
@@ -113,15 +114,16 @@ inline float bf16_value(uint16_t bits) { return bit_cast<float>(uint32_t(bits) <
 // The caller must expect exact execution for fallback/compatibility modes.
 inline void expect_f32(uint32_t actual, float expected, uint64_t semantics, double atol,
                        double rtol) {
-  if (std::isnan(expected))
+  if (std::isnan(expected)) {
     EXPECT_TRUE(std::isnan(bit_cast<float>(actual)));
-  else if (semantics != RJ_ARITH_SEMANTICS_LOOSE)
+  } else if (semantics != RJ_ARITH_SEMANTICS_LOOSE) {
     EXPECT_EQ(actual, bit_cast<uint32_t>(expected));
-  else if (std::isinf(expected))
+  } else if (std::isinf(expected)) {
     EXPECT_EQ(bit_cast<float>(actual), expected);
-  else
+  } else {
     EXPECT_LE(std::abs(double(bit_cast<float>(actual)) - expected),
               atol + rtol * std::abs(expected));
+  }
 }
 
 } // namespace rocjitsu::arith::test

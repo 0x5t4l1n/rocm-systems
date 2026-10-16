@@ -40,10 +40,11 @@ void check_selection(Call call, Reference reference) {
     auto d = bank ? bank->v + aliasing_offset : nullptr;
     auto a = bank ? bank->v : nullptr;
     auto b = bank ? bank->v + 2 : nullptr;
-    if constexpr (Operands == 2)
+    if constexpr (Operands == 2) {
       return call(flags, exec_mask, mode, d, a, b, fp_status);
-    else
+    } else {
       return call(flags, exec_mask, mode, d, a, b, bank ? bank->v + 4 : nullptr, fp_status);
+    }
   };
   expect_invalid_fp_requests([&](uint64_t flags, uint64_t mode) {
     Bank result = input;
@@ -57,25 +58,28 @@ void check_selection(Call call, Reference reference) {
 
   std::vector<uint64_t> modes = {0, RJ_ARITH_ALU_NEG_A,
                                  Packed ? RJ_ARITH_PK_CLAMP : RJ_ARITH_ALU_CLAMP};
-  if constexpr (Width == 16 && !Packed)
+  if constexpr (Width == 16 && !Packed) {
     modes.push_back(RJ_ARITH_ALU_HIGH_A | RJ_ARITH_ALU_HIGH_D);
+  }
   if constexpr (Width != 64 && !Packed) {
     modes.push_back(RJ_ARITH_DPP8 | (0x53977ULL << RJ_ARITH_DPP8_SELECT_SHIFT));
     modes.push_back(RJ_ARITH_DPP8 | (0x53977ULL << RJ_ARITH_DPP8_SELECT_SHIFT) | RJ_ARITH_DPP_FI |
                     RJ_ARITH_ALU_NEG_A);
   }
   std::vector<int> aliasing_offsets = {6, 0, 2};
-  if constexpr (Operands == 3)
+  if constexpr (Operands == 3) {
     aliasing_offsets.push_back(4);
-  if constexpr (Width == 64)
+  }
+  if constexpr (Width == 64) {
     aliasing_offsets.push_back(1);
+  }
 
   const auto cpu_levels = rocjitsu::arith::test::supported_cpu_levels();
   for (uint64_t cpu : cpu_levels) {
-    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes())
-      for (uint64_t mode : modes)
+    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes()) {
+      for (uint64_t mode : modes) {
         for (Mask exec_mask :
-             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)})
+             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)}) {
           for (int aliasing_offset : aliasing_offsets) {
             SCOPED_TRACE(::testing::Message() << cpu << '/' << semantics << '/' << mode << '/'
                                               << exec_mask << '/' << aliasing_offset);
@@ -94,8 +98,9 @@ void check_selection(Call call, Reference reference) {
             }
             ASSERT_EQ(error, RJ_ARITH_SUCCESS);
             for (int lane = 0; lane < Lanes; ++lane) {
-              if (!((exec_mask >> lane) & 1))
+              if (!((exec_mask >> lane) & 1)) {
                 continue;
+              }
               for (int half = 0; half < (Packed ? 2 : 1); ++half) {
                 int a_half = Packed ? half : Width == 16 && (mode & RJ_ARITH_ALU_HIGH_A);
                 int b_half = Packed ? half : Width == 16 && (mode & RJ_ARITH_ALU_HIGH_B);
@@ -106,22 +111,24 @@ void check_selection(Call call, Reference reference) {
                     !Packed && (mode & RJ_ARITH_DPP8) ? (lane & ~7) + 7 - (lane & 7) : lane;
                 uint64_t a = read_fp(input.v, source_lane, Width, a_half);
                 if (!Packed && (mode & RJ_ARITH_DPP8) && !(mode & RJ_ARITH_DPP_FI) &&
-                    !((exec_mask >> source_lane) & 1))
+                    !((exec_mask >> source_lane) & 1)) {
                   a = 0;
+                }
                 uint64_t b = read_fp(input.v + 2, lane, Width, b_half);
                 uint64_t source_mode = Packed ? (mode >> (half ? 3 : 0)) & 7 : mode;
                 double x = modified_fp(fp_value(a, Width), source_mode, 0);
                 double y = modified_fp(fp_value(b, Width), source_mode, 1);
                 double value;
-                if constexpr (Operands == 2)
+                if constexpr (Operands == 2) {
                   value = reference(x, y);
-                else {
+                } else {
                   uint64_t c = read_fp(input.v + 4, lane, Width, c_half);
                   double z = modified_fp(fp_value(c, Width), source_mode, 2);
                   value = reference(x, y, z);
                 }
-                if (mode & (Packed ? RJ_ARITH_PK_CLAMP : RJ_ARITH_ALU_CLAMP))
+                if (mode & (Packed ? RJ_ARITH_PK_CLAMP : RJ_ARITH_ALU_CLAMP)) {
                   value = !(value > 0) ? 0 : std::min(value, 1.0);
+                }
                 write_fp(expected.v + aliasing_offset, lane, Width, fp_bits(value, Width), d_half);
               }
             }
@@ -132,6 +139,9 @@ void check_selection(Call call, Reference reference) {
                                             : Width == 32        ? 1e-6
                                                                  : 1e-14);
           }
+        }
+      }
+    }
   }
 }
 

@@ -84,10 +84,11 @@ void run(uint32_t exec_mask, uint32_t *d, const uint32_t *const *a, bool flush_i
 // Requires the named CPU features and validated instruction controls.
 void frexp_exp_x86_64_v3(bool fp64, uint32_t exec_mask, uint32_t *d, const uint32_t *const *a,
                          bool flush_input) {
-  if (fp64)
+  if (fp64) {
     run<true>(exec_mask, d, a, false);
-  else
+  } else {
     run<false>(exec_mask, d, a, flush_input);
+  }
 }
 
 } // namespace rocjitsu::arith

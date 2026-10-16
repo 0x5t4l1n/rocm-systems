@@ -25,8 +25,9 @@ int main() {
       float value = float(std::bit_cast<_Float16>(uint16_t(input)));
       uint16_t output = std::bit_cast<uint16_t>(_Float16(fn(value, true)));
       hash = (hash ^ output) * 1099511628211ULL;
-      if ((input + 1) % 4096 == 0)
+      if ((input + 1) % 4096 == 0) {
         std::printf("    0x%016llxULL,\n", static_cast<unsigned long long>(hash));
+      }
     }
     std::puts("  },");
   }

@@ -25,15 +25,19 @@ inline uint32_t bitfield_reference(Bitfield operation, uint32_t a, uint32_t b, u
     unsigned value = 0;
     if (op < 2 && width) {
       int source = offset + (bit < width ? bit : width - 1);
-      if (bit < width || op == 1)
+      if (bit < width || op == 1) {
         value = source < 32 ? (a >> source) & 1 : (op == 1 ? a >> 31 : 0);
+      }
     }
-    if (op == 2)
+    if (op == 2) {
       value = ((a >> bit) & 1) ? (b >> bit) & 1 : (c >> bit) & 1;
-    if (op == 3)
+    }
+    if (op == 3) {
       value = bit >= offset && bit - offset < int(a % 32);
-    if (op == 4)
+    }
+    if (op == 4) {
       value = (a >> (31 - bit)) & 1;
+    }
     if (op == 5 || op == 6) {
       int source = bit + (op == 5 ? c % 32 : (c % 4) * 8);
       value = source < 32 ? (b >> source) & 1 : (a >> (source - 32)) & 1;

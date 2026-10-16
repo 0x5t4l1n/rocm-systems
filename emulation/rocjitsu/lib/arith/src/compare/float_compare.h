@@ -25,11 +25,12 @@ uint32_t float_compare_exceptions(uint64_t a, uint64_t b, bool flush, bool signa
   constexpr uint64_t quiet = Bits == 16 ? 0x200 : Bits == 32 ? 0x400000 : 0x8000000000000ULL;
   a &= magnitude;
   b &= magnitude;
-  if (a >= infinity || b >= infinity)
+  if (a >= infinity || b >= infinity) {
     return ((a > infinity && (signaling || !(a & quiet))) ||
             (b > infinity && (signaling || !(b & quiet))))
                ? RJ_ARITH_EXCEPTION_INVALID
                : 0;
+  }
   return !flush && ((a && !(a & infinity)) || (b && !(b & infinity)))
              ? RJ_ARITH_EXCEPTION_INPUT_DENORM
              : 0;
@@ -42,12 +43,14 @@ uint32_t float_compare_result(uint32_t less, uint32_t equal, uint32_t ordered) {
   // unordered forms.
   constexpr unsigned base = Predicate >= 8 ? 15 - Predicate : Predicate;
   uint32_t holds;
-  if constexpr (base == 7)
+  if constexpr (base == 7) {
     holds = ordered;
-  else
+  } else {
     holds = integer_compare_result<base>(less, equal) & ordered;
-  if constexpr (Predicate >= 8)
+  }
+  if constexpr (Predicate >= 8) {
     return ~holds;
+  }
   return holds;
 }
 

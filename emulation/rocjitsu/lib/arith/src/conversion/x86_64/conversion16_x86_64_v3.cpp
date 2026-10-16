@@ -48,21 +48,23 @@ void convert(bool saturate, uint32_t exec_mask, uint32_t mode, uint32_t *d, cons
   const auto zero = _mm256_setzero_ps();
   for (int lane = 0; lane < 32; lane += 8) {
     auto raw = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(a + lane));
-    if constexpr (Op != Conversion16::FloatToHalf)
+    if constexpr (Op != Conversion16::FloatToHalf) {
       raw = _mm256_and_si256(_mm256_srl_epi32(raw, sa), _mm256_set1_epi32(65535));
+    }
     __m256 value;
     if constexpr (from_integer) {
-      if constexpr (Op == Conversion16::SignedToHalf)
+      if constexpr (Op == Conversion16::SignedToHalf) {
         raw = _mm256_srai_epi32(_mm256_slli_epi32(raw, 16), 16);
+      }
       value = _mm256_cvtepi32_ps(raw);
     } else {
       constexpr uint32_t sign = Op == Conversion16::FloatToHalf ? 0x80000000 : 0x8000;
       raw = _mm256_and_si256(
           raw, _mm256_set1_epi32(int(mode & RJ_ARITH_ALU_ABS_A ? ~sign : UINT32_MAX)));
       raw = _mm256_xor_si256(raw, _mm256_set1_epi32(int(mode & RJ_ARITH_ALU_NEG_A ? sign : 0)));
-      if constexpr (Op == Conversion16::FloatToHalf)
+      if constexpr (Op == Conversion16::FloatToHalf) {
         value = _mm256_castsi256_ps(raw);
-      else {
+      } else {
         if constexpr (Op == Conversion16::HalfToFloat && GuestWidening) {
           if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) {
             auto tiny = _mm256_cmpgt_epi32(_mm256_set1_epi32(0x400),
@@ -112,12 +114,15 @@ void convert(bool saturate, uint32_t exec_mask, uint32_t mode, uint32_t *d, cons
       }
     } else if constexpr (Op == Conversion16::HalfToFloat) {
       const auto input_bits = _mm256_castps_si256(value);
-      if (!GuestWidening || omod || (flags & RJ_ARITH_FP_IEEE_MODE))
+      if (!GuestWidening || omod || (flags & RJ_ARITH_FP_IEEE_MODE)) {
         value = _mm256_mul_ps(value, scale);
-      if (mode & RJ_ARITH_ALU_CLAMP)
+      }
+      if (mode & RJ_ARITH_ALU_CLAMP) {
         value = _mm256_min_ps(_mm256_max_ps(value, zero), _mm256_set1_ps(1));
-      if (omod)
+      }
+      if (omod) {
         value = _mm256_andnot_ps(_mm256_cmp_ps(value, zero, _CMP_EQ_OQ), value);
+      }
       result = _mm256_castps_si256(value);
       if constexpr (GuestWidening) {
         // Preserve the widening NaN policy through OMOD and DX10_CLAMP-off.

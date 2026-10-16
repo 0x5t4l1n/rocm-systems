@@ -72,10 +72,12 @@ void trig_preop_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
     _mm256_storeu_si256(reinterpret_cast<__m256i *>(result[1] + lane),
                         _mm512_cvtepi64_epi32(_mm512_srli_epi64(value, 32)));
   }
-  for (int reg = 0; reg < 2; ++reg)
-    for (int lane = 0; lane < 32; lane += 16)
+  for (int reg = 0; reg < 2; ++reg) {
+    for (int lane = 0; lane < 32; lane += 16) {
       _mm512_mask_storeu_epi32(d[reg] + lane, __mmask16(exec_mask >> lane),
                                _mm512_loadu_si512(result[reg] + lane));
+    }
+  }
 }
 
 template void trig_preop_x86_64_v4<false>(uint32_t, uint32_t, uint32_t *const *, const uint32_t *,

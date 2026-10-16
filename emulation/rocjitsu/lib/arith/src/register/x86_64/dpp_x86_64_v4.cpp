@@ -40,18 +40,23 @@ __m512i dpp16_index(uint32_t ctrl, __m512i position) {
                                  _mm512_set1_epi32(3));
     return _mm512_or_si512(_mm512_andnot_si512(_mm512_set1_epi32(3), position), pick);
   }
-  if (ctrl <= 0x10f)
+  if (ctrl <= 0x10f) {
     return _mm512_and_si512(_mm512_add_epi32(position, _mm512_set1_epi32(int(ctrl & 15))),
                             _mm512_set1_epi32(15));
-  if (ctrl <= 0x12f)
+  }
+  if (ctrl <= 0x12f) {
     return _mm512_and_si512(_mm512_sub_epi32(position, _mm512_set1_epi32(int(ctrl & 15))),
                             _mm512_set1_epi32(15));
-  if (ctrl == 0x140)
+  }
+  if (ctrl == 0x140) {
     return _mm512_xor_si512(position, _mm512_set1_epi32(15));
-  if (ctrl == 0x141)
+  }
+  if (ctrl == 0x141) {
     return _mm512_xor_si512(position, _mm512_set1_epi32(7));
-  if (ctrl <= 0x15f)
+  }
+  if (ctrl <= 0x15f) {
     return _mm512_set1_epi32(int(ctrl & 15));
+  }
   return _mm512_xor_si512(position, _mm512_set1_epi32(int(ctrl & 15)));
 }
 } // namespace

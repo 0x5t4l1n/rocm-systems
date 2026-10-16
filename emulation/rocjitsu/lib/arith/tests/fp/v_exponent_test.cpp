@@ -78,8 +78,9 @@ TEST(FpFrexpMantF64W32Gfx12, Arithmetic) {
                                                    [](double x) {
                                                      int exponent;
                                                      double value = x;
-                                                     if (std::isfinite(x) && x != 0)
+                                                     if (std::isfinite(x) && x != 0) {
                                                        value = std::frexp(x, &exponent);
+                                                     }
                                                      return value;
                                                    });
 }
@@ -89,8 +90,9 @@ TEST(FpFrexpMantF64W32, Arithmetic) {
   rocjitsu::arith::test::check_loose_unary_f64<32>(rj_arith_v_frexp_mant_f64_w32, [](double x) {
     int exponent;
     double value = x;
-    if (std::isfinite(x) && x != 0)
+    if (std::isfinite(x) && x != 0) {
       value = std::frexp(x, &exponent);
+    }
     return value;
   });
 }
@@ -101,8 +103,9 @@ TEST(FpFrexpMantF64W64Gfx12, Arithmetic) {
                                                    [](double x) {
                                                      int exponent;
                                                      double value = x;
-                                                     if (std::isfinite(x) && x != 0)
+                                                     if (std::isfinite(x) && x != 0) {
                                                        value = std::frexp(x, &exponent);
+                                                     }
                                                      return value;
                                                    });
 }
@@ -112,8 +115,9 @@ TEST(FpFrexpMantF64W64, Arithmetic) {
   rocjitsu::arith::test::check_loose_unary_f64<64>(rj_arith_v_frexp_mant_f64_w64, [](double x) {
     int exponent;
     double value = x;
-    if (std::isfinite(x) && x != 0)
+    if (std::isfinite(x) && x != 0) {
       value = std::frexp(x, &exponent);
+    }
     return value;
   });
 }

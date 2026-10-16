@@ -38,15 +38,19 @@ inline float interp32_reference(bool p2, const uint32_t *a, const uint32_t *b, c
   unsigned quad = lane / 4 * 4;
   long double x = interp32_float(a[quad + (p2 ? 2 : 1)]), y = interp32_float(b[lane]),
               z = interp32_float(c[p2 ? lane : quad]);
-  if (m & 1)
+  if (m & 1) {
     x = -x;
-  if (m & 2)
+  }
+  if (m & 2) {
     y = -y;
-  if (m & 4)
+  }
+  if (m & 4) {
     z = -z;
+  }
   float value = float(std::fma(x, y, z));
-  if (m & 8)
+  if (m & 8) {
     value = !(value > 0) ? 0 : value > 1 ? 1 : value;
+  }
   return value;
 }
 

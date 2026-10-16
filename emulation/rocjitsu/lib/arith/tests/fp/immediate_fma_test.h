@@ -30,8 +30,9 @@ void compute_immediate_fma_f16_expected(
     int aliasing_offset, rocjitsu::arith::test::Registers<10, Lanes> &expected_registers,
     bool gfx12) {
   for (int lane = 0; lane < Lanes; ++lane) {
-    if (!((exec_mask >> lane) & 1))
+    if (!((exec_mask >> lane) & 1)) {
       continue;
+    }
     const int a_half = bool(mode & RJ_ARITH_ALU_HIGH_A);
     const int b_half = bool(mode & RJ_ARITH_ALU_HIGH_B);
     const int c_half = bool(mode & RJ_ARITH_ALU_HIGH_C);
@@ -64,10 +65,11 @@ void check_immediate_fma_f16(Call entry_point, bool gfx12, const Cases &status_c
   auto call = [&](uint64_t flags, Mask exec_mask, uint64_t mode, uint32_t *const *d,
                   const uint32_t *const *a, const uint32_t *const *b, uint16_t immediate,
                   uint32_t *fp_status) {
-    if constexpr (MultiplyConstant)
+    if constexpr (MultiplyConstant) {
       return entry_point(flags, exec_mask, mode, d, a, immediate, b, fp_status);
-    else
+    } else {
       return entry_point(flags, exec_mask, mode, d, a, b, immediate, fp_status);
+    }
   };
   using Registers = rocjitsu::arith::test::Registers<10, Lanes>;
   Registers input = rocjitsu::arith::test::make_fp_inputs<16, Lanes>();
@@ -99,10 +101,10 @@ void check_immediate_fma_f16(Call entry_point, bool gfx12, const Cases &status_c
   // by classification. No production helper or rj-arith result is a numeric oracle.
   const auto cpu_levels = rocjitsu::arith::test::supported_cpu_levels();
   for (uint64_t cpu : cpu_levels) {
-    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes())
-      for (uint64_t mode : {uint64_t(0), uint64_t(RJ_ARITH_ALU_HIGH_A | RJ_ARITH_ALU_HIGH_D)})
+    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes()) {
+      for (uint64_t mode : {uint64_t(0), uint64_t(RJ_ARITH_ALU_HIGH_A | RJ_ARITH_ALU_HIGH_D)}) {
         for (Mask exec_mask :
-             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)})
+             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)}) {
           for (int aliasing_offset : {6, 0, 2}) {
             SCOPED_TRACE(::testing::Message() << cpu << '/' << semantics << '/' << mode << '/'
                                               << exec_mask << '/' << aliasing_offset);
@@ -120,10 +122,11 @@ void check_immediate_fma_f16(Call entry_point, bool gfx12, const Cases &status_c
             }
             ASSERT_EQ(result, RJ_ARITH_SUCCESS);
             bool reporting = gfx12 && (semantics == RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL);
-            if (!reporting || !exec_mask)
+            if (!reporting || !exec_mask) {
               EXPECT_EQ(fp_status, 0x80000000U);
-            else
+            } else {
               EXPECT_EQ(fp_status & 0x80000000U, 0x80000000U);
+            }
             compute_immediate_fma_f16_expected<Lanes, MultiplyConstant>(
                 input, exec_mask, mode, aliasing_offset, expected_registers, gfx12);
 
@@ -131,10 +134,13 @@ void check_immediate_fma_f16(Call entry_point, bool gfx12, const Cases &status_c
                                                         aliasing_offset, mode, semantics,
                                                         /*atol=*/1e-5, /*rtol=*/5e-4);
           }
+        }
+      }
+    }
   }
   if (gfx12) {
     for (uint64_t cpu : cpu_levels) {
-      for (const auto &test : status_cases)
+      for (const auto &test : status_cases) {
         for (uint64_t mode : {uint64_t(0)}) {
           SCOPED_TRACE(::testing::Message()
                        << cpu << '/' << mode << '/' << test.a << '/' << test.b << '/' << test.c);
@@ -154,8 +160,9 @@ void check_immediate_fma_f16(Call entry_point, bool gfx12, const Cases &status_c
           EXPECT_EQ(fp_status, 0x80000000U | causes);
           // Preserve previously accumulated causes as well as unrelated bits.
           fp_status = 0x40000000U | RJ_ARITH_EXCEPTION_FLOAT_DIV0;
-          for (int part = 0; part < 1; ++part)
+          for (int part = 0; part < 1; ++part) {
             rocjitsu::arith::test::write_fp(r.v + 4, lane, 16, test.c, part);
+          }
           ASSERT_EQ(call(cpu | RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL, exec_mask, mode, r.v + 6,
                          r.v, r.v + 2, uint16_t(0x3c01), &fp_status),
                     RJ_ARITH_SUCCESS);
@@ -168,6 +175,7 @@ void check_immediate_fma_f16(Call entry_point, bool gfx12, const Cases &status_c
           r.expect_preserved(before, 0, 0);
           EXPECT_EQ(fp_status, 0x40000000U | RJ_ARITH_EXCEPTION_FLOAT_DIV0 | causes);
         }
+      }
     }
   }
 }
@@ -178,8 +186,9 @@ void compute_immediate_fma_f32_expected(
     const rocjitsu::arith::test::Registers<10, Lanes> &input, uint64_t exec_mask, uint64_t mode,
     int aliasing_offset, rocjitsu::arith::test::Registers<10, Lanes> &expected_registers) {
   for (int lane = 0; lane < Lanes; ++lane) {
-    if (!((exec_mask >> lane) & 1))
+    if (!((exec_mask >> lane) & 1)) {
       continue;
+    }
     uint64_t a = rocjitsu::arith::test::read_fp(input.v, lane, 32, 0);
     uint64_t b = rocjitsu::arith::test::read_fp(input.v + 2, lane, 32, 0);
     uint64_t c = rocjitsu::arith::test::read_fp(input.v + 4, lane, 32, 0);
@@ -194,8 +203,9 @@ void compute_immediate_fma_f32_expected(
     double y = rocjitsu::arith::test::modified_fp(rocjitsu::arith::test::fp_value(b, 32), mode, 1);
     double z = rocjitsu::arith::test::modified_fp(rocjitsu::arith::test::fp_value(c, 32), mode, 2);
     double value = double(std::fma(float(x), float(y), float(z)));
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       value = !(value > 0) ? 0 : std::min(value, 1.0);
+    }
     uint64_t expected = rocjitsu::arith::test::fp_bits(value, 32);
     rocjitsu::arith::test::write_fp(expected_registers.v + aliasing_offset, lane, 32, expected, 0);
   }
@@ -210,10 +220,11 @@ void check_immediate_fma_f32(Call entry_point) {
   auto call = [&](uint64_t flags, Mask exec_mask, uint64_t mode, uint32_t *const *d,
                   const uint32_t *const *a, const uint32_t *const *b, uint32_t immediate,
                   uint32_t *fp_status) {
-    if constexpr (MultiplyConstant)
+    if constexpr (MultiplyConstant) {
       return entry_point(flags, exec_mask, mode, d, a, immediate, b, fp_status);
-    else
+    } else {
       return entry_point(flags, exec_mask, mode, d, a, b, immediate, fp_status);
+    }
   };
   using Registers = rocjitsu::arith::test::Registers<10, Lanes>;
   Registers input = rocjitsu::arith::test::make_fp_inputs<32, Lanes>();
@@ -245,10 +256,10 @@ void check_immediate_fma_f32(Call entry_point) {
   // by classification. No production helper or rj-arith result is a numeric oracle.
   const auto cpu_levels = rocjitsu::arith::test::supported_cpu_levels();
   for (uint64_t cpu : cpu_levels) {
-    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes())
-      for (uint64_t mode : {uint64_t(0)})
+    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes()) {
+      for (uint64_t mode : {uint64_t(0)}) {
         for (Mask exec_mask :
-             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)})
+             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)}) {
           for (int aliasing_offset : {6, 0, 2}) {
             SCOPED_TRACE(::testing::Message() << cpu << '/' << semantics << '/' << mode << '/'
                                               << exec_mask << '/' << aliasing_offset);
@@ -273,6 +284,9 @@ void check_immediate_fma_f32(Call entry_point) {
                                                         aliasing_offset, 0, semantics,
                                                         /*atol=*/1e-5, /*rtol=*/1e-6);
           }
+        }
+      }
+    }
   }
 }
 

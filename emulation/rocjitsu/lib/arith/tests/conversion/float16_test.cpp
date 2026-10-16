@@ -32,8 +32,9 @@ template <int Lanes, bool Gfx12, class Call> void check_float16(Call call, Conve
     // FP32 values at and beside half rounding ties, tininess and overflow.
     const uint32_t edges[] = {0x3f801000U, 0x3f800fffU, 0x3f801001U, 0x3f803000U,
                               0x387fefffU, 0x387ff000U, 0x38800000U, 0x477ff000U};
-    for (int lane = 0; lane < 8; ++lane)
+    for (int lane = 0; lane < 8; ++lane) {
       input.v[0][16 + lane] = edges[lane];
+    }
   }
   uint64_t modifiers = RJ_ARITH_ALU_OMOD_HALF | RJ_ARITH_ALU_CLAMP |
                        (op < 2 ? 0 : RJ_ARITH_ALU_ABS_A | RJ_ARITH_ALU_NEG_A) |
@@ -42,33 +43,38 @@ template <int Lanes, bool Gfx12, class Call> void check_float16(Call call, Conve
       call, input,
       [=](uint64_t a, uint32_t, uint32_t, uint32_t old, uint64_t flags, uint32_t mode) {
         uint32_t raw = uint32_t(a);
-        if (op != 2 && op != 3)
+        if (op != 2 && op != 3) {
           mode = conversion_effective_mode(flags, mode, Gfx12);
+        }
         int shift = mode & RJ_ARITH_ALU_HIGH_A ? 16 : 0;
         uint16_t half = uint16_t(raw >> shift);
-        if (op == 5 && (half & 0x7fff) > 0x7c00 && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF))
+        if (op == 5 && (half & 0x7fff) > 0x7c00 && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF)) {
           mode &= ~RJ_ARITH_ALU_CLAMP;
-        if (op == 5 && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) && (half & 0x7fff) < 0x400)
+        }
+        if (op == 5 && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) && (half & 0x7fff) < 0x400) {
           raw = uint32_t(half & 0x8000) << shift;
+        }
         uint32_t result = conversion16_reference(op, raw, old, mode, flags & RJ_ARITH_FP16_OVFL);
         // Inherited gfx1100 widening behavior: IEEE=0 preserves sNaN payload bits
         // through OMOD. CLAMP replaces NaN with zero unless DX10_CLAMP_OFF is set.
         if (op == 5 && !Gfx12 && !(flags & RJ_ARITH_FP_IEEE_MODE) && !(mode & RJ_ARITH_ALU_CLAMP) &&
             (half & 0x7fff) > 0x7c00) {
           result = (uint32_t(half & 0x8000) << 16) | 0x7f800000U | (uint32_t(half & 0x3ff) << 13);
-          if (mode & RJ_ARITH_ALU_ABS_A)
+          if (mode & RJ_ARITH_ALU_ABS_A) {
             result &= 0x7fffffffU;
-          if (mode & RJ_ARITH_ALU_NEG_A)
+          }
+          if (mode & RJ_ARITH_ALU_NEG_A) {
             result ^= 0x80000000U;
+          }
         }
         return result;
       },
       [=](uint64_t actual, uint64_t expected, uint64_t flags, uint32_t mode) {
         if (op == 2 || op == 3 || (op == 5 && !Gfx12 && !(flags & RJ_ARITH_FP_IEEE_MODE))) {
           EXPECT_EQ(actual, expected);
-        } else if (op == 5)
+        } else if (op == 5) {
           conversion_float(actual, expected, 32);
-        else {
+        } else {
           int shift = mode & RJ_ARITH_ALU_HIGH_D ? 16 : 0;
           uint32_t keep = ~(0xffffU << shift);
           EXPECT_EQ(uint32_t(actual) & keep, uint32_t(expected) & keep);

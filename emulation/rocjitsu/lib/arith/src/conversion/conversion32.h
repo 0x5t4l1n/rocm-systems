@@ -24,13 +24,14 @@ enum class Conversion32 {
 template <bool Signed> uint32_t truncate_integer(float x, uint32_t nan_result = 0) {
   // Check NaN and range before any C++ float-to-integer cast, whose out-of-range behavior is
   // undefined.
-  if constexpr (Signed)
+  if constexpr (Signed) {
     return std::isnan(x)         ? nan_result
            : x >= 2147483648.0f  ? uint32_t(INT32_MAX)
            : x <= -2147483648.0f ? uint32_t(INT32_MIN)
                                  : uint32_t(int32_t(x));
-  else
+  } else {
     return !(x > 0) ? 0 : x >= 4294967296.0f ? UINT32_MAX : uint32_t(x);
+  }
 }
 
 // Convert FP32 and 32-bit integers. Preserve destination lanes outside exec_mask.

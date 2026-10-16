@@ -21,8 +21,9 @@ void byte_conversion_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *d, c
     auto raw = _mm512_loadu_si512(a + lane);
     raw = _mm512_and_si512(_mm512_srli_epi32(raw, 8 * Byte), _mm512_set1_epi32(255));
     auto value = _mm512_mul_ps(_mm512_cvtepi32_ps(raw), scale);
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       value = _mm512_min_ps(value, _mm512_set1_ps(1));
+    }
     _mm512_mask_storeu_epi32(d + lane, __mmask16(exec_mask >> lane), _mm512_castps_si512(value));
   }
 }
@@ -41,8 +42,9 @@ void nibble_offset_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *d, con
     auto raw = _mm512_loadu_si512(reinterpret_cast<const __m512i *>(a + lane));
     auto nibble = _mm512_srai_epi32(_mm512_slli_epi32(raw, 28), 28);
     auto value = _mm512_mul_ps(_mm512_cvtepi32_ps(nibble), scale);
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       value = _mm512_min_ps(_mm512_max_ps(value, _mm512_setzero_ps()), _mm512_set1_ps(1));
+    }
     auto result = _mm512_castps_si512(value);
     _mm512_mask_storeu_epi32(d + lane, __mmask16(exec_mask >> lane), result);
   }

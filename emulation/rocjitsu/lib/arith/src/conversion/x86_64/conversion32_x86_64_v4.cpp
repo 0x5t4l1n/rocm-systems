@@ -27,14 +27,15 @@ void conversion32_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *d, cons
     __m512i result;
     if constexpr (to_float) {
       __m512 x;
-      if constexpr (Op == Conversion32::SignedToFloat)
+      if constexpr (Op == Conversion32::SignedToFloat) {
         x = _mm512_cvtepi32_ps(raw);
-      else {
+      } else {
         x = _mm512_cvtepu32_ps(raw);
       }
       x = _mm512_mul_ps(x, scale);
-      if (mode & RJ_ARITH_ALU_CLAMP)
+      if (mode & RJ_ARITH_ALU_CLAMP) {
         x = _mm512_min_ps(_mm512_max_ps(x, zero), _mm512_set1_ps(1));
+      }
       result = _mm512_castps_si512(x);
     } else {
       raw = _mm512_xor_si512(_mm512_and_si512(raw, abs_mask), neg_mask);
@@ -55,8 +56,9 @@ void conversion32_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *d, cons
           auto up = _mm512_cmp_ps_mask(_mm512_sub_ps(x, lower), _mm512_set1_ps(0.5f), _CMP_GE_OQ);
           x = _mm512_mask_add_ps(lower, up, lower, _mm512_set1_ps(1));
         }
-        if constexpr (Op == Conversion32::Floor)
+        if constexpr (Op == Conversion32::Floor) {
           x = _mm512_floor_ps(x);
+        }
         result = _mm512_cvttps_epi32(x);
         result = _mm512_mask_mov_epi32(result, overflow, _mm512_set1_epi32(INT32_MAX));
         if constexpr (Op == Conversion32::Nearest || Op == Conversion32::Floor) {

@@ -36,18 +36,24 @@ enum class Select {
 inline uint32_t integer_minmax_reference(Select operation, uint32_t a, uint32_t b, uint32_t c) {
   int instruction = int(operation);
   int64_t values[] = {a, b, c};
-  if (instruction < 7)
-    for (auto &value : values)
-      if (value > INT32_MAX)
+  if (instruction < 7) {
+    for (auto &value : values) {
+      if (value > INT32_MAX) {
         value -= 4294967296LL;
+      }
+    }
+  }
   int op = instruction % 7;
   std::sort(values, values + 2);
-  if (op == 0 || op == 1)
+  if (op == 0 || op == 1) {
     return uint32_t(values[op]);
-  if (op == 4)
+  }
+  if (op == 4) {
     return uint32_t(values[0] > values[2] ? values[0] : values[2]);
-  if (op == 5)
+  }
+  if (op == 5) {
     return uint32_t(values[1] < values[2] ? values[1] : values[2]);
+  }
   std::sort(values, values + 3);
   return uint32_t(values[op == 2 ? 0 : op == 3 ? 2 : 1]);
 }

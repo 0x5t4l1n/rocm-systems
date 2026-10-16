@@ -19,20 +19,22 @@ void bitfield_x86_64_v3(uint32_t exec_mask, uint32_t *d, const uint32_t *a, cons
     __m256i x;
     x = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(a + lane));
     __m256i y;
-    if constexpr (Op != Bitfield::Reverse)
+    if constexpr (Op != Bitfield::Reverse) {
       y = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(b + lane));
+    }
     __m256i z;
-    if constexpr (Op != Bitfield::Reverse && Op != Bitfield::Mask)
+    if constexpr (Op != Bitfield::Reverse && Op != Bitfield::Mask) {
       z = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(c + lane));
+    }
     __m256i result;
     if constexpr (Op == Bitfield::ExtractUnsigned || Op == Bitfield::ExtractSigned) {
       auto offset = _mm256_and_si256(y, _mm256_set1_epi32(31)),
            width = _mm256_and_si256(z, _mm256_set1_epi32(31));
       auto power = _mm256_sllv_epi32(_mm256_set1_epi32(1), width);
       auto field_mask = _mm256_sub_epi32(power, _mm256_set1_epi32(1));
-      if constexpr (Op == Bitfield::ExtractUnsigned)
+      if constexpr (Op == Bitfield::ExtractUnsigned) {
         result = _mm256_and_si256(_mm256_srlv_epi32(x, offset), field_mask);
-      else {
+      } else {
         auto field = _mm256_and_si256(_mm256_srav_epi32(x, offset), field_mask);
         auto sign = _mm256_srli_epi32(power, 1);
         result = _mm256_sub_epi32(_mm256_xor_si256(field, sign), sign);
@@ -40,8 +42,9 @@ void bitfield_x86_64_v3(uint32_t exec_mask, uint32_t *d, const uint32_t *a, cons
     }
     if constexpr (Op == Bitfield::AlignBit || Op == Bitfield::AlignByte) {
       auto shift = _mm256_and_si256(z, _mm256_set1_epi32(Op == Bitfield::AlignBit ? 31 : 3));
-      if constexpr (Op == Bitfield::AlignByte)
+      if constexpr (Op == Bitfield::AlignByte) {
         shift = _mm256_slli_epi32(shift, 3);
+      }
       auto inverse = _mm256_sub_epi32(_mm256_set1_epi32(32), shift);
       result = _mm256_or_si256(_mm256_srlv_epi32(y, shift), _mm256_sllv_epi32(x, inverse));
     }
@@ -64,14 +67,16 @@ void bitfield_x86_64_v3(uint32_t exec_mask, uint32_t *d, const uint32_t *a, cons
       value = _mm256_andnot_si256(_mm256_cmpeq_epi8(selector, _mm256_set1_epi8(12)), value);
       result = _mm256_or_si256(value, _mm256_cmpeq_epi8(selector, _mm256_set1_epi8(13)));
     }
-    if constexpr (Op == Bitfield::Insert)
+    if constexpr (Op == Bitfield::Insert) {
       result = _mm256_or_si256(_mm256_and_si256(x, y), _mm256_andnot_si256(x, z));
-    if constexpr (Op == Bitfield::Mask)
+    }
+    if constexpr (Op == Bitfield::Mask) {
       result = _mm256_sllv_epi32(
           _mm256_sub_epi32(
               _mm256_sllv_epi32(_mm256_set1_epi32(1), _mm256_and_si256(x, _mm256_set1_epi32(31))),
               _mm256_set1_epi32(1)),
           _mm256_and_si256(y, _mm256_set1_epi32(31)));
+    }
     if constexpr (Op == Bitfield::Reverse) {
       // Reverse each nibble with a byte lookup, then reverse the four bytes.
       auto table = _mm256_broadcastsi128_si256(

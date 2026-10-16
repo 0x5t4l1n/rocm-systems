@@ -25,8 +25,9 @@ inline bool dpp_source(uint64_t mode, Mask exec_mask, int lane, int &source) {
   if (mode & RJ_ARITH_DPP8) {
     unsigned selectors = unsigned(mode >> RJ_ARITH_DPP8_SELECT_SHIFT);
     source = int(lane / 8) * 8 + int((selectors >> (3 * (lane % 8))) & 7);
-    if (!(mode & RJ_ARITH_DPP_FI) && !(exec_mask & (1ULL << source)))
+    if (!(mode & RJ_ARITH_DPP_FI) && !(exec_mask & (1ULL << source))) {
       source = -1;
+    }
     return (exec_mask & (1ULL << lane)) != 0;
   }
   return dpp16_reference(unsigned((mode & RJ_ARITH_DPP_CTRL_MASK) >> RJ_ARITH_DPP_CTRL_SHIFT),

@@ -21,58 +21,65 @@ template <bool Wide> struct Ops {
 
   // Broadcast the supplied bit pattern to each vector lane.
   static V set(uint64_t x) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_set1_epi64(int64_t(x));
-    else
+    } else {
       return _mm512_set1_epi32(int32_t(x));
+    }
   }
 
   // Add corresponding integer lanes with unsigned wraparound.
   static V add(V a, V b) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_add_epi64(a, b);
-    else
+    } else {
       return _mm512_add_epi32(a, b);
+    }
   }
 
   // Subtract corresponding integer lanes with unsigned wraparound.
   static V sub(V a, V b) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_sub_epi64(a, b);
-    else
+    } else {
       return _mm512_sub_epi32(a, b);
+    }
   }
 
   // Shift each unsigned lane right by the supplied count.
   static V shr(V a, int count) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_srli_epi64(a, count);
-    else
+    } else {
       return _mm512_srli_epi32(a, count);
+    }
   }
 
   // Shift each lane left by the supplied count.
   static V shl(V a, int count) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_slli_epi64(a, count);
-    else
+    } else {
       return _mm512_slli_epi32(a, count);
+    }
   }
 
   // Return the lane mask for signed a > b.
   static Mask gt(V a, V b) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_cmp_epi64_mask(a, b, _MM_CMPINT_GT);
-    else
+    } else {
       return _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_GT);
+    }
   }
 
   // Return the lane mask for equal operands.
   static Mask eq(V a, V b) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_cmpeq_epi64_mask(a, b);
-    else
+    } else {
       return _mm512_cmpeq_epi32_mask(a, b);
+    }
   }
 
   // Intersect lane predicates.
@@ -86,10 +93,11 @@ template <bool Wide> struct Ops {
 
   // Select values lane by lane according to the supplied predicate.
   static V select(Mask m, V yes, V no) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_mask_blend_epi64(__mmask8(m), no, yes);
-    else
+    } else {
       return _mm512_mask_blend_epi32(m, no, yes);
+    }
   }
 };
 
@@ -135,12 +143,13 @@ __m512i scale_value(__m512i a, __m512i b, __m512i c, uint32_t mode, bool quiet_n
   auto magic = O::set(uint64_t(F::bias + F::fraction) << F::fraction);
   auto encoded = _mm512_or_si512(magic, fraction);
   __m512i normalized;
-  if constexpr (Width == 64)
+  if constexpr (Width == 64) {
     normalized =
         _mm512_castpd_si512(_mm512_sub_pd(_mm512_castsi512_pd(encoded), _mm512_set1_pd(0x1p52)));
-  else
+  } else {
     normalized =
         _mm512_castps_si512(_mm512_sub_ps(_mm512_castsi512_ps(encoded), _mm512_set1_ps(0x1p23f)));
+  }
   auto original_exponent = O::shr(_mm512_and_si512(a, inf), F::fraction);
   auto subnormal = O::eq(original_exponent, zero);
   auto small_exponent = O::sub(O::shr(_mm512_and_si512(normalized, inf), F::fraction),
@@ -185,9 +194,10 @@ __m512i scale_value(__m512i a, __m512i b, __m512i c, uint32_t mode, bool quiet_n
                      _mm512_or_si512(a, quiet), result);
   result = O::select(O::either(O::eq(bm, zero), O::eq(cm, zero)),
                      O::set(F::sign | F::infinity | F::quiet), result);
-  if (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)
+  if (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) {
     result = O::select(O::eq(_mm512_and_si512(result, inf), zero),
                        _mm512_and_si512(result, signbit), result);
+  }
   unsigned omod = (mode >> 6) & 3;
   if (omod) {
     auto output_negative = O::inverse(O::eq(_mm512_and_si512(result, signbit), zero));
@@ -199,9 +209,9 @@ __m512i scale_value(__m512i a, __m512i b, __m512i c, uint32_t mode, bool quiet_n
     auto exponent = _mm512_and_si512(result, inf), output_sign = _mm512_and_si512(result, signbit),
          step = O::set(uint64_t(1) << F::fraction);
     __m512i scaled;
-    if (omod == 3)
+    if (omod == 3) {
       scaled = O::select(O::eq(exponent, step), output_sign, O::sub(result, step));
-    else {
+    } else {
       auto increment = O::set(uint64_t(omod) << F::fraction);
       scaled = O::select(O::inverse(O::gt(O::sub(inf, increment), exponent)),
                          _mm512_or_si512(output_sign, overflow), O::add(result, increment));
@@ -264,12 +274,14 @@ uint32_t div_scale_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *const 
     }
   }
   // Preserve cross-half aliases by committing D0 then D1 after all reads.
-  if constexpr (Width == 64)
-    for (int reg = 0; reg < 2; ++reg)
+  if constexpr (Width == 64) {
+    for (int reg = 0; reg < 2; ++reg) {
       for (int lane = 0; lane < 32; lane += 16) {
         auto result = _mm512_loadu_si512(reinterpret_cast<const __m512i *>(staged[reg] + lane));
         _mm512_mask_storeu_epi32(d[reg] + lane, __mmask16(exec_mask >> lane), result);
       }
+    }
+  }
   return conditions & exec_mask;
 }
 

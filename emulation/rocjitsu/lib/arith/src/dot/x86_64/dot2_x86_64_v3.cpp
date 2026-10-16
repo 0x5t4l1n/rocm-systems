@@ -17,11 +17,12 @@ template <bool Bf16> __m256 widen(__m256i words, int shift, uint32_t negate) {
   auto halves =
       _mm256_and_si256(_mm256_srl_epi32(words, _mm_cvtsi32_si128(shift)), _mm256_set1_epi32(65535));
   halves = _mm256_xor_si256(halves, _mm256_set1_epi32(negate ? 0x8000 : 0));
-  if constexpr (Bf16)
+  if constexpr (Bf16) {
     return _mm256_castsi256_ps(_mm256_slli_epi32(halves, 16));
-  else
+  } else {
     return _mm256_cvtph_ps(
         _mm_packus_epi32(_mm256_castsi256_si128(halves), _mm256_extracti128_si256(halves, 1)));
+  }
 }
 
 // Accumulate loose FP16/BF16 DOT2 products for the selected lanes. Requires validated
@@ -56,10 +57,11 @@ void dot(uint32_t exec_mask, uint32_t modifiers, uint32_t *d, const uint32_t *a,
 // Requires the named CPU features and validated instruction controls.
 void dot2_x86_64_v3(bool bf16, uint32_t exec_mask, uint32_t modifiers, uint32_t *d,
                     const uint32_t *a, const uint32_t *b, const uint32_t *c) {
-  if (bf16)
+  if (bf16) {
     dot<true>(exec_mask, modifiers, d, a, b, c);
-  else
+  } else {
     dot<false>(exec_mask, modifiers, d, a, b, c);
+  }
 }
 
 } // namespace rocjitsu::arith

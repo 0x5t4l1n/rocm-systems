@@ -20,11 +20,13 @@ inline float f16_to_float(uint16_t bits) {
   uint32_t sign = uint32_t(bits & 0x8000) << 16;
   int exponent = (bits >> 10) & 31;
   uint32_t fraction = bits & 1023;
-  if (exponent == 31)
+  if (exponent == 31) {
     return as_float(sign | 0x7f800000 | (fraction << 13));
+  }
   if (exponent == 0) {
-    if (!fraction)
+    if (!fraction) {
       return as_float(sign);
+    }
     exponent = 1;
     while (!(fraction & 1024)) {
       fraction <<= 1;
@@ -46,8 +48,9 @@ inline uint16_t float_to_f16(float value, bool saturate = false) {
   }
   int adjusted = int(exponent) - 112;
   if (adjusted <= 0) {
-    if (adjusted < -10)
+    if (adjusted < -10) {
       return uint16_t(sign);
+    }
     uint32_t significand = fraction | 0x800000;
     int shift = 14 - adjusted;
     uint32_t rounded = significand >> shift;
@@ -55,24 +58,27 @@ inline uint16_t float_to_f16(float value, bool saturate = false) {
     rounded += tail > half || (tail == half && (rounded & 1));
     return uint16_t(sign | rounded);
   }
-  if (adjusted >= 31)
+  if (adjusted >= 31) {
     return uint16_t(sign | (saturate ? 0x7bff : 0x7c00));
+  }
   uint32_t rounded = fraction >> 13, tail = fraction & 8191;
   rounded += tail > 4096 || (tail == 4096 && (rounded & 1));
   if (rounded == 1024) {
     rounded = 0;
     ++adjusted;
   }
-  if (adjusted >= 31)
+  if (adjusted >= 31) {
     return uint16_t(sign | (saturate ? 0x7bff : 0x7c00));
+  }
   return uint16_t(sign | (uint32_t(adjusted) << 10) | rounded);
 }
 
 // Nearest-even FP32-to-BF16 conversion; NaNs are quieted and remain NaNs.
 inline uint16_t float_to_bf16(float value) {
   uint32_t bits = as_bits(value);
-  if ((bits & 0x7fffffff) > 0x7f800000)
+  if ((bits & 0x7fffffff) > 0x7f800000) {
     return uint16_t((bits >> 16) | 0x40);
+  }
   return uint16_t((bits + 0x7fff + ((bits >> 16) & 1)) >> 16);
 }
 
@@ -87,14 +93,17 @@ template <bool Bf8> inline float fp8_to_float(uint8_t bits) {
   int exponent = (bits & 0x7f) >> fraction_bits;
   uint32_t fraction = bits & ((1u << fraction_bits) - 1);
   if (exponent == max_exponent) {
-    if ((Bf8 && fraction) || (!Bf8 && fraction == 7))
+    if ((Bf8 && fraction) || (!Bf8 && fraction == 7)) {
       return as_float(sign | 0x7fc00000);
-    if constexpr (Bf8)
+    }
+    if constexpr (Bf8) {
       return as_float(sign | 0x7f800000);
+    }
   }
   if (!exponent) {
-    if (!fraction)
+    if (!fraction) {
       return as_float(sign);
+    }
     exponent = 1;
     while (!(fraction & (1u << fraction_bits))) {
       fraction <<= 1;

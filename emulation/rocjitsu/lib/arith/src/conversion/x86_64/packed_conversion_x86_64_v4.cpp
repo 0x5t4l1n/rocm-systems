@@ -17,9 +17,9 @@ template <PackedConversion Op> __m512i narrow(__m512i raw, uint32_t mode) {
   raw = _mm512_and_si512(raw, _mm512_set1_epi32(mode & RJ_ARITH_ALU_ABS_A ? INT32_MAX : -1));
   raw = _mm512_xor_si512(raw, _mm512_set1_epi32(mode & RJ_ARITH_ALU_NEG_A ? INT32_MIN : 0));
   auto value = _mm512_castsi512_ps(raw);
-  if constexpr (Op == PackedConversion::HalfRtz)
+  if constexpr (Op == PackedConversion::HalfRtz) {
     return _mm512_cvtepu16_epi32(_mm512_cvtps_ph(value, _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC));
-  else if constexpr (Op == PackedConversion::Unsigned) {
+  } else if constexpr (Op == PackedConversion::Unsigned) {
     value = _mm512_min_ps(_mm512_max_ps(value, _mm512_setzero_ps()), _mm512_set1_ps(65535));
     return _mm512_cvttps_epi32(value);
   } else {

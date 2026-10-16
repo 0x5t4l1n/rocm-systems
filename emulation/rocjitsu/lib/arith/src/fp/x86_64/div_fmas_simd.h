@@ -165,8 +165,9 @@ inline typename O::V division_vector_fmas(typename O::V a, typename O::V b, type
                           O::band(kept, fracmask)));
   result = O::select(O::ugt(hidden, kept), O::bor(sign, kept), result);
   result = O::select(O::gt(result_exponent, O::set(F::bias)), O::bor(sign, inf), result);
-  if (omod)
+  if (omod) {
     result = O::select(O::gt(O::set(uint64_t(1 - F::bias)), result_exponent), zero, result);
+  }
   result = O::select(O::eq(O::bor(sum.lo, sum.hi), zero), sign, result);
 
   // Reuse the scalar division_round classifier's discarded bits and tininess
@@ -177,12 +178,14 @@ inline typename O::V division_vector_fmas(typename O::V a, typename O::V b, type
         O::both(active, O::both(finite, O::inverse(O::eq(O::bor(sum.lo, sum.hi), zero))));
     auto overflow = O::either(O::gt(O::add(highest, exponent), O::set(F::bias)),
                               O::gt(result_exponent, O::set(F::bias)));
-    if (O::any(O::both(participating, overflow)))
+    if (O::any(O::both(participating, overflow))) {
       *causes |= RJ_ARITH_EXCEPTION_OVERFLOW | (omod ? 0 : RJ_ARITH_EXCEPTION_INEXACT);
+    }
     if (!omod) {
       auto inexact = O::both(positive, O::either(guard, sticky));
-      if (O::any(O::both(participating, inexact)))
+      if (O::any(O::both(participating, inexact))) {
         *causes |= RJ_ARITH_EXCEPTION_INEXACT;
+      }
       auto normal_shift = O::sub(highest, O::set(F::fraction));
       auto midpoint =
           division_vector_sub<O>(division_vector_left<O>({one, zero}, O::add(highest, one)),
@@ -194,16 +197,18 @@ inline typename O::V division_vector_fmas(typename O::V a, typename O::V b, type
                           O::both(O::gt(normal_shift, zero), at_midpoint));
       auto tiny = O::both(O::gt(O::set(uint64_t(1 - F::bias)), O::add(highest, exponent)),
                           O::inverse(edge));
-      if (O::any(O::both(participating, O::both(inexact, tiny))))
+      if (O::any(O::both(participating, O::both(inexact, tiny)))) {
         *causes |= RJ_ARITH_EXCEPTION_UNDERFLOW;
+      }
     } else if (((mode >> 6) & 3) != 3) {
       auto magnitude = O::band(result, O::set(F::sign - 1));
       auto scaled_overflow =
           O::both(O::ugt(inf, magnitude),
                   O::gt(O::add(O::shr(magnitude, O::set(F::fraction)), O::set((mode >> 6) & 3)),
                         O::set(2 * F::bias)));
-      if (O::any(O::both(participating, scaled_overflow)))
+      if (O::any(O::both(participating, scaled_overflow))) {
         *causes |= RJ_ARITH_EXCEPTION_OVERFLOW;
+      }
     }
   }
   // Restore exceptional operands in ISA priority order, before output modifiers.
@@ -217,15 +222,16 @@ inline typename O::V division_vector_fmas(typename O::V a, typename O::V b, type
   result = O::select(invalid, O::set(F::sign | F::infinity | F::quiet), result);
   result = O::select(O::ugt(bm, inf), O::bor(b, O::set(F::quiet)), result);
   result = O::select(O::ugt(am, inf), O::bor(a, O::set(F::quiet)), result);
-  if (flush_output)
+  if (flush_output) {
     result = O::select(O::eq(O::band(result, inf), zero), O::band(result, signbit), result);
+  }
   unsigned output_scale = (mode >> 6) & 3;
   if (output_scale) {
     auto e = O::band(result, inf), outsign = O::band(result, signbit);
     V scaled;
-    if (output_scale == 3)
+    if (output_scale == 3) {
       scaled = O::select(O::eq(e, hidden), outsign, O::sub(result, hidden));
-    else {
+    } else {
       auto increment = O::set(uint64_t(output_scale) << F::fraction);
       scaled = O::select(O::inverse(O::ugt(O::sub(inf, increment), e)), O::bor(outsign, inf),
                          O::add(result, increment));
@@ -255,25 +261,32 @@ inline void division_vector_run(uint32_t exec_mask, uint32_t mode, uint32_t *con
     const uint32_t *const *sources[] = {a, b, c};
     for (int i = 0; i < 3; ++i) {
       inputs[i] = O::load_words(sources[i][0] + lane);
-      if constexpr (Width == 64)
+      if constexpr (Width == 64) {
         inputs[i] = O::bor(inputs[i], O::shl(O::load_words(sources[i][1] + lane), O::set(32)));
-      if (mode & (RJ_ARITH_ALU_ABS_A << i))
+      }
+      if (mode & (RJ_ARITH_ALU_ABS_A << i)) {
         inputs[i] = O::band(inputs[i], O::set(~uint64_t(F::sign)));
-      if (mode & (RJ_ARITH_ALU_NEG_A << i))
+      }
+      if (mode & (RJ_ARITH_ALU_NEG_A << i)) {
         inputs[i] = O::bxor(inputs[i], O::set(F::sign));
+      }
     }
     auto result = division_vector_fmas<Width, O>(
         inputs[0], inputs[1], inputs[2], O::lane_mask(condition >> lane), mode, flush_output,
         O::lane_mask(exec_mask >> lane), state ? &causes : nullptr);
     O::store_words(staged[0] + lane, result);
-    if constexpr (Width == 64)
+    if constexpr (Width == 64) {
       O::store_words(staged[1] + lane, O::shr(result, O::set(32)));
+    }
   }
-  for (int reg = 0; reg < (Width == 64 ? 2 : 1); ++reg)
-    for (int lane = 0; lane < 32; lane += O::lanes)
+  for (int reg = 0; reg < (Width == 64 ? 2 : 1); ++reg) {
+    for (int lane = 0; lane < 32; lane += O::lanes) {
       O::masked_words(d[reg] + lane, staged[reg] + lane, exec_mask >> lane);
-  if (state)
+    }
+  }
+  if (state) {
     *state |= causes;
+  }
 }
 
 } // namespace rocjitsu::arith

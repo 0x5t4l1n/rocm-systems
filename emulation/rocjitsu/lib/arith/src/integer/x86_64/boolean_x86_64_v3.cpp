@@ -24,25 +24,32 @@ void boolean_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *d, const uin
   for (int lane = 0; lane < 32; lane += 8) {
     __m256i x;
     x = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(a + lane));
-    if constexpr (Half)
+    if constexpr (Half) {
       x = _mm256_srl_epi32(x, sa);
+    }
     __m256i y;
     if constexpr (Op != Boolean::Not) {
       y = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(b + lane));
-      if constexpr (Half)
+      if constexpr (Half) {
         y = _mm256_srl_epi32(y, sb);
+      }
     }
     __m256i result;
-    if constexpr (Op == Boolean::And)
+    if constexpr (Op == Boolean::And) {
       result = _mm256_and_si256(x, y);
-    if constexpr (Op == Boolean::Or)
+    }
+    if constexpr (Op == Boolean::Or) {
       result = _mm256_or_si256(x, y);
-    if constexpr (Op == Boolean::Xor)
+    }
+    if constexpr (Op == Boolean::Xor) {
       result = _mm256_xor_si256(x, y);
-    if constexpr (Op == Boolean::Xnor)
+    }
+    if constexpr (Op == Boolean::Xnor) {
       result = _mm256_xor_si256(_mm256_xor_si256(x, y), _mm256_set1_epi32(-1));
-    if constexpr (Op == Boolean::Not)
+    }
+    if constexpr (Op == Boolean::Not) {
       result = _mm256_xor_si256(x, _mm256_set1_epi32(-1));
+    }
     if constexpr (Half) {
       auto original = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(d + lane));
       auto selected = _mm256_sll_epi32(result, sd);

@@ -34,38 +34,43 @@ inline uint64_t scalar_input(std::minstd_rand &random, int sample) {
 
 // Interpret the low width bits as a signed value without an out-of-range signed cast.
 inline int64_t signed_word(uint64_t a, int width) {
-  if (width == 64)
+  if (width == 64) {
     return a <= 0x7fffffffffffffffULL ? int64_t(a) : -1 - int64_t(~a);
+  }
   return extend_bits(uint32_t(a) & ((1ULL << width) - 1), width, true);
 }
 
 // Reverse the low width bits.
 inline uint64_t reverse_word(uint64_t a, int width) {
   uint64_t out = 0;
-  for (int bit = 0; bit < width; ++bit)
+  for (int bit = 0; bit < width; ++bit) {
     out |= ((a >> bit) & 1) << (width - 1 - bit);
+  }
   return out;
 }
 
 // Count set bits in the low width bits.
 inline int count_word(uint64_t a, int width) {
   int count = 0;
-  for (int bit = 0; bit < width; ++bit)
+  for (int bit = 0; bit < width; ++bit) {
     count += int((a >> bit) & 1);
+  }
   return count;
 }
 
 // Extract the control-selected field and optionally sign-extend it.
 inline uint64_t field_word(uint64_t a, uint32_t control, int width, bool sign) {
   int offset = control % width, count = (control >> 16) & 127;
-  if (!count)
+  if (!count) {
     return 0;
+  }
   uint64_t out = 0;
   for (int bit = 0; bit < width; ++bit) {
     int source = offset + bit;
     bool set = source < width ? ((a >> source) & 1) : sign && ((a >> (width - 1)) & 1);
-    if (bit >= count)
+    if (bit >= count) {
       set = sign && ((out >> (count - 1)) & 1);
+    }
     out |= uint64_t(set) << bit;
   }
   return out;
@@ -76,7 +81,7 @@ inline uint64_t field_word(uint64_t a, uint32_t control, int width, bool sign) {
 // independent of the optional FP-status semantics used by floating operations.
 template <class Word, class Call, class Reference>
 void check_scalar_integer(Call call, Reference reference, bool writes_scc = false) {
-  for (auto cpu : supported_cpu_levels())
+  for (auto cpu : supported_cpu_levels()) {
     for (auto semantics : semantics_modes()) {
       std::minstd_rand random;
       for (int sample = 0; sample < 128; ++sample) {
@@ -101,6 +106,7 @@ void check_scalar_integer(Call call, Reference reference, bool writes_scc = fals
         }
       }
     }
+  }
   Word d = 123;
   uint32_t cc = 456;
   expect_invalid_flags(

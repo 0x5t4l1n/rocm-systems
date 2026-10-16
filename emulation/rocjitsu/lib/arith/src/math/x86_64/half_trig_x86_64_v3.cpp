@@ -29,8 +29,9 @@ __m256i output(__m256i bits, uint32_t mode) {
                            _mm256_set1_epi32(1)));
       scaled = _mm256_blendv_epi8(_mm256_sub_epi32(magnitude, _mm256_set1_epi32(0x400)), rounded,
                                   _mm256_cmpgt_epi32(_mm256_set1_epi32(0x800), magnitude));
-    } else
+    } else {
       scaled = _mm256_add_epi32(magnitude, _mm256_set1_epi32(int(scale * 0x400)));
+    }
     const __m256i tiny = _mm256_or_si256(_mm256_cmpgt_epi32(_mm256_set1_epi32(0x400), magnitude),
                                          _mm256_cmpgt_epi32(_mm256_set1_epi32(0x400), scaled));
     scaled = _mm256_andnot_si256(
@@ -74,10 +75,11 @@ template <bool Cosine> void run(uint32_t exec_mask, uint32_t mode, uint32_t *d, 
 // Requires the named CPU features and validated instruction controls.
 void half_trig_x86_64_v3(bool cosine, uint32_t exec_mask, uint32_t mode, uint32_t *d,
                          const uint32_t *a) {
-  if (cosine)
+  if (cosine) {
     run<true>(exec_mask, mode, d, a);
-  else
+  } else {
     run<false>(exec_mask, mode, d, a);
+  }
 }
 
 } // namespace rocjitsu::arith

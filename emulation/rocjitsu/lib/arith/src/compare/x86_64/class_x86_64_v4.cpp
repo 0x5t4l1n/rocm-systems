@@ -33,12 +33,14 @@ uint32_t class_x86_64_v4(uint32_t mode, const uint32_t *const *a, const uint32_t
     auto exponent =
         _mm512_and_si512(_mm512_srli_epi32(high, fraction_bits), _mm512_set1_epi32(exponent_mask));
     auto fraction = _mm512_and_si512(high, _mm512_set1_epi32((1u << fraction_bits) - 1));
-    if constexpr (Bits == 64)
+    if constexpr (Bits == 64) {
       fraction = _mm512_or_si512(
           fraction, _mm512_loadu_si512(reinterpret_cast<const __m512i *>(a[0] + lane)));
+    }
     auto signed_high = high;
-    if constexpr (Bits == 16)
+    if constexpr (Bits == 16) {
       signed_high = _mm512_slli_epi32(high, 16);
+    }
     auto quiet = _mm512_and_si512(_mm512_srli_epi32(high, fraction_bits - 1), _mm512_set1_epi32(1));
     auto zero_fraction = _mm512_cmpeq_epi32_mask(fraction, _mm512_setzero_si512());
     auto zero_exponent = _mm512_cmpeq_epi32_mask(exponent, _mm512_setzero_si512());

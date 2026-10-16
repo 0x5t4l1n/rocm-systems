@@ -30,13 +30,15 @@ void compute_dx9_fma_expected(const rocjitsu::arith::test::Registers<10, Lanes> 
                               uint64_t exec_mask, uint64_t mode, int aliasing_offset,
                               rocjitsu::arith::test::Registers<10, Lanes> &expected_registers) {
   for (int lane = 0; lane < Lanes; ++lane) {
-    if (!((exec_mask >> lane) & 1))
+    if (!((exec_mask >> lane) & 1)) {
       continue;
+    }
     // DPP8 reverses each group; FI controls reads from inactive sources.
     int source_lane = mode & RJ_ARITH_DPP8 ? (lane & ~7) + 7 - (lane & 7) : lane;
     uint64_t a = rocjitsu::arith::test::read_fp(input.v, source_lane, 32, 0);
-    if ((mode & RJ_ARITH_DPP8) && !(mode & RJ_ARITH_DPP_FI) && !((exec_mask >> source_lane) & 1))
+    if ((mode & RJ_ARITH_DPP8) && !(mode & RJ_ARITH_DPP_FI) && !((exec_mask >> source_lane) & 1)) {
       a = 0;
+    }
     uint64_t b = rocjitsu::arith::test::read_fp(input.v + 2, lane, 32, 0);
     uint64_t c =
         rocjitsu::arith::test::read_fp(input.v + (Accumulate ? aliasing_offset : 4), lane, 32, 0);
@@ -45,10 +47,12 @@ void compute_dx9_fma_expected(const rocjitsu::arith::test::Registers<10, Lanes> 
     double y = rocjitsu::arith::test::modified_fp(rocjitsu::arith::test::fp_value(b, 32), mode, 1);
     double z = rocjitsu::arith::test::modified_fp(rocjitsu::arith::test::fp_value(c, 32), mode, 2);
     double value = double(std::fma(float(x), float(y), float(z)));
-    if (x == 0 || y == 0)
+    if (x == 0 || y == 0) {
       value = z;
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    }
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       value = !(value > 0) ? 0 : std::min(value, 1.0);
+    }
     uint64_t expected = rocjitsu::arith::test::fp_bits(value, 32);
     rocjitsu::arith::test::write_fp(expected_registers.v + aliasing_offset, lane, 32, expected, 0);
   }
@@ -60,10 +64,11 @@ template <int Lanes, bool Accumulate, class Call> void check_dx9_fma(Call entry_
   static_assert(Lanes == 32 || Lanes == 64);
   auto call = [&](uint64_t flags, Mask exec_mask, uint64_t mode, uint32_t *const *d,
                   const uint32_t *const *a, const uint32_t *const *b, const uint32_t *const *c) {
-    if constexpr (Accumulate)
+    if constexpr (Accumulate) {
       return entry_point(flags, exec_mask, mode, d, a, b);
-    else
+    } else {
       return entry_point(flags, exec_mask, mode, d, a, b, c);
+    }
   };
   check_fma_simd<32, Lanes>(
       [&](uint64_t flags, Mask exec_mask, uint64_t mode, uint32_t *const *d,
@@ -89,16 +94,17 @@ template <int Lanes, bool Accumulate, class Call> void check_dx9_fma(Call entry_
   // by classification. No production helper or rj-arith result is a numeric oracle.
   const auto cpu_levels = rocjitsu::arith::test::supported_cpu_levels();
   for (uint64_t cpu : cpu_levels) {
-    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes())
+    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes()) {
       for (uint64_t mode : {uint64_t(0), uint64_t(RJ_ARITH_ALU_NEG_A), uint64_t(RJ_ARITH_ALU_CLAMP),
                             uint64_t(RJ_ARITH_DPP8 | (0x53977ULL << RJ_ARITH_DPP8_SELECT_SHIFT)),
                             uint64_t(RJ_ARITH_DPP8 | (0x53977ULL << RJ_ARITH_DPP8_SELECT_SHIFT) |
-                                     RJ_ARITH_DPP_FI | RJ_ARITH_ALU_NEG_A)})
+                                     RJ_ARITH_DPP_FI | RJ_ARITH_ALU_NEG_A)}) {
         for (Mask exec_mask :
-             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)})
+             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)}) {
           for (int aliasing_offset : {6, 0, 2, 4}) {
-            if (Accumulate && aliasing_offset == 4)
+            if (Accumulate && aliasing_offset == 4) {
               continue;
+            }
             SCOPED_TRACE(::testing::Message() << cpu << '/' << semantics << '/' << mode << '/'
                                               << exec_mask << '/' << aliasing_offset);
             Registers r = input, expected_registers = input;
@@ -119,6 +125,9 @@ template <int Lanes, bool Accumulate, class Call> void check_dx9_fma(Call entry_
                                                         aliasing_offset, 0, semantics,
                                                         /*atol=*/1e-5, /*rtol=*/1e-6);
           }
+        }
+      }
+    }
   }
 }
 

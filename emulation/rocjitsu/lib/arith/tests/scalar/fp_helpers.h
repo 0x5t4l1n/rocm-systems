@@ -30,7 +30,7 @@ void check_scalar_fp(Call call, Reference reference, bool exact = false, int out
                      bool report = true) {
   constexpr uint32_t inf = Half ? 0x7c00U : 0x7f800000U, quiet = Half ? 0x200U : 0x400000U;
   constexpr uint32_t sign = Half ? 0x8000U : 0x80000000U;
-  for (auto cpu : supported_cpu_levels())
+  for (auto cpu : supported_cpu_levels()) {
     for (auto semantics : semantics_modes()) {
       std::minstd_rand random;
       for (int sample = 0; sample < 128; ++sample) {
@@ -38,10 +38,12 @@ void check_scalar_fp(Call call, Reference reference, bool exact = false, int out
         uint32_t b = Half ? random_f16_bits(random) : random_f32_bits(random);
         uint32_t c = Half ? random_f16_bits(random) : random_f32_bits(random);
         const uint32_t edges[] = {0, sign, inf, inf | sign, inf | quiet | 1, inf | 1, 1, sign | 1};
-        if (sample < 8)
+        if (sample < 8) {
           a = edges[sample];
-        if (sample >= 8 && sample < 16)
+        }
+        if (sample >= 8 && sample < 16) {
           b = edges[sample - 8];
+        }
         if (Half) {
           a |= random_word(random) & 0xffff0000U;
           b |= random_word(random) & 0xffff0000U;
@@ -59,27 +61,29 @@ void check_scalar_fp(Call call, Reference reference, bool exact = false, int out
         SCOPED_TRACE(::testing::Message() << cpu << '/' << semantics << '/' << sample);
         uint32_t words[] = {123, c, 456}, status = 0x80000040U, expected_status = status;
         ASSERT_EQ(call(flags, 0, words + 1, a, b, c, &status), wanted);
-        if (wanted)
+        if (wanted) {
           EXPECT_EQ(words[1], c);
-        else {
+        } else {
           uint32_t expected = reference(a, b, c, flush);
-          if (output_format == 1)
+          if (output_format == 1) {
             EXPECT_EQ(words[1], expected);
-          else if (Half || output_format == 2) {
+          } else if (Half || output_format == 2) {
             EXPECT_EQ(words[1] >> 16, 0U);
             expect_f32(bit_cast<uint32_t>(f16_value(uint16_t(words[1]))),
                        f16_value(uint16_t(expected)), exact ? semantics : RJ_ARITH_SEMANTICS_LOOSE,
                        /*atol=*/0x1p-24f, /*rtol=*/1e-3f);
-          } else
+          } else {
             expect_f32(words[1], bit_cast<float>(expected),
                        exact ? semantics : RJ_ARITH_SEMANTICS_LOOSE,
                        /*atol=*/0x1p-149f, /*rtol=*/1.2e-7f);
+          }
           if (exact && semantics == RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL) {
             uint32_t magnitude = a & (sign - 1);
-            if (magnitude > inf && !(magnitude & quiet))
+            if (magnitude > inf && !(magnitude & quiet)) {
               expected_status |= RJ_ARITH_EXCEPTION_INVALID;
-            else if (magnitude && !(magnitude & inf) && !flush)
+            } else if (magnitude && !(magnitude & inf) && !flush) {
               expected_status |= RJ_ARITH_EXCEPTION_INPUT_DENORM;
+            }
           }
           // A separate alias call uses an identical snapshotted accumulator.
           uint32_t alias = c, alias_status = 0x80000040U;
@@ -92,6 +96,7 @@ void check_scalar_fp(Call call, Reference reference, bool exact = false, int out
         EXPECT_EQ(words[2], 456U);
       }
     }
+  }
   uint32_t d = 123, status = 456;
   expect_invalid_flags(
       [&](auto flags, auto mode) {
@@ -106,8 +111,9 @@ void check_scalar_fp(Call call, Reference reference, bool exact = false, int out
 // Decode FP16/FP32 scalar bits, optionally flushing subnormal inputs.
 template <bool Half> double scalar_fp_value(uint32_t bits, bool flush) {
   double value = Half ? half_value(uint16_t(bits)) : double(bit_cast<float>(bits));
-  if (flush && std::abs(value) < (Half ? 0x1p-14 : 0x1p-126))
+  if (flush && std::abs(value) < (Half ? 0x1p-14 : 0x1p-126)) {
     value = std::copysign(0.0, value);
+  }
   return value;
 }
 

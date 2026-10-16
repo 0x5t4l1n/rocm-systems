@@ -19,12 +19,15 @@ namespace {
 template <bool Backward, int Lanes, int Group, bool ReadInactive = false>
 int permute(uint64_t flags, uint64_t exec_mask, uint64_t instruction_flags, uint32_t *const *d,
             const uint32_t *const *addr, const uint32_t *const *data, uint16_t offset) {
-  if (instruction_flags >> 32)
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = rocjitsu::arith::validate(flags, uint32_t(instruction_flags), true))
+  }
+  if (int error = rocjitsu::arith::validate(flags, uint32_t(instruction_flags), true)) {
     return error;
-  if (!exec_mask)
+  }
+  if (!exec_mask) {
     return RJ_ARITH_SUCCESS;
+  }
 #if defined(RJ_ARITH_HAVE_X86_64_V3)
   if constexpr (Backward && !ReadInactive) {
     if ((flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V3) {
@@ -43,14 +46,17 @@ int permute(uint64_t flags, uint64_t exec_mask, uint64_t instruction_flags, uint
     } else {
       // Visit every lane in order. The highest active source wins collisions,
       // matching rocjitsu and the ISA pseudocode's deterministic choice.
-      if ((exec_mask >> lane) & 1)
+      if ((exec_mask >> lane) & 1) {
         result[selected] = data[0][lane];
+      }
     }
   }
   // Delay stores until every source/address has been consumed, including aliases.
-  for (int lane = 0; lane < Lanes; ++lane)
-    if ((exec_mask >> lane) & 1)
+  for (int lane = 0; lane < Lanes; ++lane) {
+    if ((exec_mask >> lane) & 1) {
       d[0][lane] = result[lane];
+    }
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -63,8 +69,9 @@ int rj_arith_ds_permute_b32_w32(uint64_t flags, uint32_t exec_mask, uint64_t ins
                                 const uint32_t *const *data, uint16_t offset) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return permute<false, 32, 32>(flags, exec_mask, instruction_flags, d, addr, data, offset);
 }
 
@@ -75,8 +82,9 @@ int rj_arith_ds_permute_b32_w64(uint64_t flags, uint64_t exec_mask, uint64_t ins
                                 const uint32_t *const *data, uint16_t offset) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return permute<false, 64, 32>(flags, exec_mask, instruction_flags, d, addr, data, offset);
 }
 
@@ -88,8 +96,9 @@ int rj_arith_ds_permute_b32_w64_gfx12(uint64_t flags, uint64_t exec_mask,
                                       uint16_t offset) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return permute<false, 64, 64>(flags, exec_mask, instruction_flags, d, addr, data, offset);
 }
 
@@ -100,8 +109,9 @@ int rj_arith_ds_bpermute_b32_w32(uint64_t flags, uint32_t exec_mask, uint64_t in
                                  const uint32_t *const *data, uint16_t offset) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return permute<true, 32, 32>(flags, exec_mask, instruction_flags, d, addr, data, offset);
 }
 
@@ -112,8 +122,9 @@ int rj_arith_ds_bpermute_b32_w64(uint64_t flags, uint64_t exec_mask, uint64_t in
                                  const uint32_t *const *data, uint16_t offset) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return permute<true, 64, 32>(flags, exec_mask, instruction_flags, d, addr, data, offset);
 }
 
@@ -125,8 +136,9 @@ int rj_arith_ds_bpermute_b32_w64_gfx12(uint64_t flags, uint64_t exec_mask,
                                        uint16_t offset) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return permute<true, 64, 64>(flags, exec_mask, instruction_flags, d, addr, data, offset);
 }
 
@@ -137,8 +149,9 @@ int rj_arith_ds_bpermute_fi_b32_w32(uint64_t flags, uint32_t exec_mask, uint64_t
                                     const uint32_t *const *data, uint16_t offset) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return permute<true, 32, 32, true>(flags, exec_mask, instruction_flags, d, addr, data, offset);
 }
 
@@ -149,7 +162,8 @@ int rj_arith_ds_bpermute_fi_b32_w64(uint64_t flags, uint64_t exec_mask, uint64_t
                                     const uint32_t *const *data, uint16_t offset) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return permute<true, 64, 64, true>(flags, exec_mask, instruction_flags, d, addr, data, offset);
 }

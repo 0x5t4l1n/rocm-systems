@@ -33,12 +33,15 @@ void check_normalized(Call call, Normalized operation) {
   // Retain edge classes, but spend the other lanes inside the nonsaturated
   // interval. Fractional products exercise nearest-even rounding.
   std::minstd_rand random;
-  for (int reg : {0, 2})
-    for (int lane = 16; lane < Lanes; ++lane)
-      if (op < 2)
+  for (int reg : {0, 2}) {
+    for (int lane = 16; lane < Lanes; ++lane) {
+      if (op < 2) {
         input.v[reg][lane] = bit_cast<uint32_t>(float(int(random() >> 7) - 0x800000) * 0x1p-23f);
-      else
+      } else {
         input.v[reg][lane] = random_f16_pair(random);
+      }
+    }
+  }
 
   if (op == 2 || op == 3) {
     // Largest FP16 subnormals produce nonzero normalized integers unless
@@ -57,9 +60,11 @@ void check_normalized(Call call, Normalized operation) {
       [=](uint64_t a, uint32_t b, uint32_t, uint32_t d, uint64_t flags, uint32_t mode) {
         if ((op == 2 || op == 3) && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)) {
           auto flush = [](uint32_t word) {
-            for (int shift : {0, 16})
-              if (((word >> shift) & 0x7fff) < 0x400)
+            for (int shift : {0, 16}) {
+              if (((word >> shift) & 0x7fff) < 0x400) {
                 word &= ~(0x7fffU << shift);
+              }
+            }
             return word;
           };
           a = flush(uint32_t(a));

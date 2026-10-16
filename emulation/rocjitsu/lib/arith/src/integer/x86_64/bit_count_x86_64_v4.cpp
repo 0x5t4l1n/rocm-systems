@@ -32,26 +32,29 @@ void bit_count_x86_64_v4(ExecMask<Lanes> exec_mask, uint32_t *d, const uint32_t 
                          const uint32_t *b) {
   for (int lane = 0; lane < Lanes; lane += 16) {
     auto x = _mm512_loadu_si512(reinterpret_cast<const __m512i *>(a + lane));
-    if constexpr (Op == BitCount::Sign)
+    if constexpr (Op == BitCount::Sign) {
       x = _mm512_xor_si512(x, _mm512_srai_epi32(x, 31));
+    }
     __m512i result;
     if constexpr (Op == BitCount::Leading || Op == BitCount::Sign || Op == BitCount::Trailing) {
-      if constexpr (Op == BitCount::Trailing)
+      if constexpr (Op == BitCount::Trailing) {
         result = _mm512_sub_epi32(
             _mm512_set1_epi32(31),
             _mm512_lzcnt_epi32(_mm512_and_si512(x, _mm512_sub_epi32(_mm512_setzero_si512(), x))));
-      else
+      } else {
         result = _mm512_mask_mov_epi32(_mm512_lzcnt_epi32(x),
                                        _mm512_cmpeq_epi32_mask(x, _mm512_setzero_si512()),
                                        _mm512_set1_epi32(-1));
+      }
     } else {
       if constexpr (Op == BitCount::MaskedLow || Op == BitCount::MaskedHigh) {
         auto index = _mm512_add_epi32(
             _mm512_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
             _mm512_set1_epi32(lane));
-        if constexpr (Op == BitCount::MaskedHigh)
+        if constexpr (Op == BitCount::MaskedHigh) {
           index = _mm512_max_epi32(_mm512_sub_epi32(index, _mm512_set1_epi32(32)),
                                    _mm512_setzero_si512());
+        }
         auto below =
             _mm512_sub_epi32(_mm512_sllv_epi32(_mm512_set1_epi32(1), index), _mm512_set1_epi32(1));
         x = _mm512_and_si512(x, below);

@@ -42,21 +42,26 @@ uint64_t reference(unsigned exponent, unsigned selector, unsigned mode, unsigned
   long double unrounded = std::ldexp(static_cast<long double>(segment),
                                      -53 - int(shift) + (exponent >= 1968 ? 128 : 0));
   double value = static_cast<double>(unrounded);
-  if (static_cast<long double>(value) > unrounded)
+  if (static_cast<long double>(value) > unrounded) {
     value = std::nextafter(value, 0.0);
+  }
   unsigned omod = (mode >> 6) & 3;
-  if (!gfx12 && (!(guest & 2) || (guest & 4)))
+  if (!gfx12 && (!(guest & 2) || (guest & 4))) {
     omod = 0;
+  }
   if (omod) {
-    if (gfx12 && std::fpclassify(value) == FP_SUBNORMAL)
+    if (gfx12 && std::fpclassify(value) == FP_SUBNORMAL) {
       value = 0;
+    }
     value = static_cast<double>(
         std::ldexp(static_cast<long double>(value), omod == 3 ? -1 : int(omod)));
-    if (std::fpclassify(value) == FP_SUBNORMAL)
+    if (std::fpclassify(value) == FP_SUBNORMAL) {
       value = 0;
+    }
   }
-  if (mode & RJ_ARITH_ALU_CLAMP)
+  if (mode & RJ_ARITH_ALU_CLAMP) {
     value = std::min(value, 1.0);
+  }
   uint64_t bits;
   std::memcpy(&bits, &value, sizeof(bits));
   return bits;
@@ -74,9 +79,9 @@ template <int Lanes, bool Gfx12, class Call> void check_preop(Call call) {
         (uint32_t((1023 + sample * 33) % 2048) << 20) | (random_word(random) & 0x800fffffU);
     input.v[2][lane] = uint32_t(sample % 7) | 0xdeadbee0U;
   }
-  for (auto cpu : supported_cpu_levels())
-    for (auto semantics : semantics_modes())
-      for (int scenario = 0; scenario < 32; ++scenario)
+  for (auto cpu : supported_cpu_levels()) {
+    for (auto semantics : semantics_modes()) {
+      for (int scenario = 0; scenario < 32; ++scenario) {
         for (int d : {0, 1, 2, 3}) {
           auto actual = input;
           auto exec_mask = exec_mask_for_case<Lanes>(scenario);
@@ -97,7 +102,7 @@ template <int Lanes, bool Gfx12, class Call> void check_preop(Call call) {
           }
           // Source signs and fractions are irrelevant. The inherited table
           // oracle accounts for architecture-specific precision and OMOD.
-          for (int lane = 0; lane < Lanes; ++lane)
+          for (int lane = 0; lane < Lanes; ++lane) {
             for (int word = 0; word < 2; ++word) {
               uint64_t expected = reference((input.v[1][lane] >> 20) & 2047, input.v[2][lane],
                                             uint32_t(mode), 0, Gfx12);
@@ -105,8 +110,12 @@ template <int Lanes, bool Gfx12, class Call> void check_preop(Call call) {
                                                       ? uint32_t(expected >> (32 * word))
                                                       : input.v[d + word][lane]);
             }
+          }
           actual.expect_preserved(input, d, 2);
         }
+      }
+    }
+  }
   auto actual = input;
   expect_invalid_flags(
       [&](auto f, auto m) {

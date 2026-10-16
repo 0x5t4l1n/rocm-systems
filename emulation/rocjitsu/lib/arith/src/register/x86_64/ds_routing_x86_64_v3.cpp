@@ -64,8 +64,9 @@ void ds_swizzle_x86_64_v3(int lanes, uint64_t exec_mask, uint32_t *d, const uint
   unsigned mask = offset & 31;
   unsigned count = unsigned(__builtin_popcount(mask));
   unsigned rotate = (offset >> 5) & 31;
-  if (offset & 1024)
+  if (offset & 1024) {
     rotate = 0U - rotate;
+  }
   uint32_t result[64];
   for (int lane = 0; lane < lanes; lane += 8) {
     auto indices =

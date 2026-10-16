@@ -26,11 +26,13 @@ inline Mad64Result mad64_reference(bool is_signed, uint32_t a, uint32_t b, uint6
       is_signed ? uint64_t(extend_bits(a, 32, true) * extend_bits(b, 32, true)) : uint64_t(a) * b;
   uint64_t sum = product + c;
   bool carry = sum < product;
-  if (is_signed)
+  if (is_signed) {
     carry ^= bool(product >> 63) ^ bool(c >> 63);
+  }
   bool overflow = is_signed ? carry != bool(sum >> 63) : carry;
-  if (clamp && overflow)
+  if (clamp && overflow) {
     sum = is_signed ? carry ? 1ULL << 63 : UINT64_MAX >> 1 : UINT64_MAX;
+  }
   return {sum, carry};
 }
 

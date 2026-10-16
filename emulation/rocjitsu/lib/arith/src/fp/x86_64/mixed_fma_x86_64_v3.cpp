@@ -20,8 +20,9 @@ namespace {
 // Read eight mixed FP16/FP32 operands, applying half selection and source sign modifiers.
 __m256 input8(const uint32_t *p, uint32_t mode) {
   auto words = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(p));
-  if (mode & RJ_ARITH_MIX_F16_A)
+  if (mode & RJ_ARITH_MIX_F16_A) {
     return rocjitsu::arith::half_input<false>(words, mode & RJ_ARITH_ALU_HIGH_A ? 16 : 0, mode);
+  }
   return _mm256_castsi256_ps(_mm256_xor_si256(
       _mm256_and_si256(words, _mm256_set1_epi32(mode & RJ_ARITH_ALU_ABS_A ? INT32_MAX : -1)),
       _mm256_set1_epi32(mode & RJ_ARITH_ALU_NEG_A ? INT32_MIN : 0)));
@@ -58,8 +59,9 @@ void mixed_float(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *d,
     if constexpr (GuestPolicy) {
       // Apply guest input flushing only to operands represented as FP32.
       auto flush = [flags](__m256 input, uint32_t source_mode) {
-        if (!mixed_fma_flush_input(flags, source_mode))
+        if (!mixed_fma_flush_input(flags, source_mode)) {
           return input;
+        }
         auto bits = _mm256_castps_si256(input);
         auto tiny = _mm256_cmpgt_epi32(
             _mm256_set1_epi32(source_mode & RJ_ARITH_MIX_F16_A ? 0x38800000 : 0x00800000),
@@ -86,17 +88,20 @@ void mixed_float(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *d,
                                           _mm256_cmpgt_epi32(_mm256_set1_epi32(0x00800001), m)));
       repair = unsigned(_mm256_movemask_ps(_mm256_castsi256_ps(bad))) & (exec_mask >> lane);
     }
-    if (GuestPolicy && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
+    if (GuestPolicy && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) {
       result = flush_denorm_f32(result);
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    }
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       result = clamp_f32(result, GuestPolicy && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF));
+    }
     if constexpr (Exact) {
       if (repair) {
         uint32_t out[8];
         _mm256_storeu_si256(reinterpret_cast<__m256i *>(out), _mm256_castps_si256(result));
         for (int i = 0; i < 8; ++i) {
-          if (!((repair >> i) & 1))
+          if (!((repair >> i) & 1)) {
             continue;
+          }
           uint32_t aa = mixed_fma_input(a[lane + i], mode, mixed_fma_flush_input(flags, mode));
           uint32_t bb =
               mixed_fma_input(b[lane + i], mode >> 1, mixed_fma_flush_input(flags, mode >> 1));
@@ -151,8 +156,9 @@ void mixed_half(bool high, uint64_t flags, uint32_t exec_mask, uint32_t mode, ui
     if constexpr (GuestPolicy) {
       // Apply guest input flushing only to operands represented as FP32.
       auto flush = [flags](__m128 input, uint32_t source_mode) {
-        if (!mixed_fma_flush_input(flags, source_mode))
+        if (!mixed_fma_flush_input(flags, source_mode)) {
           return input;
+        }
         auto bits = _mm_castps_si128(input);
         auto tiny = _mm_cmplt_epi32(
             _mm_and_si128(bits, _mm_set1_epi32(INT32_MAX)),

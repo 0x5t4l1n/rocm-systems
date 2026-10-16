@@ -38,15 +38,17 @@ void check_float64(Call call, Conversion64 operation) {
   check_conversion<Lanes, 1, InputWords, OutputWords, false>(
       call, input,
       [=](uint64_t a, uint32_t, uint32_t, uint32_t, uint64_t flags, uint32_t mode) {
-        if (op != 2 && op != 3)
+        if (op != 2 && op != 3) {
           mode = conversion_effective_mode(flags, mode, Gfx12);
+        }
         return conversion64_reference(op, a, mode);
       },
       [=](uint64_t actual, uint64_t expected, uint64_t flags, uint32_t mode) {
-        if (op == 2 || op == 3)
+        if (op == 2 || op == 3) {
           conversion_bits(actual, expected, flags, mode);
-        else
+        } else {
           conversion_float(actual, expected, OutputWords * 32);
+        }
       },
       modifiers, false,
       RJ_ARITH_FP_IEEE_MODE | RJ_ARITH_FP_FLUSH_INPUT_DENORMALS |

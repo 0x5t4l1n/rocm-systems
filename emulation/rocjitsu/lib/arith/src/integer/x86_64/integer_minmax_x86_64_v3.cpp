@@ -13,18 +13,20 @@ namespace {
 
 // Select each lane's minimum using the template-selected signedness.
 template <bool Signed> __m256i minimum(__m256i a, __m256i b) {
-  if constexpr (Signed)
+  if constexpr (Signed) {
     return _mm256_min_epi32(a, b);
-  else
+  } else {
     return _mm256_min_epu32(a, b);
+  }
 }
 
 // Select each lane's maximum using the template-selected signedness.
 template <bool Signed> __m256i maximum(__m256i a, __m256i b) {
-  if constexpr (Signed)
+  if constexpr (Signed) {
     return _mm256_max_epi32(a, b);
-  else
+  } else {
     return _mm256_max_epu32(a, b);
+  }
 }
 
 // Select integer minima or maxima for the selected lanes. Requires validated controls;
@@ -35,22 +37,30 @@ void run(uint32_t exec_mask, uint32_t *d, const uint32_t *a, const uint32_t *b, 
     auto x = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(a + lane));
     auto y = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(b + lane));
     __m256i z = _mm256_setzero_si256(), value;
-    if constexpr (Op != IntegerMinmax::Min && Op != IntegerMinmax::Max)
+    if constexpr (Op != IntegerMinmax::Min && Op != IntegerMinmax::Max) {
       z = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(c + lane));
-    if constexpr (Op == IntegerMinmax::Min)
+    }
+    if constexpr (Op == IntegerMinmax::Min) {
       value = minimum<Signed>(x, y);
-    if constexpr (Op == IntegerMinmax::Max)
+    }
+    if constexpr (Op == IntegerMinmax::Max) {
       value = maximum<Signed>(x, y);
-    if constexpr (Op == IntegerMinmax::Min3)
+    }
+    if constexpr (Op == IntegerMinmax::Min3) {
       value = minimum<Signed>(minimum<Signed>(x, y), z);
-    if constexpr (Op == IntegerMinmax::Max3)
+    }
+    if constexpr (Op == IntegerMinmax::Max3) {
       value = maximum<Signed>(maximum<Signed>(x, y), z);
-    if constexpr (Op == IntegerMinmax::Minmax)
+    }
+    if constexpr (Op == IntegerMinmax::Minmax) {
       value = maximum<Signed>(minimum<Signed>(x, y), z);
-    if constexpr (Op == IntegerMinmax::Maxmin)
+    }
+    if constexpr (Op == IntegerMinmax::Maxmin) {
       value = minimum<Signed>(maximum<Signed>(x, y), z);
-    if constexpr (Op == IntegerMinmax::Median)
+    }
+    if constexpr (Op == IntegerMinmax::Median) {
       value = maximum<Signed>(minimum<Signed>(maximum<Signed>(x, y), z), minimum<Signed>(x, y));
+    }
     auto lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                             _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));
     _mm256_maskstore_epi32(reinterpret_cast<int *>(d + lane), lane_exec_mask, value);

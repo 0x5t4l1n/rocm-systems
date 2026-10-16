@@ -51,42 +51,53 @@ template <int Lanes> Registers<8, Lanes> conversion_inputs(int source_width) {
                              0xfff0000000000000ULL,
                              0x7ff8123456789abcULL,
                              0x7ff0000000000123ULL};
-  for (int reg = 0; reg < 8; ++reg)
-    for (int lane = 0; lane < Lanes; ++lane)
+  for (int reg = 0; reg < 8; ++reg) {
+    for (int lane = 0; lane < Lanes; ++lane) {
       input.v[reg][lane] = random_word(random);
+    }
+  }
   // Rotate edge encodings between operands so exceptional values do not always coincide.
-  for (int reg : {0, 2, 4})
+  for (int reg : {0, 2, 4}) {
     for (int lane = 0; lane < 16; ++lane) {
       int index = (lane + reg * 3) % 16;
       if (source_width == 64) {
         input.v[reg][lane] = uint32_t(edge64[index]);
         input.v[reg + 1][lane] = uint32_t(edge64[index] >> 32);
-      } else if (source_width == 16)
+      } else if (source_width == 16) {
         input.v[reg][lane] = edge16[index] | (uint32_t(edge16[(index + 5) % 16]) << 16);
-      else
+      } else {
         input.v[reg][lane] = edge32[index];
+      }
     }
+  }
   return input;
 }
 
 // Enumerate individual/combined supported modifiers and optional DPP cases.
 inline std::vector<uint64_t> conversion_modes(uint64_t supported, bool dpp) {
   std::vector<uint64_t> result{0};
-  for (int bit = 0; bit < 32; ++bit)
-    if (supported & (1ULL << bit))
+  for (int bit = 0; bit < 32; ++bit) {
+    if (supported & (1ULL << bit)) {
       result.push_back(1ULL << bit);
-  if (supported)
+    }
+  }
+  if (supported) {
     result.push_back(supported);
-  if (dpp)
-    for (uint64_t routing : dpp_modes)
+  }
+  if (dpp) {
+    for (uint64_t routing : dpp_modes) {
       result.push_back(routing | supported);
+    }
+  }
   return result;
 }
 
 // Apply the gfx11 guest-policy gate on output scaling to the requested mode.
 inline uint32_t conversion_effective_mode(uint64_t flags, uint32_t mode, bool gfx12) {
-  if (!gfx12 && ((flags & RJ_ARITH_FP_IEEE_MODE) || !(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)))
+  if (!gfx12 &&
+      ((flags & RJ_ARITH_FP_IEEE_MODE) || !(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))) {
     mode &= ~RJ_ARITH_ALU_OMOD_HALF;
+  }
   return mode;
 }
 
@@ -97,10 +108,11 @@ template <class Call, class Mask, class... Sources>
 int invoke_conversion(Call call, uint64_t flags, Mask exec_mask, uint64_t mode, uint32_t *const *d,
                       uint32_t *status, Sources... sources) {
   if constexpr (std::is_invocable_v<Call, uint64_t, Mask, uint64_t, uint32_t *const *, Sources...,
-                                    uint32_t *>)
+                                    uint32_t *>) {
     return call(flags, exec_mask, mode, d, sources..., status);
-  else
+  } else {
     return call(flags, exec_mask, mode, d, sources...);
+  }
 }
 
 // A narrow conversion shares this memory/semantics contract with widening and
@@ -120,12 +132,13 @@ void check_conversion(Call call, const Registers<8, Lanes> &input, Reference ref
                                             Source, Source, Source, uint32_t *>;
   auto invoke = [&](uint64_t flags, Mask exec_mask, uint64_t mode, uint32_t *const *d, Source a,
                     Source b, Source c, uint32_t *status) {
-    if constexpr (Operands == 1)
+    if constexpr (Operands == 1) {
       return invoke_conversion(call, flags, exec_mask, mode, d, status, a);
-    else if constexpr (Operands == 2)
+    } else if constexpr (Operands == 2) {
       return invoke_conversion(call, flags, exec_mask, mode, d, status, a, b);
-    else
+    } else {
       return invoke_conversion(call, flags, exec_mask, mode, d, status, a, b, c);
+    }
   };
   expect_alu_invalid_flags<Dpp>(
       [&](uint64_t flags, uint64_t mode) {
@@ -144,16 +157,17 @@ void check_conversion(Call call, const Registers<8, Lanes> &input, Reference ref
   // Independent samples of guest policies and modifiers, plus a full-mask
   // scaling witness under every guest policy (RDNA3 gates OMOD on these bits).
   int count = 5 + int(modes.size()) + (guest_flags & RJ_ARITH_FP_DX10_CLAMP_OFF ? 16 : 8);
-  for (uint64_t cpu : cpu_levels)
-    for (uint64_t semantics : semantics_modes())
+  for (uint64_t cpu : cpu_levels) {
+    for (uint64_t semantics : semantics_modes()) {
       for (int scenario = 0; scenario < count; ++scenario) {
         uint64_t mode = scenario < 5                       ? 0
                         : scenario < 5 + int(modes.size()) ? modes[scenario - 5]
                                                            : (modifiers & RJ_ARITH_ALU_OMOD_2);
         int guest =
             scenario >= 5 + int(modes.size()) ? scenario - 5 - int(modes.size()) : scenario % 8;
-        if (guest >= 8)
+        if (guest >= 8) {
           mode |= modifiers & RJ_ARITH_ALU_CLAMP; // Exercise DX10 NaN preservation under CLAMP.
+        }
         uint64_t policy = ((guest & 1 ? RJ_ARITH_FP_FLUSH_INPUT_DENORMALS : 0) |
                            (guest & 2 ? RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS : 0) |
                            (guest & 4 ? RJ_ARITH_FP_IEEE_MODE : 0) |
@@ -199,14 +213,17 @@ void check_conversion(Call call, const Registers<8, Lanes> &input, Reference ref
                              ? dpp_source(mode, exec_mask, lane, source)
                              : bool((exec_mask >> lane) & 1);
             if (!write) {
-              for (int word = 0; word < (repeated ? 1 : OutputWords); ++word)
+              for (int word = 0; word < (repeated ? 1 : OutputWords); ++word) {
                 EXPECT_EQ(r.v[offset + word][lane], input.v[offset + word][lane]);
+              }
               continue;
             }
             uint64_t a = source < 0 ? 0 : input.v[0][source];
-            if constexpr (InputWords == 2)
-              if (source >= 0)
+            if constexpr (InputWords == 2) {
+              if (source >= 0) {
                 a |= uint64_t(input.v[1][source]) << 32;
+              }
+            }
             uint64_t want = reference(a, input.v[2][lane], input.v[4][lane], input.v[offset][lane],
                                       flags, uint32_t(mode));
             if (repeated) {
@@ -215,13 +232,16 @@ void check_conversion(Call call, const Registers<8, Lanes> &input, Reference ref
                       uint32_t(mode));
             } else {
               uint64_t actual = r.v[offset][lane];
-              if constexpr (OutputWords == 2)
+              if constexpr (OutputWords == 2) {
                 actual |= uint64_t(r.v[offset + 1][lane]) << 32;
+              }
               compare(actual, want, flags, uint32_t(mode));
             }
           }
         }
       }
+    }
+  }
 }
 
 // Compare raw conversion-result bits exactly.
@@ -237,9 +257,9 @@ inline void conversion_float(uint64_t actual, uint64_t expected, int width) {
   if (std::isnan(e)) {
     EXPECT_TRUE(std::isnan(a));
     EXPECT_NE(actual & (width == 64 ? 1ULL << 51 : 1ULL << 22), 0ULL);
-  } else if (std::isinf(e))
+  } else if (std::isinf(e)) {
     EXPECT_EQ(a, e);
-  else {
+  } else {
     constexpr double atol = 0, rtol = 0;
     EXPECT_LE(std::abs(a - e), atol + rtol * std::abs(e));
     if (e == 0) {

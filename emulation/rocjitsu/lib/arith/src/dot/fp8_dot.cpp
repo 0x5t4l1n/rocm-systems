@@ -19,16 +19,19 @@ namespace {
 template <bool Bf8A, bool Bf8B>
 int dot(uint64_t flags, uint32_t exec_mask, uint64_t modifiers, uint32_t *const *d,
         const uint32_t *const *a, const uint32_t *const *b, const uint32_t *const *c) {
-  if (modifiers >> 32)
+  if (modifiers >> 32) {
     return rocjitsu::arith::execute_dpp(
         flags, exec_mask, modifiers, a, [&](uint32_t exec_mask, const uint32_t *const *source) {
           return dot<Bf8A, Bf8B>(flags, exec_mask, uint32_t(modifiers), d, source, b, c);
         });
+  }
   const uint32_t known = RJ_ARITH_DOT_NEG_C | RJ_ARITH_DOT_ABS_C;
-  if (int error = rocjitsu::arith::validate(flags, modifiers & ~known))
+  if (int error = rocjitsu::arith::validate(flags, modifiers & ~known)) {
     return error;
-  if (exec_mask == 0)
+  }
+  if (exec_mask == 0) {
     return RJ_ARITH_SUCCESS;
+  }
 #if defined(RJ_ARITH_HAVE_X86_64_V4)
   if ((flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V4) {
     rocjitsu::arith::fp8_dot_x86_64_v4(Bf8A, Bf8B, exec_mask, modifiers, d[0], a[0], b[0], c[0]);
@@ -44,19 +47,24 @@ int dot(uint64_t flags, uint32_t exec_mask, uint64_t modifiers, uint32_t *const 
   uint32_t result[32];
   for (int lane = 0; lane < 32; ++lane) {
     uint32_t acc_bits = c[0][lane];
-    if (modifiers & RJ_ARITH_DOT_ABS_C)
+    if (modifiers & RJ_ARITH_DOT_ABS_C) {
       acc_bits &= 0x7fffffff;
-    if (modifiers & RJ_ARITH_DOT_NEG_C)
+    }
+    if (modifiers & RJ_ARITH_DOT_NEG_C) {
       acc_bits ^= 0x80000000;
+    }
     float acc = rocjitsu::arith::as_float(acc_bits);
-    for (int shift = 0; shift < 32; shift += 8)
+    for (int shift = 0; shift < 32; shift += 8) {
       acc = std::fma(rocjitsu::arith::fp8_to_float<Bf8A>(uint8_t(a[0][lane] >> shift)),
                      rocjitsu::arith::fp8_to_float<Bf8B>(uint8_t(b[0][lane] >> shift)), acc);
+    }
     result[lane] = rocjitsu::arith::as_bits(acc);
   }
-  for (int lane = 0; lane < 32; ++lane)
-    if ((exec_mask >> lane) & 1)
+  for (int lane = 0; lane < 32; ++lane) {
+    if ((exec_mask >> lane) & 1) {
       d[0][lane] = result[lane];
+    }
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -66,10 +74,12 @@ template <bool Bf8A, bool Bf8B>
 int dot_wave64(uint64_t flags, uint64_t exec_mask, uint64_t mode, uint32_t *const *d,
                const uint32_t *const *a, const uint32_t *const *b, const uint32_t *const *c) {
   // Validate before either Wave64 half can modify outputs, even when EXEC is empty.
-  if (int error = dot<Bf8A, Bf8B>(flags, 0, mode, nullptr, nullptr, nullptr, nullptr))
+  if (int error = dot<Bf8A, Bf8B>(flags, 0, mode, nullptr, nullptr, nullptr, nullptr)) {
     return error;
-  if (!exec_mask)
+  }
+  if (!exec_mask) {
     return RJ_ARITH_SUCCESS;
+  }
   for (int half = 0; half < 2; ++half) {
     uint64_t half_mode = mode;
     if (mode & RJ_ARITH_DPP16) {
@@ -81,8 +91,9 @@ int dot_wave64(uint64_t flags, uint64_t exec_mask, uint64_t mode, uint32_t *cons
     uint32_t *dest = d[0] + half * 32;
     const uint32_t *av = a[0] + half * 32, *bv = b[0] + half * 32, *cv = c[0] + half * 32;
     if (int error = dot<Bf8A, Bf8B>(flags, uint32_t(exec_mask >> (half * 32)), half_mode, &dest,
-                                    &av, &bv, &cv))
+                                    &av, &bv, &cv)) {
       return error;
+    }
   }
   return RJ_ARITH_SUCCESS;
 }
@@ -95,8 +106,9 @@ int rj_arith_v_dot4_f32_fp8_fp8_w32(uint64_t flags, uint32_t exec_mask, uint64_t
                                     uint32_t *const *d, const uint32_t *const *a,
                                     const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return dot<false, false>(flags, exec_mask, modifiers, d, a, b, c);
 }
 
@@ -106,8 +118,9 @@ int rj_arith_v_dot4_f32_fp8_bf8_w32(uint64_t flags, uint32_t exec_mask, uint64_t
                                     uint32_t *const *d, const uint32_t *const *a,
                                     const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return dot<false, true>(flags, exec_mask, modifiers, d, a, b, c);
 }
 
@@ -117,8 +130,9 @@ int rj_arith_v_dot4_f32_bf8_fp8_w32(uint64_t flags, uint32_t exec_mask, uint64_t
                                     uint32_t *const *d, const uint32_t *const *a,
                                     const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return dot<true, false>(flags, exec_mask, modifiers, d, a, b, c);
 }
 
@@ -128,8 +142,9 @@ int rj_arith_v_dot4_f32_bf8_bf8_w32(uint64_t flags, uint32_t exec_mask, uint64_t
                                     uint32_t *const *d, const uint32_t *const *a,
                                     const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return dot<true, true>(flags, exec_mask, modifiers, d, a, b, c);
 }
 
@@ -139,8 +154,9 @@ int rj_arith_v_dot4_f32_fp8_fp8_w64(uint64_t flags, uint64_t exec_mask, uint64_t
                                     uint32_t *const *d, const uint32_t *const *a,
                                     const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return dot_wave64<false, false>(flags, exec_mask, modifiers, d, a, b, c);
 }
 
@@ -150,8 +166,9 @@ int rj_arith_v_dot4_f32_fp8_bf8_w64(uint64_t flags, uint64_t exec_mask, uint64_t
                                     uint32_t *const *d, const uint32_t *const *a,
                                     const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return dot_wave64<false, true>(flags, exec_mask, modifiers, d, a, b, c);
 }
 
@@ -161,8 +178,9 @@ int rj_arith_v_dot4_f32_bf8_fp8_w64(uint64_t flags, uint64_t exec_mask, uint64_t
                                     uint32_t *const *d, const uint32_t *const *a,
                                     const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return dot_wave64<true, false>(flags, exec_mask, modifiers, d, a, b, c);
 }
 
@@ -172,7 +190,8 @@ int rj_arith_v_dot4_f32_bf8_bf8_w64(uint64_t flags, uint64_t exec_mask, uint64_t
                                     uint32_t *const *d, const uint32_t *const *a,
                                     const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return dot_wave64<true, true>(flags, exec_mask, modifiers, d, a, b, c);
 }

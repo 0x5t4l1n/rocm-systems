@@ -100,9 +100,11 @@ inline __m128i mixed_half_value4(__m128 a, __m128 b, __m128 c, bool saturate, bo
     _mm_storeu_si128(reinterpret_cast<__m128i *>(bv), _mm_castps_si128(b));
     _mm_storeu_si128(reinterpret_cast<__m128i *>(cv), _mm_castps_si128(c));
     _mm_storeu_si128(reinterpret_cast<__m128i *>(out), result);
-    for (int lane = 0; lane < 4; ++lane)
-      if ((special >> lane) & 1)
+    for (int lane = 0; lane < 4; ++lane) {
+      if ((special >> lane) & 1) {
         out[lane] = rocjitsu::arith::mixed_fma_special(av[lane], bv[lane], cv[lane]);
+      }
+    }
     result = _mm_loadu_si128(reinterpret_cast<const __m128i *>(out));
   }
   if (clamp) {
@@ -112,8 +114,9 @@ inline __m128i mixed_half_value4(__m128 a, __m128 b, __m128 c, bool saturate, bo
     const auto original = result;
     result = _mm_andnot_si128(_mm_or_si128(negative, nan),
                               _mm_min_epi32(result, _mm_set1_epi32(0x3c00)));
-    if (keep_nan)
+    if (keep_nan) {
       result = _mm_blendv_epi8(result, original, nan);
+    }
   }
   return result;
 }

@@ -20,19 +20,22 @@ int move(uint64_t flags, uint64_t exec_mask, uint64_t mode, uint32_t *const *d,
          const uint32_t *const *a, uint32_t d_count, uint32_t a_count, uint32_t d_base,
          uint32_t a_base, uint32_t dst_offset, uint32_t src_offset) {
   constexpr auto move_instruction = [] {
-    if constexpr (Lanes == 32)
+    if constexpr (Lanes == 32) {
       return rj_arith_v_mov_b32_w32;
-    else
+    } else {
       return rj_arith_v_mov_b32_w64;
+    }
   }();
 
   // Validate even if EXEC is zero or the destination index is out of range.
-  if (int error = move_instruction(flags, 0, mode, nullptr, nullptr))
+  if (int error = move_instruction(flags, 0, mode, nullptr, nullptr)) {
     return error;
+  }
   uint64_t dst = uint64_t(d_base) + dst_offset;
   uint64_t src = uint64_t(a_base) + src_offset;
-  if (!exec_mask || dst_offset > 255 || dst >= d_count)
+  if (!exec_mask || dst_offset > 255 || dst >= d_count) {
     return RJ_ARITH_SUCCESS;
+  }
   uint32_t zero[Lanes] = {};
   const uint32_t *source = a_count ? a[src_offset <= 255 && src < a_count ? src : 0] : zero;
   return move_instruction(flags, exec_mask, mode, d + dst, &source);
@@ -47,8 +50,9 @@ int rj_arith_v_movrels_b32_w32(uint64_t flags, uint32_t exec_mask, uint64_t inst
                                uint32_t a_count, uint32_t d_base, uint32_t a_base, uint32_t m0) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return move<32>(flags, exec_mask, instruction_flags, d, a, d_count, a_count, d_base, a_base, 0,
                   m0);
 }
@@ -60,8 +64,9 @@ int rj_arith_v_movreld_b32_w32(uint64_t flags, uint32_t exec_mask, uint64_t inst
                                uint32_t a_count, uint32_t d_base, uint32_t a_base, uint32_t m0) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return move<32>(flags, exec_mask, instruction_flags, d, a, d_count, a_count, d_base, a_base, m0,
                   0);
 }
@@ -73,8 +78,9 @@ int rj_arith_v_movrelsd_b32_w32(uint64_t flags, uint32_t exec_mask, uint64_t ins
                                 uint32_t a_count, uint32_t d_base, uint32_t a_base, uint32_t m0) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return move<32>(flags, exec_mask, instruction_flags, d, a, d_count, a_count, d_base, a_base, m0,
                   m0);
 }
@@ -86,8 +92,9 @@ int rj_arith_v_movrelsd_2_b32_w32(uint64_t flags, uint32_t exec_mask, uint64_t i
                                   uint32_t a_count, uint32_t d_base, uint32_t a_base, uint32_t m0) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return move<32>(flags, exec_mask, instruction_flags, d, a, d_count, a_count, d_base, a_base,
                   (m0 >> 16) & 1023, m0 & 1023);
 }
@@ -99,8 +106,9 @@ int rj_arith_v_movrels_b32_w64(uint64_t flags, uint64_t exec_mask, uint64_t inst
                                uint32_t a_count, uint32_t d_base, uint32_t a_base, uint32_t m0) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return move<64>(flags, exec_mask, instruction_flags, d, a, d_count, a_count, d_base, a_base, 0,
                   m0);
 }
@@ -112,8 +120,9 @@ int rj_arith_v_movreld_b32_w64(uint64_t flags, uint64_t exec_mask, uint64_t inst
                                uint32_t a_count, uint32_t d_base, uint32_t a_base, uint32_t m0) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return move<64>(flags, exec_mask, instruction_flags, d, a, d_count, a_count, d_base, a_base, m0,
                   0);
 }
@@ -125,8 +134,9 @@ int rj_arith_v_movrelsd_b32_w64(uint64_t flags, uint64_t exec_mask, uint64_t ins
                                 uint32_t a_count, uint32_t d_base, uint32_t a_base, uint32_t m0) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return move<64>(flags, exec_mask, instruction_flags, d, a, d_count, a_count, d_base, a_base, m0,
                   m0);
 }
@@ -138,8 +148,9 @@ int rj_arith_v_movrelsd_2_b32_w64(uint64_t flags, uint64_t exec_mask, uint64_t i
                                   uint32_t a_count, uint32_t d_base, uint32_t a_base, uint32_t m0) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return move<64>(flags, exec_mask, instruction_flags, d, a, d_count, a_count, d_base, a_base,
                   (m0 >> 16) & 1023, m0 & 1023);
 }

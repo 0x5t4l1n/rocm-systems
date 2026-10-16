@@ -33,8 +33,9 @@ void bit_count_x86_64_v3(ExecMask<Lanes> exec_mask, uint32_t *d, const uint32_t 
   static_assert(Op != BitCount::MaskedHigh || Lanes != 32);
   for (int lane = 0; lane < Lanes; lane += 8) {
     auto x = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(a + lane));
-    if constexpr (Op == BitCount::Sign)
+    if constexpr (Op == BitCount::Sign) {
       x = _mm256_xor_si256(x, _mm256_srai_epi32(x, 31));
+    }
     __m256i result;
     if constexpr (Op == BitCount::Leading || Op == BitCount::Sign || Op == BitCount::Trailing) {
       auto value = x;
@@ -55,9 +56,10 @@ void bit_count_x86_64_v3(ExecMask<Lanes> exec_mask, uint32_t *d, const uint32_t 
       if constexpr (Op == BitCount::MaskedLow || Op == BitCount::MaskedHigh) {
         auto index =
             _mm256_add_epi32(_mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7), _mm256_set1_epi32(lane));
-        if constexpr (Op == BitCount::MaskedHigh)
+        if constexpr (Op == BitCount::MaskedHigh) {
           index = _mm256_max_epi32(_mm256_sub_epi32(index, _mm256_set1_epi32(32)),
                                    _mm256_setzero_si256());
+        }
         auto below =
             _mm256_sub_epi32(_mm256_sllv_epi32(_mm256_set1_epi32(1), index), _mm256_set1_epi32(1));
         x = _mm256_and_si256(x, below);

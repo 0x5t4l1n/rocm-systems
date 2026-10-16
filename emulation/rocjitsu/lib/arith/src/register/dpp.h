@@ -56,19 +56,22 @@ uint32_t dpp16_x86_64_v4(uint32_t exec_mask, uint32_t control, uint32_t valid_ro
 template <typename Execute>
 int execute_dpp(uint64_t flags, uint32_t exec_mask, uint64_t mode, const uint32_t *const *a,
                 Execute execute) {
-  if (!(mode & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16)) || !valid_dpp(mode))
+  if (!(mode & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16)) || !valid_dpp(mode)) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
 
   // Validate the underlying operation before routing can read operands or change outputs.
   int error = execute(0, a);
-  if (error || !exec_mask)
+  if (error || !exec_mask) {
     return error;
+  }
   uint32_t permuted[32];
   const uint32_t *source = permuted;
-  if (mode & RJ_ARITH_DPP8)
+  if (mode & RJ_ARITH_DPP8) {
     dpp8_source(flags, exec_mask, mode, permuted, a[0]);
-  else
+  } else {
     exec_mask = dpp16_source(flags, exec_mask, mode, permuted, a[0]);
+  }
   return execute(exec_mask, &source);
 }
 

@@ -33,23 +33,27 @@ inline std::array<uint32_t, 4> sad_reference(Sad operation, uint32_t a_low, uint
     uint64_t x = a >> (window * 8), y = b, total = 0;
     for (int field = 0; field < 32 / width; ++field) {
       int64_t left = int64_t(x % base), right = int64_t(y % base);
-      if (!masked || right != 0)
+      if (!masked || right != 0) {
         total += uint64_t(std::abs(left - right));
+      }
       x /= base;
       y /= base;
     }
-    if (op == 1)
+    if (op == 1) {
       total *= 65536;
+    }
     uint64_t limit = packed ? 65535 : UINT32_MAX;
     total += packed ? (c[window / 2] >> (16 * (window % 2))) & 65535 : c[window];
-    if (clamp)
+    if (clamp) {
       total = std::min(total, limit);
-    else
+    } else {
       total %= limit + 1;
-    if (packed)
+    }
+    if (packed) {
       result[window / 2] |= uint32_t(total) << (16 * (window % 2));
-    else
+    } else {
       result[window] = uint32_t(total);
+    }
   }
   return result;
 }

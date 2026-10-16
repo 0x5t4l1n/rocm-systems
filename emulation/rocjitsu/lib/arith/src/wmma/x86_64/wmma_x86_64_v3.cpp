@@ -17,18 +17,20 @@ namespace {
 // Narrow eight FP32 lanes into low halfwords: BF16 truncates, FP16 rounds
 // to nearest-even and optionally saturates finite overflow. Preserve subnormals.
 template <bool Bf16> __m256i packed_narrow(__m256 value, bool saturate) {
-  if constexpr (Bf16)
+  if constexpr (Bf16) {
     return _mm256_srli_epi32(_mm256_castps_si256(value), 16);
-  else
+  } else {
     return rocjitsu::arith::half_narrow<false>(value, saturate);
+  }
 }
 
 // Widen eight low-halfword FP16/BF16 encodings into FP32 lanes.
 template <bool Bf16> __m256 packed_widen(__m256i value) {
-  if constexpr (Bf16)
+  if constexpr (Bf16) {
     return _mm256_castsi256_ps(_mm256_slli_epi32(value, 16));
-  else
+  } else {
     return rocjitsu::arith::half_input<false>(value, 0, 0);
+  }
 }
 
 // Compute loose FP16/BF16 A*B+C in the selected gfx layout and wave size.
@@ -44,8 +46,8 @@ void wmma(uint32_t modifiers, uint32_t *const *d, const uint32_t *const *a,
   constexpr int Groups = Rdna3 ? Lanes / 16 : 1;
   constexpr int KPerLane = 256 / Lanes;
   alignas(32) float right[Groups][16][16];
-  for (int group = 0; group < Groups; ++group)
-    for (int k = 0; k < 16; ++k)
+  for (int group = 0; group < Groups; ++group) {
+    for (int k = 0; k < 16; ++k) {
       for (int col = 0; col < 16; col += 8) {
         __m256i words = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(
             b[Rdna3 ? k / 2 : (k % KPerLane) / 2] + 16 * (Rdna3 ? group : k / KPerLane) + col));
@@ -67,6 +69,8 @@ void wmma(uint32_t modifiers, uint32_t *const *d, const uint32_t *const *a,
           _mm256_store_ps(right[group][k] + col, _mm256_cvtph_ps(halves));
         }
       }
+    }
+  }
 
   uint32_t result[256 / Lanes][Lanes];
   for (int row = 0; row < 16; ++row) {
@@ -103,8 +107,9 @@ void wmma(uint32_t modifiers, uint32_t *const *d, const uint32_t *const *a,
                                               : step;
       uint32_t word =
           a[Rdna3 ? k / 2 : (k % KPerLane) / 2][row + 16 * (Rdna3 ? group : k / KPerLane)];
-      if constexpr (Modified)
+      if constexpr (Modified) {
         word ^= a_sign;
+      }
       uint16_t bits = uint16_t(word >> (16 * (k % 2)));
       __m256 left = _mm256_set1_ps(Bf16 ? rocjitsu::arith::bf16_to_float(bits) : _cvtsh_ss(bits));
       low = _mm256_fmadd_ps(left, _mm256_load_ps(right[group][k]), low);
@@ -125,7 +130,7 @@ void wmma(uint32_t modifiers, uint32_t *const *d, const uint32_t *const *a,
 
   // Stage all outputs before any stores, since D may overlap A, B or C.
   constexpr int DestinationRegs = 256 / Lanes / (Packed && !Rdna3 ? 2 : 1);
-  for (int reg = 0; reg < DestinationRegs; ++reg)
+  for (int reg = 0; reg < DestinationRegs; ++reg) {
     for (int lane = 0; lane < Lanes; lane += 8) {
       int source_reg = Packed && !Rdna3 ? reg * 2 : reg;
       auto value = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(result[source_reg] + lane));
@@ -142,6 +147,7 @@ void wmma(uint32_t modifiers, uint32_t *const *d, const uint32_t *const *a,
       }
       _mm256_storeu_si256(reinterpret_cast<__m256i *>(d[reg] + lane), value);
     }
+  }
 }
 
 } // namespace
@@ -153,10 +159,11 @@ namespace rocjitsu::arith {
 template <bool Bf16, int Lanes, bool Rdna3>
 void wmma_f32_x86_64_v3(uint32_t modifiers, uint32_t *const *d, const uint32_t *const *a,
                         const uint32_t *const *b, const uint32_t *const *c) {
-  if (modifiers)
+  if (modifiers) {
     wmma<Bf16, true, Lanes, Rdna3>(modifiers, d, a, b, c);
-  else
+  } else {
     wmma<Bf16, false, Lanes, Rdna3>(0, d, a, b, c);
+  }
 }
 
 template void wmma_f32_x86_64_v3<false, 32, false>(uint32_t, uint32_t *const *,

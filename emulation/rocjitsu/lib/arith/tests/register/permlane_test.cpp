@@ -12,15 +12,17 @@ TEST(v_permlane16_b32_w32, Arithmetic) {
         return rj_arith_v_permlane16_b32_w32(f, e, m, r.v + d, r.v, 0x75310246U, 0xfedcba98U);
       },
       [](auto &out, const auto &in, auto e, auto m, int d, int) {
-        for (int lane = 0; lane < 32; ++lane)
+        for (int lane = 0; lane < 32; ++lane) {
           if ((e >> lane) & 1) {
             int index = int(((lane % 16 < 8 ? 0x75310246U : 0xfedcba98U) >> (4 * (lane % 8))) & 15);
             int source = ((lane / 16) ^ 0) * 16 + index;
-            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI))
+            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI)) {
               out.v[d][lane] = in.v[0][source];
-            else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL)
+            } else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL) {
               out.v[d][lane] = 0;
+            }
           }
+        }
       },
       RJ_ARITH_PERMLANE_FI | RJ_ARITH_PERMLANE_BOUND_CTRL);
 }
@@ -32,15 +34,17 @@ TEST(v_permlane16_var_b32_w32, Arithmetic) {
         return rj_arith_v_permlane16_var_b32_w32(f, e, m, r.v + d, r.v, r.v + 1);
       },
       [](auto &out, const auto &in, auto e, auto m, int d, int) {
-        for (int lane = 0; lane < 32; ++lane)
+        for (int lane = 0; lane < 32; ++lane) {
           if ((e >> lane) & 1) {
             int index = int(in.v[1][lane] & 15);
             int source = ((lane / 16) ^ 0) * 16 + index;
-            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI))
+            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI)) {
               out.v[d][lane] = in.v[0][source];
-            else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL)
+            } else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL) {
               out.v[d][lane] = 0;
+            }
           }
+        }
       },
       RJ_ARITH_PERMLANE_FI | RJ_ARITH_PERMLANE_BOUND_CTRL);
 }
@@ -52,15 +56,17 @@ TEST(v_permlanex16_b32_w32, Arithmetic) {
         return rj_arith_v_permlanex16_b32_w32(f, e, m, r.v + d, r.v, 0x75310246U, 0xfedcba98U);
       },
       [](auto &out, const auto &in, auto e, auto m, int d, int) {
-        for (int lane = 0; lane < 32; ++lane)
+        for (int lane = 0; lane < 32; ++lane) {
           if ((e >> lane) & 1) {
             int index = int(((lane % 16 < 8 ? 0x75310246U : 0xfedcba98U) >> (4 * (lane % 8))) & 15);
             int source = ((lane / 16) ^ 1) * 16 + index;
-            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI))
+            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI)) {
               out.v[d][lane] = in.v[0][source];
-            else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL)
+            } else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL) {
               out.v[d][lane] = 0;
+            }
           }
+        }
       },
       RJ_ARITH_PERMLANE_FI | RJ_ARITH_PERMLANE_BOUND_CTRL);
 }
@@ -72,15 +78,17 @@ TEST(v_permlanex16_var_b32_w32, Arithmetic) {
         return rj_arith_v_permlanex16_var_b32_w32(f, e, m, r.v + d, r.v, r.v + 1);
       },
       [](auto &out, const auto &in, auto e, auto m, int d, int) {
-        for (int lane = 0; lane < 32; ++lane)
+        for (int lane = 0; lane < 32; ++lane) {
           if ((e >> lane) & 1) {
             int index = int(in.v[1][lane] & 15);
             int source = ((lane / 16) ^ 1) * 16 + index;
-            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI))
+            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI)) {
               out.v[d][lane] = in.v[0][source];
-            else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL)
+            } else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL) {
               out.v[d][lane] = 0;
+            }
           }
+        }
       },
       RJ_ARITH_PERMLANE_FI | RJ_ARITH_PERMLANE_BOUND_CTRL);
 }
@@ -108,15 +116,17 @@ TEST(v_permlane16_b32_w64, Arithmetic) {
         return rj_arith_v_permlane16_b32_w64(f, e, m, r.v + d, r.v, 0x75310246U, 0xfedcba98U);
       },
       [](auto &out, const auto &in, auto e, auto m, int d, int) {
-        for (int lane = 0; lane < 64; ++lane)
+        for (int lane = 0; lane < 64; ++lane) {
           if ((e >> lane) & 1) {
             int index = int(((lane % 16 < 8 ? 0x75310246U : 0xfedcba98U) >> (4 * (lane % 8))) & 15);
             int source = ((lane / 16) ^ 0) * 16 + index;
-            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI))
+            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI)) {
               out.v[d][lane] = in.v[0][source];
-            else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL)
+            } else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL) {
               out.v[d][lane] = 0;
+            }
           }
+        }
       },
       RJ_ARITH_PERMLANE_FI | RJ_ARITH_PERMLANE_BOUND_CTRL);
 }
@@ -128,15 +138,17 @@ TEST(v_permlane16_var_b32_w64, Arithmetic) {
         return rj_arith_v_permlane16_var_b32_w64(f, e, m, r.v + d, r.v, r.v + 1);
       },
       [](auto &out, const auto &in, auto e, auto m, int d, int) {
-        for (int lane = 0; lane < 64; ++lane)
+        for (int lane = 0; lane < 64; ++lane) {
           if ((e >> lane) & 1) {
             int index = int(in.v[1][lane] & 15);
             int source = ((lane / 16) ^ 0) * 16 + index;
-            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI))
+            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI)) {
               out.v[d][lane] = in.v[0][source];
-            else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL)
+            } else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL) {
               out.v[d][lane] = 0;
+            }
           }
+        }
       },
       RJ_ARITH_PERMLANE_FI | RJ_ARITH_PERMLANE_BOUND_CTRL);
 }
@@ -148,15 +160,17 @@ TEST(v_permlanex16_b32_w64, Arithmetic) {
         return rj_arith_v_permlanex16_b32_w64(f, e, m, r.v + d, r.v, 0x75310246U, 0xfedcba98U);
       },
       [](auto &out, const auto &in, auto e, auto m, int d, int) {
-        for (int lane = 0; lane < 64; ++lane)
+        for (int lane = 0; lane < 64; ++lane) {
           if ((e >> lane) & 1) {
             int index = int(((lane % 16 < 8 ? 0x75310246U : 0xfedcba98U) >> (4 * (lane % 8))) & 15);
             int source = ((lane / 16) ^ 1) * 16 + index;
-            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI))
+            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI)) {
               out.v[d][lane] = in.v[0][source];
-            else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL)
+            } else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL) {
               out.v[d][lane] = 0;
+            }
           }
+        }
       },
       RJ_ARITH_PERMLANE_FI | RJ_ARITH_PERMLANE_BOUND_CTRL);
 }
@@ -168,15 +182,17 @@ TEST(v_permlanex16_var_b32_w64, Arithmetic) {
         return rj_arith_v_permlanex16_var_b32_w64(f, e, m, r.v + d, r.v, r.v + 1);
       },
       [](auto &out, const auto &in, auto e, auto m, int d, int) {
-        for (int lane = 0; lane < 64; ++lane)
+        for (int lane = 0; lane < 64; ++lane) {
           if ((e >> lane) & 1) {
             int index = int(in.v[1][lane] & 15);
             int source = ((lane / 16) ^ 1) * 16 + index;
-            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI))
+            if (((e >> source) & 1) || (m & RJ_ARITH_PERMLANE_FI)) {
               out.v[d][lane] = in.v[0][source];
-            else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL)
+            } else if (m & RJ_ARITH_PERMLANE_BOUND_CTRL) {
               out.v[d][lane] = 0;
+            }
           }
+        }
       },
       RJ_ARITH_PERMLANE_FI | RJ_ARITH_PERMLANE_BOUND_CTRL);
 }
@@ -193,8 +209,10 @@ TEST(v_permlane64_b32_w64, Arithmetic) {
         (void)in;
         (void)e;
         (void)d;
-        for (int lane = 0; lane < 64; ++lane)
-          if ((e >> lane) & 1)
+        for (int lane = 0; lane < 64; ++lane) {
+          if ((e >> lane) & 1) {
             out.v[d][lane] = in.v[0][lane ^ 32];
+          }
+        }
       });
 }

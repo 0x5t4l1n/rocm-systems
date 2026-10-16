@@ -46,21 +46,24 @@ public:
 
   // Report completed work and elapsed/remaining time when the stream is a terminal.
   void update(double completed, double total) {
-    if (!terminal_)
+    if (!terminal_) {
       return;
+    }
     auto now = Clock::now();
     bool finished = completed == total;
-    if (completed > 0 && !finished && now - last_ < std::chrono::milliseconds(250))
+    if (completed > 0 && !finished && now - last_ < std::chrono::milliseconds(250)) {
       return;
+    }
     last_ = now;
     double elapsed = std::chrono::duration<double>(now - start_).count();
     double percent = total > 0 ? 100 * completed / total : 100;
     char line[128];
-    if (completed == 0 && total > 0)
+    if (completed == 0 && total > 0) {
       std::snprintf(line, sizeof(line), "%5.1f%% | elapsed %.1fs | remaining --", percent, elapsed);
-    else
+    } else {
       std::snprintf(line, sizeof(line), "%5.1f%% | elapsed %.1fs | remaining %.1fs", percent,
                     elapsed, completed > 0 ? elapsed * (total - completed) / completed : 0);
+    }
     // Pad to the longest prior line so shrinking estimates leave no stale text.
     width_ = std::max(width_, int(std::strlen(line)));
     std::fprintf(stream_, "\r%-*s", width_, line);
@@ -84,15 +87,17 @@ void run(std::vector<Benchmark> &cases, const Options &options, FILE *progress) 
   for (auto &b : cases) {
     b.samples.clear();
     b.median = 0;
-    if (b.sample)
+    if (b.sample) {
       ++measured;
+    }
   }
   TerminalProgress terminal(progress);
   double completed = 0;
   double total = double(measured) * options.repetitions;
   terminal.update(completed, total);
-  if (progress && !terminal.enabled())
+  if (progress && !terminal.enabled()) {
     std::fprintf(progress, "%d benchmarks; %d repetitions each\n", measured, options.repetitions);
+  }
   // Interleave workloads so each one's repetitions are spread across the run.
   for (int repetition = 0; repetition < options.repetitions; ++repetition) {
     if (progress && !terminal.enabled()) {
@@ -100,18 +105,21 @@ void run(std::vector<Benchmark> &cases, const Options &options, FILE *progress) 
       std::fflush(progress);
     }
     for (auto &b : cases) {
-      if (!b.sample)
+      if (!b.sample) {
         continue;
+      }
       double latency = b.sample(options.min_ms);
-      if (!std::isfinite(latency) || latency <= 0)
+      if (!std::isfinite(latency) || latency <= 0) {
         throw std::runtime_error("Invalid measured latency: " + b.instruction);
+      }
       b.samples.push_back(latency);
       terminal.update(++completed, total);
     }
   }
   for (auto &b : cases) {
-    if (b.samples.empty())
+    if (b.samples.empty()) {
       continue;
+    }
     auto sorted = b.samples;
     std::sort(sorted.begin(), sorted.end());
     // Use the middle sample, or the midpoint of the middle pair, without reordering the stored

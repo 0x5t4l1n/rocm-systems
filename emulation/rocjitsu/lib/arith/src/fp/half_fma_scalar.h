@@ -32,21 +32,25 @@ inline uint16_t half_fma_narrow(double value, bool saturate, unsigned rounding =
   uint64_t bits = double_bits(value), exponent = (bits >> 52) & 2047;
   uint16_t sign = uint16_t((bits >> 48) & 0x8000);
   const bool away = rounding == (sign ? 2u : 1u);
-  if (exponent < 998)
+  if (exponent < 998) {
     return sign | (away && (bits & 0x7fffffffffffffffULL) ? 1 : 0);
-  if (exponent > 1038)
+  }
+  if (exponent > 1038) {
     return sign | ((saturate || (rounding && !away)) ? 0x7bff : 0x7c00);
+  }
   unsigned shift = exponent < 1009 ? unsigned(1051 - exponent) : 42;
   uint64_t significand = (bits & 0x000fffffffffffffULL) | (1ULL << 52);
   uint64_t rounded = significand >> shift;
-  if (exponent >= 1009)
+  if (exponent >= 1009) {
     rounded += (exponent - 1009) << 10;
+  }
   uint64_t remainder = significand & ((1ULL << shift) - 1);
   uint64_t halfway = 1ULL << (shift - 1);
   rounded += rounding ? (away && remainder != 0)
                       : remainder > halfway || (remainder == halfway && (rounded & 1));
-  if (rounded >= 0x7c00)
+  if (rounded >= 0x7c00) {
     rounded = (saturate || (rounding && !away)) ? 0x7bff : 0x7c00;
+  }
   return sign | uint16_t(rounded);
 }
 
@@ -63,12 +67,15 @@ inline uint16_t half_fma_value(uint16_t a, uint16_t b, uint16_t c, uint32_t mode
   bool saturate = flags & RJ_ARITH_FP16_OVFL;
   uint16_t inputs[] = {a, b, c};
   for (int i = 0; i < 3; ++i) {
-    if (mode & (RJ_ARITH_ALU_ABS_A << i))
+    if (mode & (RJ_ARITH_ALU_ABS_A << i)) {
       inputs[i] &= 0x7fff;
-    if (mode & (RJ_ARITH_ALU_NEG_A << i))
+    }
+    if (mode & (RJ_ARITH_ALU_NEG_A << i)) {
       inputs[i] ^= 0x8000;
-    if ((flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) && (inputs[i] & 0x7fff) < 0x400)
+    }
+    if ((flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) && (inputs[i] & 0x7fff) < 0x400) {
       inputs[i] &= 0x8000;
+    }
   }
   a = inputs[0];
   b = inputs[1];
@@ -85,25 +92,28 @@ inline uint16_t half_fma_value(uint16_t a, uint16_t b, uint16_t c, uint32_t mode
         (ma == 0 && mb == 0x7c00) || (mb == 0 && ma == 0x7c00) || (ma > 0x7c00 && !(ma & 0x200)) ||
         (mb > 0x7c00 && !(mb & 0x200)) || (mc > 0x7c00 && !(mc & 0x200)) ||
         (!nan && (ma == 0x7c00 || mb == 0x7c00) && mc == 0x7c00 && ((a ^ b ^ c) & 0x8000));
-    if (invalid)
+    if (invalid) {
       *exceptions |= RJ_ARITH_EXCEPTION_INVALID;
-    else if (!nan && ((ma && ma < 0x400) || (mb && mb < 0x400) || (mc && mc < 0x400)))
+    } else if (!nan && ((ma && ma < 0x400) || (mb && mb < 0x400) || (mc && mc < 0x400))) {
       *exceptions |= RJ_ARITH_EXCEPTION_INPUT_DENORM;
+    }
   }
   uint16_t exceptional = 0;
-  if ((ma == 0 && mb == 0x7c00) || (mb == 0 && ma == 0x7c00))
+  if ((ma == 0 && mb == 0x7c00) || (mb == 0 && ma == 0x7c00)) {
     exceptional = 0xfe00;
-  else if (ma > 0x7c00 || mb > 0x7c00 || mc > 0x7c00)
+  } else if (ma > 0x7c00 || mb > 0x7c00 || mc > 0x7c00) {
     exceptional = (ma > 0x7c00   ? a
                    : mb > 0x7c00 ? b
                                  : c) |
                   ((!Rdna3 || (flags & RJ_ARITH_FP_IEEE_MODE)) ? 0x0200 : 0);
-  else if (ma == 0x7c00 || mb == 0x7c00) {
+  } else if (ma == 0x7c00 || mb == 0x7c00) {
     exceptional = ((a ^ b) & 0x8000) | 0x7c00;
-    if (mc == 0x7c00 && ((exceptional ^ c) & 0x8000))
+    if (mc == 0x7c00 && ((exceptional ^ c) & 0x8000)) {
       exceptional = 0xfe00;
-  } else if (mc == 0x7c00)
+    }
+  } else if (mc == 0x7c00) {
     exceptional = c;
+  }
   if (exceptional) {
     const bool keep_nan =
         Rdna3 && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF) && (exceptional & 0x7fff) > 0x7c00;
@@ -128,34 +138,37 @@ inline uint16_t half_fma_value(uint16_t a, uint16_t b, uint16_t c, uint32_t mode
     // intermediate retains discarded information even across large exponent gaps.
     uint16_t rounded = half_fma_narrow(value, false);
     uint16_t magnitude = rounded & 0x7fff;
-    if (magnitude == 0x7c00)
+    if (magnitude == 0x7c00) {
       *exceptions |= RJ_ARITH_EXCEPTION_OVERFLOW | (omod ? 0 : RJ_ARITH_EXCEPTION_INEXACT);
-    else if (!omod && value != double(f16_to_float(rounded))) {
+    } else if (!omod && value != double(f16_to_float(rounded))) {
       *exceptions |= RJ_ARITH_EXCEPTION_INEXACT;
 
       // Tininess is detected after significand rounding, before limiting the
       // exponent: the midpoint immediately below the smallest normal is not tiny.
-      if (std::abs(value) < 0x1p-14 - 0x1p-26)
+      if (std::abs(value) < 0x1p-14 - 0x1p-26) {
         *exceptions |= RJ_ARITH_EXCEPTION_UNDERFLOW;
+      }
     }
-    if ((omod == 1 || omod == 2) && magnitude < 0x7c00 && (magnitude >> 10) + omod >= 31)
+    if ((omod == 1 || omod == 2) && magnitude < 0x7c00 && (magnitude >> 10) + omod >= 31) {
       *exceptions |= RJ_ARITH_EXCEPTION_OVERFLOW;
+    }
   }
   if (!omod && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) {
     uint16_t magnitude = result & 0x7fff;
     const bool away = rounding == ((result & 0x8000) ? 2u : 1u);
     const double threshold = 0x1p-14 - (rounding == 0 ? 0x1p-26 : away ? 0x1p-25 : 0.0);
     if (magnitude < 0x400 || (magnitude == 0x400 && (std::abs(value) < threshold ||
-                                                     (away && std::abs(value) == threshold))))
+                                                     (away && std::abs(value) == threshold)))) {
       result &= 0x8000;
+    }
   }
   if (omod) {
     uint16_t magnitude = result & 0x7fff;
-    if (magnitude < 0x0400 || (magnitude == 0x0400 && std::abs(value) < 0x1p-14 - 0x1p-26))
+    if (magnitude < 0x0400 || (magnitude == 0x0400 && std::abs(value) < 0x1p-14 - 0x1p-26)) {
       result = 0;
-    else if (omod == 3 && magnitude < 0x0800)
+    } else if (omod == 3 && magnitude < 0x0800) {
       result &= 0x8000;
-    else {
+    } else {
       const float scales[] = {1, 2, 4, 0.5f};
       result = rocjitsu::arith::float_to_f16(rocjitsu::arith::f16_to_float(result) * scales[omod],
                                              saturate);

@@ -23,18 +23,21 @@ namespace {
 template <bool Bf16, bool Rdna4>
 int dot(uint64_t flags, uint32_t exec_mask, uint64_t instruction_flags, uint32_t *const *d,
         const uint32_t *const *a, const uint32_t *const *b, const uint32_t *const *c) {
-  if (instruction_flags >> 32)
+  if (instruction_flags >> 32) {
     return rocjitsu::arith::execute_dpp(
         flags, exec_mask, instruction_flags, a,
         [&](uint32_t exec_mask, const uint32_t *const *source) {
           return dot<Bf16, Rdna4>(flags, exec_mask, uint32_t(instruction_flags), d, source, b, c);
         });
+  }
 
   // Bits 0..4: negation; bit 6: CLAMP; bits 7..10: half selection.
-  if (int error = rocjitsu::arith::validate(flags, instruction_flags & ~0x7dfU, true))
+  if (int error = rocjitsu::arith::validate(flags, instruction_flags & ~0x7dfU, true)) {
     return error;
-  if (exec_mask == 0)
+  }
+  if (exec_mask == 0) {
     return RJ_ARITH_SUCCESS;
+  }
 
 #if defined(RJ_ARITH_HAVE_X86_64_V4)
   if constexpr (Bf16) {
@@ -76,21 +79,26 @@ int dot(uint64_t flags, uint32_t exec_mask, uint64_t instruction_flags, uint32_t
                                     uint16_t(a[0][lane] >> a1_shift)};
     std::array<uint16_t, 2> right = {uint16_t(b[0][lane] >> b0_shift),
                                      uint16_t(b[0][lane] >> b1_shift)};
-    if (instruction_flags & RJ_ARITH_DOT_NEG_LO_A)
+    if (instruction_flags & RJ_ARITH_DOT_NEG_LO_A) {
       left[0] ^= 0x8000;
-    if (instruction_flags & RJ_ARITH_DOT_NEG_HI_A)
+    }
+    if (instruction_flags & RJ_ARITH_DOT_NEG_HI_A) {
       left[1] ^= 0x8000;
-    if (instruction_flags & RJ_ARITH_DOT_NEG_LO_B)
+    }
+    if (instruction_flags & RJ_ARITH_DOT_NEG_LO_B) {
       right[0] ^= 0x8000;
-    if (instruction_flags & RJ_ARITH_DOT_NEG_HI_B)
+    }
+    if (instruction_flags & RJ_ARITH_DOT_NEG_HI_B) {
       right[1] ^= 0x8000;
+    }
     uint32_t acc_bits = c[0][lane] ^ (instruction_flags & RJ_ARITH_DOT_NEG_C ? 0x80000000 : 0);
     if (rocjitsu::arith::is_exact(flags)) {
-      if constexpr (Rdna4)
+      if constexpr (Rdna4) {
         result[lane] = rocjitsu::arith::gfx12_dot_bits<Bf16, 2>(left, right, acc_bits);
-      else
+      } else {
         result[lane] =
             rocjitsu::arith::gfx11_dot2_f32<Bf16>(left[0], right[0], left[1], right[1], acc_bits);
+      }
     } else {
       float acc = rocjitsu::arith::as_float(acc_bits);
       for (int j = 0; j < 2; ++j) {
@@ -104,9 +112,11 @@ int dot(uint64_t flags, uint32_t exec_mask, uint64_t instruction_flags, uint32_t
     }
   }
 
-  for (int lane = 0; lane < 32; ++lane)
-    if ((exec_mask >> lane) & 1)
+  for (int lane = 0; lane < 32; ++lane) {
+    if ((exec_mask >> lane) & 1) {
       d[0][lane] = result[lane];
+    }
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -114,10 +124,13 @@ int dot(uint64_t flags, uint32_t exec_mask, uint64_t instruction_flags, uint32_t
 template <bool Bf16, bool Rdna4>
 int dot_wave64(uint64_t flags, uint64_t exec_mask, uint64_t instruction_flags, uint32_t *const *d,
                const uint32_t *const *a, const uint32_t *const *b, const uint32_t *const *c) {
-  if (int error = dot<Bf16, Rdna4>(flags, 0, instruction_flags, nullptr, nullptr, nullptr, nullptr))
+  if (int error =
+          dot<Bf16, Rdna4>(flags, 0, instruction_flags, nullptr, nullptr, nullptr, nullptr)) {
     return error;
-  if (!exec_mask)
+  }
+  if (!exec_mask) {
     return RJ_ARITH_SUCCESS;
+  }
   for (int half = 0; half < 2; ++half) {
     uint64_t mode = instruction_flags;
     if (mode & RJ_ARITH_DPP16) {
@@ -128,9 +141,10 @@ int dot_wave64(uint64_t flags, uint64_t exec_mask, uint64_t instruction_flags, u
     }
     uint32_t *dest = d[0] + half * 32;
     const uint32_t *av = a[0] + half * 32, *bv = b[0] + half * 32, *cv = c[0] + half * 32;
-    if (int error =
-            dot<Bf16, Rdna4>(flags, uint32_t(exec_mask >> (half * 32)), mode, &dest, &av, &bv, &cv))
+    if (int error = dot<Bf16, Rdna4>(flags, uint32_t(exec_mask >> (half * 32)), mode, &dest, &av,
+                                     &bv, &cv)) {
       return error;
+    }
   }
   return RJ_ARITH_SUCCESS;
 }
@@ -146,10 +160,12 @@ int rj_arith_v_dot2_f32_f16_w32_gfx12(uint64_t flags, uint32_t exec_mask,
                                       [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::validate_semantics(flags))
+  }
+  if (rocjitsu::arith::validate_semantics(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return dot<false, true>(flags, exec_mask, instruction_flags, d, a, b, c);
 }
 
@@ -163,10 +179,12 @@ int rj_arith_v_dot2_f32_bf16_w32_gfx12(uint64_t flags, uint32_t exec_mask,
                                        [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::validate_semantics(flags))
+  }
+  if (rocjitsu::arith::validate_semantics(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return dot<true, true>(flags, exec_mask, instruction_flags, d, a, b, c);
 }
 
@@ -179,12 +197,14 @@ int rj_arith_v_dot2_f32_f16_w32(uint64_t flags, uint32_t exec_mask, uint64_t ins
                                 [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
 
   // GFX11 result bits are characterized; its exception-register updates are not.
-  if (rocjitsu::arith::reports_fp_status(flags))
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return dot<false, false>(flags, exec_mask, instruction_flags, d, a, b, c);
 }
 
@@ -197,12 +217,14 @@ int rj_arith_v_dot2_f32_bf16_w32(uint64_t flags, uint32_t exec_mask, uint64_t in
                                  [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
 
   // GFX11 result bits are characterized; its exception-register updates are not.
-  if (rocjitsu::arith::reports_fp_status(flags))
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return dot<true, false>(flags, exec_mask, instruction_flags, d, a, b, c);
 }
 
@@ -214,13 +236,15 @@ int rj_arith_v_dot2acc_f32_f16_w32(uint64_t flags, uint32_t exec_mask, uint64_t 
                                    const uint32_t *const *b, uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
 
   // The RDNA3 VOP2 form only encodes routing modifiers, unlike VOP3P DOT2.
-  if (uint32_t(instruction_flags))
+  if (uint32_t(instruction_flags)) {
     return rocjitsu::arith::reports_fp_status(flags) ? RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS
                                                      : RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return rj_arith_v_dot2_f32_f16_w32(flags, exec_mask, instruction_flags, d, a, b, d, trapsts);
 }
 
@@ -234,10 +258,12 @@ int rj_arith_v_dot2_f32_f16_w64_gfx12(uint64_t flags, uint64_t exec_mask,
                                       [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::validate_semantics(flags))
+  }
+  if (rocjitsu::arith::validate_semantics(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return dot_wave64<false, true>(flags, exec_mask, instruction_flags, d, a, b, c);
 }
 
@@ -251,10 +277,12 @@ int rj_arith_v_dot2_f32_bf16_w64_gfx12(uint64_t flags, uint64_t exec_mask,
                                        [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::validate_semantics(flags))
+  }
+  if (rocjitsu::arith::validate_semantics(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return dot_wave64<true, true>(flags, exec_mask, instruction_flags, d, a, b, c);
 }
 
@@ -267,12 +295,14 @@ int rj_arith_v_dot2_f32_f16_w64(uint64_t flags, uint64_t exec_mask, uint64_t ins
                                 [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
 
   // GFX11 result bits are characterized; its exception-register updates are not.
-  if (rocjitsu::arith::reports_fp_status(flags))
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return dot_wave64<false, false>(flags, exec_mask, instruction_flags, d, a, b, c);
 }
 
@@ -285,12 +315,14 @@ int rj_arith_v_dot2_f32_bf16_w64(uint64_t flags, uint64_t exec_mask, uint64_t in
                                  [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
 
   // GFX11 result bits are characterized; its exception-register updates are not.
-  if (rocjitsu::arith::reports_fp_status(flags))
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return dot_wave64<true, false>(flags, exec_mask, instruction_flags, d, a, b, c);
 }
 
@@ -302,12 +334,14 @@ int rj_arith_v_dot2acc_f32_f16_w64(uint64_t flags, uint64_t exec_mask, uint64_t 
                                    const uint32_t *const *b, uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
 
   // The RDNA3 VOP2 form only encodes routing modifiers, unlike VOP3P DOT2.
-  if (uint32_t(instruction_flags))
+  if (uint32_t(instruction_flags)) {
     return rocjitsu::arith::reports_fp_status(flags) ? RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS
                                                      : RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return rj_arith_v_dot2_f32_f16_w64(flags, exec_mask, instruction_flags, d, a, b, d, trapsts);
 }

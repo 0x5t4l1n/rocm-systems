@@ -80,11 +80,13 @@ inline int validate(uint64_t flags, uint32_t instruction_flags, bool supports_ex
   constexpr uint64_t known = RJ_ARITH_CPU_MASK | RJ_ARITH_SEMANTICS_MASK | RJ_ARITH_FP16_OVFL;
   if ((flags & ~(known | supported_fp_flags)) ||
       (flags & RJ_ARITH_CPU_MASK) > RJ_ARITH_CPU_X86_64_ZEN4 || instruction_flags ||
-      validate_semantics(flags))
+      validate_semantics(flags)) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   if (!supports_exact &&
-      (flags & RJ_ARITH_SEMANTICS_MASK) >= RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS)
+      (flags & RJ_ARITH_SEMANTICS_MASK) >= RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS) {
     return RJ_ARITH_ERROR_UNSUPPORTED_SEMANTICS;
+  }
   return RJ_ARITH_SUCCESS;
 }
 

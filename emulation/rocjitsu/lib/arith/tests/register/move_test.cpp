@@ -16,9 +16,10 @@ TEST(v_mov_b32_w32, Arithmetic) {
           int source = lane;
           if (((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                    ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                   : bool((e >> lane) & 1)))
+                   : bool((e >> lane) & 1))) {
             out.v[d][lane] = rocjitsu::arith::test::moved_word(source < 0 ? 0 : in.v[0][source],
                                                                in.v[d][lane], m, false);
+          }
         }
       },
       RJ_ARITH_ALU_NEG_A | RJ_ARITH_ALU_ABS_A);
@@ -37,17 +38,21 @@ TEST(v_cndmask_b32_w32, Arithmetic) {
           int source = lane;
           if (!((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                     ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                    : bool((e >> lane) & 1)))
+                    : bool((e >> lane) & 1))) {
             continue;
+          }
           bool b = (condition >> lane) & 1;
           uint32_t word = b ? in.v[1][lane] : source < 0 ? 0 : in.v[0][source];
           uint64_t select = m & (RJ_ARITH_ALU_HIGH_D);
-          if (m & (b ? RJ_ARITH_ALU_NEG_B : RJ_ARITH_ALU_NEG_A))
+          if (m & (b ? RJ_ARITH_ALU_NEG_B : RJ_ARITH_ALU_NEG_A)) {
             select |= RJ_ARITH_ALU_NEG_A;
-          if (m & (b ? RJ_ARITH_ALU_ABS_B : RJ_ARITH_ALU_ABS_A))
+          }
+          if (m & (b ? RJ_ARITH_ALU_ABS_B : RJ_ARITH_ALU_ABS_A)) {
             select |= RJ_ARITH_ALU_ABS_A;
-          if (m & (b ? RJ_ARITH_ALU_HIGH_B : RJ_ARITH_ALU_HIGH_A))
+          }
+          if (m & (b ? RJ_ARITH_ALU_HIGH_B : RJ_ARITH_ALU_HIGH_A)) {
             select |= RJ_ARITH_ALU_HIGH_A;
+          }
           out.v[d][lane] = rocjitsu::arith::test::moved_word(word, in.v[d][lane], select, false);
         }
       },
@@ -66,9 +71,10 @@ TEST(v_mov_b16_w32, Arithmetic) {
           int source = lane;
           if (((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                    ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                   : bool((e >> lane) & 1)))
+                   : bool((e >> lane) & 1))) {
             out.v[d][lane] = rocjitsu::arith::test::moved_word(source < 0 ? 0 : in.v[0][source],
                                                                in.v[d][lane], m, true);
+          }
         }
       },
       RJ_ARITH_ALU_NEG_A | RJ_ARITH_ALU_ABS_A | RJ_ARITH_ALU_HIGH_A | RJ_ARITH_ALU_HIGH_D |
@@ -88,17 +94,21 @@ TEST(v_cndmask_b16_w32, Arithmetic) {
           int source = lane;
           if (!((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                     ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                    : bool((e >> lane) & 1)))
+                    : bool((e >> lane) & 1))) {
             continue;
+          }
           bool b = (condition >> lane) & 1;
           uint32_t word = b ? in.v[1][lane] : source < 0 ? 0 : in.v[0][source];
           uint64_t select = m & (RJ_ARITH_ALU_HIGH_D);
-          if (m & (b ? RJ_ARITH_ALU_NEG_B : RJ_ARITH_ALU_NEG_A))
+          if (m & (b ? RJ_ARITH_ALU_NEG_B : RJ_ARITH_ALU_NEG_A)) {
             select |= RJ_ARITH_ALU_NEG_A;
-          if (m & (b ? RJ_ARITH_ALU_ABS_B : RJ_ARITH_ALU_ABS_A))
+          }
+          if (m & (b ? RJ_ARITH_ALU_ABS_B : RJ_ARITH_ALU_ABS_A)) {
             select |= RJ_ARITH_ALU_ABS_A;
-          if (m & (b ? RJ_ARITH_ALU_HIGH_B : RJ_ARITH_ALU_HIGH_A))
+          }
+          if (m & (b ? RJ_ARITH_ALU_HIGH_B : RJ_ARITH_ALU_HIGH_A)) {
             select |= RJ_ARITH_ALU_HIGH_A;
+          }
           out.v[d][lane] = rocjitsu::arith::test::moved_word(word, in.v[d][lane], select, true);
         }
       },
@@ -117,9 +127,10 @@ TEST(v_mov_b32_w64, Arithmetic) {
           int source = lane;
           if (((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                    ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                   : bool((e >> lane) & 1)))
+                   : bool((e >> lane) & 1))) {
             out.v[d][lane] = rocjitsu::arith::test::moved_word(source < 0 ? 0 : in.v[0][source],
                                                                in.v[d][lane], m, false);
+          }
         }
       },
       RJ_ARITH_ALU_NEG_A | RJ_ARITH_ALU_ABS_A);
@@ -138,17 +149,21 @@ TEST(v_cndmask_b32_w64, Arithmetic) {
           int source = lane;
           if (!((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                     ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                    : bool((e >> lane) & 1)))
+                    : bool((e >> lane) & 1))) {
             continue;
+          }
           bool b = (condition >> lane) & 1;
           uint32_t word = b ? in.v[1][lane] : source < 0 ? 0 : in.v[0][source];
           uint64_t select = m & (RJ_ARITH_ALU_HIGH_D);
-          if (m & (b ? RJ_ARITH_ALU_NEG_B : RJ_ARITH_ALU_NEG_A))
+          if (m & (b ? RJ_ARITH_ALU_NEG_B : RJ_ARITH_ALU_NEG_A)) {
             select |= RJ_ARITH_ALU_NEG_A;
-          if (m & (b ? RJ_ARITH_ALU_ABS_B : RJ_ARITH_ALU_ABS_A))
+          }
+          if (m & (b ? RJ_ARITH_ALU_ABS_B : RJ_ARITH_ALU_ABS_A)) {
             select |= RJ_ARITH_ALU_ABS_A;
-          if (m & (b ? RJ_ARITH_ALU_HIGH_B : RJ_ARITH_ALU_HIGH_A))
+          }
+          if (m & (b ? RJ_ARITH_ALU_HIGH_B : RJ_ARITH_ALU_HIGH_A)) {
             select |= RJ_ARITH_ALU_HIGH_A;
+          }
           out.v[d][lane] = rocjitsu::arith::test::moved_word(word, in.v[d][lane], select, false);
         }
       },
@@ -167,9 +182,10 @@ TEST(v_mov_b16_w64, Arithmetic) {
           int source = lane;
           if (((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                    ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                   : bool((e >> lane) & 1)))
+                   : bool((e >> lane) & 1))) {
             out.v[d][lane] = rocjitsu::arith::test::moved_word(source < 0 ? 0 : in.v[0][source],
                                                                in.v[d][lane], m, true);
+          }
         }
       },
       RJ_ARITH_ALU_NEG_A | RJ_ARITH_ALU_ABS_A | RJ_ARITH_ALU_HIGH_A | RJ_ARITH_ALU_HIGH_D |
@@ -189,17 +205,21 @@ TEST(v_cndmask_b16_w64, Arithmetic) {
           int source = lane;
           if (!((m & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16))
                     ? rocjitsu::arith::test::dpp_source(m, e, lane, source)
-                    : bool((e >> lane) & 1)))
+                    : bool((e >> lane) & 1))) {
             continue;
+          }
           bool b = (condition >> lane) & 1;
           uint32_t word = b ? in.v[1][lane] : source < 0 ? 0 : in.v[0][source];
           uint64_t select = m & (RJ_ARITH_ALU_HIGH_D);
-          if (m & (b ? RJ_ARITH_ALU_NEG_B : RJ_ARITH_ALU_NEG_A))
+          if (m & (b ? RJ_ARITH_ALU_NEG_B : RJ_ARITH_ALU_NEG_A)) {
             select |= RJ_ARITH_ALU_NEG_A;
-          if (m & (b ? RJ_ARITH_ALU_ABS_B : RJ_ARITH_ALU_ABS_A))
+          }
+          if (m & (b ? RJ_ARITH_ALU_ABS_B : RJ_ARITH_ALU_ABS_A)) {
             select |= RJ_ARITH_ALU_ABS_A;
-          if (m & (b ? RJ_ARITH_ALU_HIGH_B : RJ_ARITH_ALU_HIGH_A))
+          }
+          if (m & (b ? RJ_ARITH_ALU_HIGH_B : RJ_ARITH_ALU_HIGH_A)) {
             select |= RJ_ARITH_ALU_HIGH_A;
+          }
           out.v[d][lane] = rocjitsu::arith::test::moved_word(word, in.v[d][lane], select, true);
         }
       },

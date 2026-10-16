@@ -45,23 +45,31 @@ void check_unary(Call call, int op, bool iflag = false) {
         }
         int scenario = base / Lanes;
         uint64_t flags = RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS;
-        if (scenario & 1)
+        if (scenario & 1) {
           flags |= RJ_ARITH_FP_FLUSH_INPUT_DENORMALS;
-        if (scenario & 2)
+        }
+        if (scenario & 2) {
           flags |= RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS;
-        if (scenario & 4)
+        }
+        if (scenario & 4) {
           flags |= RJ_ARITH_FP16_OVFL;
-        if (scenario & 8)
+        }
+        if (scenario & 8) {
           flags |= RJ_ARITH_FP_IEEE_MODE;
-        if (!Gfx12 && (scenario & 16))
+        }
+        if (!Gfx12 && (scenario & 16)) {
           flags |= RJ_ARITH_FP_DX10_CLAMP_OFF;
+        }
         uint32_t mode = ((scenario >> 2) & 3) << 6;
-        if (scenario & 32)
+        if (scenario & 32) {
           mode |= RJ_ARITH_ALU_CLAMP;
-        if (scenario & 64)
+        }
+        if (scenario & 64) {
           mode |= RJ_ARITH_ALU_NEG_A;
-        if (scenario & 128)
+        }
+        if (scenario & 128) {
           mode |= RJ_ARITH_ALU_HIGH_A | RJ_ARITH_ALU_HIGH_D;
+        }
         int dest = scenario & 1;
         WaveMask<Lanes> exec_mask =
             scenario & 2 ? WaveMask<Lanes>(0xaaaaaaaaaaaaaaaaULL) : ~WaveMask<Lanes>(0);
@@ -72,9 +80,10 @@ void check_unary(Call call, int op, bool iflag = false) {
           auto actual = input;
           ASSERT_EQ(call(flags | cpu, exec_mask, mode, actual.v + dest, actual.v, nullptr),
                     RJ_ARITH_SUCCESS);
-          for (int lane = 0; lane < Lanes; ++lane)
+          for (int lane = 0; lane < Lanes; ++lane) {
             ASSERT_EQ(actual.v[dest][lane], expected.v[dest][lane])
                 << base << '/' << cpu << '/' << lane;
+          }
           actual.expect_preserved(input, dest, 1);
         }
       }
@@ -111,8 +120,9 @@ void check_unary(Call call, int op, bool iflag = false) {
           // boundaries, with low/high polynomial fractions and midpoint neighbors.
           static const uint32_t fractions[] = {0,       1,       0x1ffff, 0x20000,
                                                0x20001, 0x3fffe, 0x3ffff, 0x12345};
-          for (int lane = 0; lane < Lanes; ++lane)
+          for (int lane = 0; lane < Lanes; ++lane) {
             input.v[0][lane] = 0x3f800000U | (uint32_t(scenario - 160) << 18) | fractions[lane % 8];
+          }
         }
         if ((op == 4 || op == 6) && scenario >= 128) {
           // Both exponent parities and every inherited polynomial segment.
@@ -122,8 +132,9 @@ void check_unary(Call call, int op, bool iflag = false) {
           const uint32_t fractions[] = {
               0,      1, midpoint - 1, midpoint, midpoint + 1, 2 * midpoint - 2, 2 * midpoint - 1,
               0x12345};
-          for (int lane = 0; lane < Lanes; ++lane)
+          for (int lane = 0; lane < Lanes; ++lane) {
             input.v[0][lane] = 0x3f800000U + (uint32_t(segment) << shift) + fractions[lane % 8];
+          }
         }
         if ((op == 4 || op == 6) && scenario >= 192) {
           // Sparse inherited correction keys, spanning both exponent parities.
@@ -132,17 +143,19 @@ void check_unary(Call call, int op, bool iflag = false) {
                                                   0x7cfebc, 0xffd59b, 0xffd5a3, 0xffe39e};
           static const uint32_t rsq_indices[] = {0x1bbc,   0x7dce,   0x7f8f01, 0x7fc498,
                                                  0x80000c, 0x807e9c, 0xffa020, 0xfffe59};
-          for (int lane = 0; lane < Lanes; ++lane)
+          for (int lane = 0; lane < Lanes; ++lane) {
             input.v[0][lane] =
                 0x3f800000U + (op == 4 ? sqrt_indices[lane % 8] : rsq_indices[lane % 8]);
+          }
         }
         if ((op == 4 || op == 6) && scenario >= 194) {
           // Entire special-value blocks must skip polynomial work without losing
           // negative-input causes, NaN quieting or signed-zero behavior.
           static const uint32_t special[] = {0xbf800000U, 0x80000001U, 0xff800000U, 0x7f800000U,
                                              0,           0x80000000U, 0x7f812345U, 0xffc54321U};
-          for (int lane = 0; lane < Lanes; ++lane)
+          for (int lane = 0; lane < Lanes; ++lane) {
             input.v[0][lane] = special[lane % 8];
+          }
         }
         input.v[0][scenario % Lanes] = scenario % 3 == 0   ? 0xff812345U
                                        : scenario % 3 == 1 ? 0x7f800000U
@@ -157,8 +170,9 @@ void check_unary(Call call, int op, bool iflag = false) {
         uint64_t mode = ((uint64_t(scenario) & 3) << 6) | (scenario & 4 ? RJ_ARITH_ALU_CLAMP : 0) |
                         (scenario & 8 ? RJ_ARITH_ALU_ABS_A : 0) |
                         (scenario & 16 ? RJ_ARITH_ALU_NEG_A : 0);
-        if (scenario >= 128)
+        if (scenario >= 128) {
           mode = 0; // Keep residual corrections observable without CLAMP/OMOD.
+        }
         auto exec_mask = exec_mask_for_case<Lanes>(scenario % 5);
         int destination = scenario % 2;
         auto expected = input;
@@ -173,8 +187,9 @@ void check_unary(Call call, int op, bool iflag = false) {
           ASSERT_EQ(call(flags | cpu, exec_mask, mode, actual.v + destination, actual.v, &status),
                     RJ_ARITH_SUCCESS);
           EXPECT_EQ(status, expected_status);
-          for (int lane = 0; lane < Lanes; ++lane)
+          for (int lane = 0; lane < Lanes; ++lane) {
             ASSERT_EQ(actual.v[destination][lane], expected.v[destination][lane]) << lane;
+          }
           actual.expect_preserved(input, destination, 1);
         }
       }
@@ -184,16 +199,18 @@ void check_unary(Call call, int op, bool iflag = false) {
   const bool reporting = !Half && (op == 4 || iflag);
   Registers<2, Lanes> random_input;
   std::minstd_rand random;
-  for (int reg = 0; reg < 2; ++reg)
-    for (int lane = 0; lane < Lanes; ++lane)
+  for (int reg = 0; reg < 2; ++reg) {
+    for (int lane = 0; lane < Lanes; ++lane) {
       random_input.v[reg][lane] =
           Half ? uint32_t(random_f16_bits(random)) | (uint32_t(random_f16_bits(random)) << 16)
                : random_f32_bits(random);
+    }
+  }
   random_input.v[0][0] = Half ? 0x7e017e01U : 0x7fc00001U;
   random_input.v[0][1] = Half ? 0x7c007c00U : 0x7f800000U;
-  for (auto cpu : supported_cpu_levels())
-    for (auto semantics : semantics_modes())
-      for (int scenario = 0; scenario < 40; ++scenario)
+  for (auto cpu : supported_cpu_levels()) {
+    for (auto semantics : semantics_modes()) {
+      for (int scenario = 0; scenario < 40; ++scenario) {
         for (int d : {0, 1}) {
           SCOPED_TRACE(::testing::Message()
                        << cpu << '/' << semantics << '/' << scenario << '/' << d);
@@ -202,26 +219,30 @@ void check_unary(Call call, int op, bool iflag = false) {
           uint64_t mode =
               (scenario & 1 ? RJ_ARITH_ALU_NEG_A : 0) | (scenario & 2 ? RJ_ARITH_ALU_ABS_A : 0) |
               ((uint64_t(scenario >> 2) & 3) << 6) | (scenario & 16 ? RJ_ARITH_ALU_CLAMP : 0);
-          if constexpr (Half)
+          if constexpr (Half) {
             mode |=
                 (scenario & 1 ? RJ_ARITH_ALU_HIGH_A : 0) | (scenario & 2 ? RJ_ARITH_ALU_HIGH_D : 0);
+          }
           if (precise) {
             if constexpr (!Half) {
               // Empirical SFU outputs come from goldens, not a libm oracle.
-              for (int lane = 0; lane < Lanes; ++lane)
+              for (int lane = 0; lane < Lanes; ++lane) {
                 input.v[0][lane] = unary_inputs[lane % 32];
+              }
               mode &= ~(RJ_ARITH_ALU_NEG_A | RJ_ARITH_ALU_ABS_A);
             } else if (op == 7 || op == 8) {
               // Exactly representable exp/log identities; random noninteger
               // inputs below are only checked with the loose reference.
               const uint16_t identities[] = {0, 0x3c00, 0x4000, 0x4400};
-              for (int lane = 0; lane < Lanes; ++lane)
+              for (int lane = 0; lane < Lanes; ++lane) {
                 input.v[0][lane] = uint32_t(identities[lane % 4]) * 0x10001U;
+              }
               mode &= ~(RJ_ARITH_ALU_NEG_A | RJ_ARITH_ALU_ABS_A);
             }
           }
-          if (scenario >= 33)
+          if (scenario >= 33) {
             mode |= dpp_modes[scenario - 33];
+          }
           auto actual = input;
           auto exec_mask = exec_mask_for_case<Lanes>(scenario);
           uint32_t status = 0x80000040U;
@@ -244,8 +265,9 @@ void check_unary(Call call, int op, bool iflag = false) {
             EXPECT_EQ(status, 0x80000040U);
           }
           uint32_t effective = uint32_t(mode);
-          if (!Gfx12 && (Half || iflag || op < 4 || op >= 9))
+          if (!Gfx12 && (Half || iflag || op < 4 || op >= 9)) {
             effective &= ~RJ_ARITH_ALU_OMOD_HALF;
+          }
           for (int lane = 0; lane < Lanes; ++lane) {
             int source = lane;
             bool enabled = mode & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16)
@@ -271,10 +293,12 @@ void check_unary(Call call, int op, bool iflag = false) {
               if (precise) {
                 expected = bit_cast<float>(unary_goldens[op][source < 0 ? 0 : source % 32]);
                 expected = omod_f32_reference(expected, effective);
-                if (effective & RJ_ARITH_ALU_CLAMP)
+                if (effective & RJ_ARITH_ALU_CLAMP) {
                   expected = !(expected > 0) ? 0 : std::min(expected, 1.0f);
-              } else
+                }
+              } else {
                 expected = unary_reference(op, bit_cast<float>(raw), effective);
+              }
               expect_f32(actual.v[d][lane], expected,
                          precise ? RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS
                                  : RJ_ARITH_SEMANTICS_LOOSE,
@@ -283,6 +307,9 @@ void check_unary(Call call, int op, bool iflag = false) {
           }
           actual.expect_preserved(input, d, 1);
         }
+      }
+    }
+  }
   auto unchanged = random_input;
   uint64_t known = RJ_ARITH_ALU_ABS_A | RJ_ARITH_ALU_NEG_A | RJ_ARITH_ALU_OMOD_HALF |
                    RJ_ARITH_ALU_CLAMP | (Half ? RJ_ARITH_ALU_HIGH_A | RJ_ARITH_ALU_HIGH_D : 0);
@@ -303,13 +330,15 @@ void check_unary(Call call, int op, bool iflag = false) {
       uint64_t hash = capture_hash_seed;
       Registers<2, Lanes> r;
       for (int base = 0; base < 65536; base += Lanes) {
-        for (int lane = 0; lane < Lanes; ++lane)
+        for (int lane = 0; lane < Lanes; ++lane) {
           r.v[0][lane] = base + lane;
+        }
         ASSERT_EQ(call(RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS | RJ_ARITH_FP_IEEE_MODE,
                        WaveMask<Lanes>(~WaveMask<Lanes>(0)), 0, r.v + 1, r.v, nullptr),
                   RJ_ARITH_SUCCESS);
-        for (int lane = 0; lane < Lanes; ++lane)
+        for (int lane = 0; lane < Lanes; ++lane) {
           hash = capture_hash_word(hash, uint16_t(r.v[1][lane]));
+        }
         if ((base + Lanes) % 4096 == 0) {
           EXPECT_EQ(hash, half_sfu_checkpoints[op == 5   ? 0
                                                : op == 6 ? 1
@@ -323,8 +352,9 @@ void check_unary(Call call, int op, bool iflag = false) {
     const uint32_t values[] = {0xbf800000U, 0x40000000U, 0x40800000U};
     for (int sample = 0; sample < 3; ++sample) {
       Registers<2, Lanes> r;
-      for (int lane = 0; lane < Lanes; ++lane)
+      for (int lane = 0; lane < Lanes; ++lane) {
         r.v[0][lane] = values[sample];
+      }
       uint32_t status = 0x80000040U;
       ASSERT_EQ(call(RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL, WaveMask<Lanes>(1), 0, r.v + 1, r.v,
                      &status),
@@ -335,13 +365,14 @@ void check_unary(Call call, int op, bool iflag = false) {
   if (iflag) {
     // Existing capture model: zero/subnormal inputs set DIV0. gfx12 CLAMP
     // suppresses it; gfx11 keeps it. Only participating lanes contribute.
-    for (auto cpu : supported_cpu_levels())
-      for (auto semantics : semantics_modes())
-        for (bool clamp : {false, true})
+    for (auto cpu : supported_cpu_levels()) {
+      for (auto semantics : semantics_modes()) {
+        for (bool clamp : {false, true}) {
           for (int scenario = 0; scenario < 5; ++scenario) {
             Registers<2, Lanes> r;
-            for (int lane = 0; lane < Lanes; ++lane)
+            for (int lane = 0; lane < Lanes; ++lane) {
               r.v[0][lane] = 0x3f800000U;
+            }
             r.v[0][0] = 0;
             r.v[0][Lanes - 1] = 1;
             auto exec_mask = exec_mask_for_case<Lanes>(scenario);
@@ -355,6 +386,9 @@ void check_unary(Call call, int op, bool iflag = false) {
             EXPECT_EQ(status,
                       0x80000000U | (report && exceptional && (!Gfx12 || !clamp) ? 0x40U : 0));
           }
+        }
+      }
+    }
   }
 }
 

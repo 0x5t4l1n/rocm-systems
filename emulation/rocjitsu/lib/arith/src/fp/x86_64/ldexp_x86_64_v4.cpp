@@ -27,12 +27,15 @@ void run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
       auto high =
           _mm512_cvtepu32_epi64(_mm256_loadu_si256(reinterpret_cast<const __m256i *>(a[1] + lane)));
       auto bits = _mm512_or_si512(low, _mm512_slli_epi64(high, 32));
-      if (mode & RJ_ARITH_ALU_ABS_A)
+      if (mode & RJ_ARITH_ALU_ABS_A) {
         bits = _mm512_and_si512(bits, _mm512_set1_epi64(INT64_MAX));
-      if (mode & RJ_ARITH_ALU_NEG_A)
+      }
+      if (mode & RJ_ARITH_ALU_NEG_A) {
         bits = _mm512_xor_si512(bits, _mm512_set1_epi64(INT64_MIN));
-      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS))
+      }
+      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)) {
         bits = _mm512_castpd_si512(flush_denorm_f64(_mm512_castsi512_pd(bits)));
+      }
       auto exponent =
           _mm512_cvtepi32_pd(_mm256_loadu_si256(reinterpret_cast<const __m256i *>(b + lane)));
       auto value = _mm512_scalef_pd(_mm512_castsi512_pd(bits), exponent);
@@ -46,13 +49,15 @@ void run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
       }
       if (mode & RJ_ARITH_ALU_CLAMP) {
         auto clamped = _mm512_min_pd(_mm512_max_pd(value, _mm512_setzero_pd()), _mm512_set1_pd(1));
-        if (GuestDenormals && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF))
+        if (GuestDenormals && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF)) {
           clamped =
               _mm512_mask_mov_pd(clamped, _mm512_cmp_pd_mask(value, value, _CMP_UNORD_Q), value);
+        }
         value = clamped;
       }
-      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
+      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) {
         value = flush_denorm_f64(value);
+      }
       bits = _mm512_castpd_si512(value);
       _mm256_storeu_si256(reinterpret_cast<__m256i *>(result[0] + lane),
                           _mm512_cvtepi64_epi32(bits));
@@ -60,12 +65,15 @@ void run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
                           _mm512_cvtepi64_epi32(_mm512_srli_epi64(bits, 32)));
     } else {
       auto bits = _mm512_loadu_si512(a[0] + lane);
-      if (mode & RJ_ARITH_ALU_ABS_A)
+      if (mode & RJ_ARITH_ALU_ABS_A) {
         bits = _mm512_and_si512(bits, _mm512_set1_epi32(INT32_MAX));
-      if (mode & RJ_ARITH_ALU_NEG_A)
+      }
+      if (mode & RJ_ARITH_ALU_NEG_A) {
         bits = _mm512_xor_si512(bits, _mm512_set1_epi32(INT32_MIN));
-      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS))
+      }
+      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)) {
         bits = _mm512_castps_si512(flush_denorm_f32(_mm512_castsi512_ps(bits)));
+      }
       auto exponent = _mm512_loadu_si512(b + lane);
 
       // Exponents beyond these bounds have the same overflow/underflow result;
@@ -84,20 +92,24 @@ void run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
       }
       if (mode & RJ_ARITH_ALU_CLAMP) {
         auto clamped = _mm512_min_ps(_mm512_max_ps(value, _mm512_setzero_ps()), _mm512_set1_ps(1));
-        if (GuestDenormals && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF))
+        if (GuestDenormals && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF)) {
           clamped =
               _mm512_mask_mov_ps(clamped, _mm512_cmp_ps_mask(value, value, _CMP_UNORD_Q), value);
+        }
         value = clamped;
       }
-      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
+      if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) {
         value = flush_denorm_f32(value);
+      }
       _mm512_storeu_si512(result[0] + lane, _mm512_castps_si512(value));
     }
   }
-  for (int reg = 0; reg < (Fp64 ? 2 : 1); ++reg)
-    for (int lane = 0; lane < 32; lane += 16)
+  for (int reg = 0; reg < (Fp64 ? 2 : 1); ++reg) {
+    for (int lane = 0; lane < 32; lane += 16) {
       _mm512_mask_storeu_epi32(d[reg] + lane, __mmask16(exec_mask >> lane),
                                _mm512_loadu_si512(result[reg] + lane));
+    }
+  }
 }
 
 } // namespace
@@ -106,20 +118,22 @@ void run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
 // Requires the named CPU features and validated instruction controls.
 void ldexp_x86_64_v4(bool fp64, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
                      const uint32_t *const *a, const uint32_t *b) {
-  if (fp64)
+  if (fp64) {
     run<true, false>(0, exec_mask, mode, d, a, b);
-  else
+  } else {
     run<false, false>(0, exec_mask, mode, d, a, b);
+  }
 }
 
 // Scale FP32 by powers of two. Preserve destination lanes outside exec_mask.
 // Requires the named CPU features and validated instruction controls.
 void ldexp_guest_x86_64_v4(bool fp64, uint64_t flags, uint32_t exec_mask, uint32_t mode,
                            uint32_t *const *d, const uint32_t *const *a, const uint32_t *b) {
-  if (fp64)
+  if (fp64) {
     run<true, true>(flags, exec_mask, mode, d, a, b);
-  else
+  } else {
     run<false, true>(flags, exec_mask, mode, d, a, b);
+  }
 }
 
 } // namespace rocjitsu::arith

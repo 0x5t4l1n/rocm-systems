@@ -19,20 +19,26 @@ template <bool Maximum, bool Propagate, typename Float> Float minmax(Float x, Fl
   typename Bits::UInt a = Bits::bits(x), b = Bits::bits(y);
   bool an = (a & Bits::magnitude) > Bits::infinity, bn = (b & Bits::magnitude) > Bits::infinity;
   if constexpr (Propagate) {
-    if (an && !(a & Bits::quiet))
+    if (an && !(a & Bits::quiet)) {
       return Bits::value(a | Bits::quiet);
-    if (bn && !(b & Bits::quiet))
+    }
+    if (bn && !(b & Bits::quiet)) {
       return Bits::value(b | Bits::quiet);
-    if (an || bn)
+    }
+    if (an || bn) {
       return Bits::value((an ? a : b) | Bits::quiet);
+    }
   } else {
-    if (an)
+    if (an) {
       return bn ? Bits::value(a | Bits::quiet) : y;
-    if (bn)
+    }
+    if (bn) {
       return x;
+    }
   }
-  if (x == y)
+  if (x == y) {
     return Bits::value(Maximum ? (a & b) : (a | b));
+  }
   return (Maximum ? x > y : x < y) ? x : y;
 }
 
@@ -44,10 +50,12 @@ template <bool Maximum, typename Float> Float minmax_rdna3(Float x, Float y, boo
   bool an = (a & Bits::magnitude) > Bits::infinity;
   bool bn = (b & Bits::magnitude) > Bits::infinity;
   if (ieee) {
-    if (an && !(a & Bits::quiet))
+    if (an && !(a & Bits::quiet)) {
       return Bits::value(a | Bits::quiet);
-    if (bn && !(b & Bits::quiet))
+    }
+    if (bn && !(b & Bits::quiet)) {
       return Bits::value(b | Bits::quiet);
+    }
   } else if (an && bn) {
     return x;
   }
@@ -93,8 +101,9 @@ template <bool FirstMaximum, bool SecondMaximum, bool Median>
 float minmax3_rdna3(float x, float y, float z, bool ieee) {
   if constexpr (Median) {
     if ((as_bits(x) & 0x7fffffffU) > 0x7f800000U || (as_bits(y) & 0x7fffffffU) > 0x7f800000U ||
-        (as_bits(z) & 0x7fffffffU) > 0x7f800000U)
+        (as_bits(z) & 0x7fffffffU) > 0x7f800000U) {
       return minmax_rdna3<false>(minmax_rdna3<false>(x, y, ieee), z, ieee);
+    }
     float maximum = minmax_rdna3<true>(minmax_rdna3<true>(x, y, ieee), z, ieee);
     return maximum == x   ? minmax_rdna3<true>(y, z, ieee)
            : maximum == y ? minmax_rdna3<true>(x, z, ieee)

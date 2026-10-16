@@ -31,8 +31,9 @@ uint32_t undo_dot2_a(uint32_t a, uint32_t mode) {
   a ^= (mode & RJ_ARITH_DOT_NEG_LO_A ? 0x8000U : 0) |
        (mode & RJ_ARITH_DOT_NEG_HI_A ? 0x80000000U : 0);
   if ((mode & (RJ_ARITH_DOT_LO_A_HIGH | RJ_ARITH_DOT_HI_A_LOW)) ==
-      (RJ_ARITH_DOT_LO_A_HIGH | RJ_ARITH_DOT_HI_A_LOW))
+      (RJ_ARITH_DOT_LO_A_HIGH | RJ_ARITH_DOT_HI_A_LOW)) {
     a = (a << 16) | (a >> 16);
+  }
   return a;
 }
 
@@ -41,8 +42,9 @@ uint32_t undo_dot2_b(uint32_t b, uint32_t mode) {
   b ^= (mode & RJ_ARITH_DOT_NEG_LO_B ? 0x8000U : 0) |
        (mode & RJ_ARITH_DOT_NEG_HI_B ? 0x80000000U : 0);
   if ((mode & (RJ_ARITH_DOT_LO_B_HIGH | RJ_ARITH_DOT_HI_B_LOW)) ==
-      (RJ_ARITH_DOT_LO_B_HIGH | RJ_ARITH_DOT_HI_B_LOW))
+      (RJ_ARITH_DOT_LO_B_HIGH | RJ_ARITH_DOT_HI_B_LOW)) {
     b = (b << 16) | (b >> 16);
+  }
   return b;
 }
 
@@ -68,10 +70,11 @@ void check_exact_dot2(Call call, const Dot2Case (&cases)[16]) {
                                  (0x1bULL << RJ_ARITH_DPP_CTRL_SHIFT) | RJ_ARITH_DPP_ROW_MASK |
                                  RJ_ARITH_DPP_BANK_MASK};
   auto cpu_levels = supported_cpu_levels();
-  for (uint64_t cpu : cpu_levels)
+  for (uint64_t cpu : cpu_levels) {
     for (uint64_t semantics : semantics_modes()) {
-      if (semantics == RJ_ARITH_SEMANTICS_LOOSE)
+      if (semantics == RJ_ARITH_SEMANTICS_LOOSE) {
         continue;
+      }
       for (int scenario = 0; scenario < 15; ++scenario) {
         uint32_t modifier = Accumulate ? 0 : scenario < 5 ? 0 : modifiers[scenario - 5];
         bool same_halves = !Accumulate && scenario >= 11;
@@ -79,8 +82,9 @@ void check_exact_dot2(Call call, const Dot2Case (&cases)[16]) {
         Mask exec_mask = exec_mask_for_case<Lanes>(scenario < 5 ? scenario : scenario % 2 ? 0 : 3);
         Registers<4, Lanes> input;
         uint32_t expected[Lanes];
-        for (int lane = 0; lane < Lanes; ++lane)
+        for (int lane = 0; lane < Lanes; ++lane) {
           input.v[0][lane] = undo_dot2_a(cases[same_halves ? 2 : lane % 16].a, modifier);
+        }
         for (int lane = 0; lane < Lanes; ++lane) {
           int source = lane;
           if (mode & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16)) {
@@ -97,8 +101,9 @@ void check_exact_dot2(Call call, const Dot2Case (&cases)[16]) {
         for (int aliasing_offset : {3, 0, 1, 2}) {
           auto r = input;
           uint32_t want[Lanes];
-          for (int lane = 0; lane < Lanes; ++lane)
+          for (int lane = 0; lane < Lanes; ++lane) {
             want[lane] = expected[lane];
+          }
           uint64_t flags = cpu | semantics | (scenario % 2 ? RJ_ARITH_FP16_OVFL : 0);
           int error = !Gfx12 && semantics == RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL
                           ? RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS
@@ -109,15 +114,17 @@ void check_exact_dot2(Call call, const Dot2Case (&cases)[16]) {
               // execution checks snapshot semantics only; numerical correctness
               // is independently checked against the captures for D=C/disjoint.
               auto separate = input;
-              for (int lane = 0; lane < Lanes; ++lane)
+              for (int lane = 0; lane < Lanes; ++lane) {
                 separate.v[3][lane] = input.v[aliasing_offset][lane];
+              }
               uint32_t status = 0x80000055U;
               ASSERT_EQ(
                   (invoke_dot<true, true>(call, flags, exec_mask, mode, separate.v + 3, separate.v,
                                           separate.v + 1, separate.v + 2, &status)),
                   RJ_ARITH_SUCCESS);
-              for (int lane = 0; lane < Lanes; ++lane)
+              for (int lane = 0; lane < Lanes; ++lane) {
                 want[lane] = separate.v[3][lane];
+              }
             }
           }
           uint32_t status = scenario % 2 ? 0xffffff80U : 0x80000055U, old_status = status;
@@ -137,12 +144,14 @@ void check_exact_dot2(Call call, const Dot2Case (&cases)[16]) {
             continue;
           }
           r.expect_preserved(input, aliasing_offset, 1);
-          for (int lane = 0; lane < Lanes; ++lane)
+          for (int lane = 0; lane < Lanes; ++lane) {
             EXPECT_EQ(r.v[aliasing_offset][lane],
                       ((exec_mask >> lane) & 1) ? want[lane] : input.v[aliasing_offset][lane]);
+          }
         }
       }
     }
+  }
 }
 
 // Differential coverage of the new SIMD implementation against the unchanged
@@ -153,18 +162,22 @@ template <int Lanes, bool Bf16, bool Accumulate, class Call> void check_dot2_sim
   auto cpus = supported_cpu_levels();
   for (int scenario = 0; scenario < 128; ++scenario) {
     Registers<4, Lanes> input;
-    for (int reg = 0; reg < 4; ++reg)
-      for (int lane = 0; lane < Lanes; ++lane)
+    for (int reg = 0; reg < 4; ++reg) {
+      for (int lane = 0; lane < Lanes; ++lane) {
         input.v[reg][lane] = word();
+      }
+    }
     uint64_t mode = Accumulate ? 0 : word() & dot2_modifiers;
-    if (scenario % 4 == 0)
+    if (scenario % 4 == 0) {
       mode |= dpp_modes[1];
+    }
     auto exec_mask = exec_mask_for_case<Lanes>(scenario % 5);
     int aliasing_offset = scenario % 4;
     for (uint64_t semantics :
          {RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS, RJ_ARITH_SEMANTICS_LOOSE}) {
-      if (!Bf16 && semantics == RJ_ARITH_SEMANTICS_LOOSE)
+      if (!Bf16 && semantics == RJ_ARITH_SEMANTICS_LOOSE) {
         continue;
+      }
       auto reference = input;
       uint32_t status = 0x80000055U;
       ASSERT_EQ((invoke_dot<Accumulate, true>(call, semantics, exec_mask, mode,
@@ -179,12 +192,13 @@ template <int Lanes, bool Bf16, bool Accumulate, class Call> void check_dot2_sim
                                                 actual.v + 2, &status)),
                   RJ_ARITH_SUCCESS);
         for (int lane = 0; lane < Lanes; ++lane) {
-          if (semantics == RJ_ARITH_SEMANTICS_LOOSE && ((exec_mask >> lane) & 1))
+          if (semantics == RJ_ARITH_SEMANTICS_LOOSE && ((exec_mask >> lane) & 1)) {
             expect_f32(actual.v[aliasing_offset][lane],
                        bit_cast<float>(reference.v[aliasing_offset][lane]), semantics,
                        /*atol=*/0, /*rtol=*/1e-6);
-          else
+          } else {
             ASSERT_EQ(actual.v[aliasing_offset][lane], reference.v[aliasing_offset][lane]) << lane;
+          }
         }
         actual.expect_preserved(input, aliasing_offset, 1);
         EXPECT_EQ(status, 0x80000055U);
@@ -207,20 +221,23 @@ void check_dot2(Call call) {
           int sb = term ? (mode & RJ_ARITH_DOT_HI_B_LOW ? 0 : 16)
                         : (mode & RJ_ARITH_DOT_LO_B_HIGH ? 16 : 0);
           uint16_t x = uint16_t(a >> sa), y = uint16_t(b >> sb);
-          if (mode & (term ? RJ_ARITH_DOT_NEG_HI_A : RJ_ARITH_DOT_NEG_LO_A))
+          if (mode & (term ? RJ_ARITH_DOT_NEG_HI_A : RJ_ARITH_DOT_NEG_LO_A)) {
             x ^= 0x8000;
-          if (mode & (term ? RJ_ARITH_DOT_NEG_HI_B : RJ_ARITH_DOT_NEG_LO_B))
+          }
+          if (mode & (term ? RJ_ARITH_DOT_NEG_HI_B : RJ_ARITH_DOT_NEG_LO_B)) {
             y ^= 0x8000;
+          }
           sum += double(Bf16 ? bf16_value(x) : f16_value(x)) *
                  double(Bf16 ? bf16_value(y) : f16_value(y));
         }
         expect_f32(actual, float(sum), RJ_ARITH_SEMANTICS_LOOSE, /*atol=*/2e-6, /*rtol=*/2e-7);
       },
       Accumulate ? 0 : dot2_modifiers, true);
-  if constexpr (Gfx12)
+  if constexpr (Gfx12) {
     check_exact_dot2<Lanes, Accumulate, Gfx12>(call, Bf16 ? gfx12_bf16_cases : gfx12_f16_cases);
-  else
+  } else {
     check_exact_dot2<Lanes, Accumulate, Gfx12>(call, Bf16 ? gfx11_bf16_cases : gfx11_f16_cases);
+  }
 }
 
 } // namespace

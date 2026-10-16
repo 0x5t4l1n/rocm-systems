@@ -24,25 +24,32 @@ void boolean_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *d, const uin
   for (int lane = 0; lane < 32; lane += 16) {
     __m512i x;
     x = _mm512_loadu_si512(reinterpret_cast<const __m512i *>(a + lane));
-    if constexpr (Half)
+    if constexpr (Half) {
       x = _mm512_srl_epi32(x, sa);
+    }
     __m512i y;
     if constexpr (Op != Boolean::Not) {
       y = _mm512_loadu_si512(reinterpret_cast<const __m512i *>(b + lane));
-      if constexpr (Half)
+      if constexpr (Half) {
         y = _mm512_srl_epi32(y, sb);
+      }
     }
     __m512i result;
-    if constexpr (Op == Boolean::And)
+    if constexpr (Op == Boolean::And) {
       result = _mm512_and_si512(x, y);
-    if constexpr (Op == Boolean::Or)
+    }
+    if constexpr (Op == Boolean::Or) {
       result = _mm512_or_si512(x, y);
-    if constexpr (Op == Boolean::Xor)
+    }
+    if constexpr (Op == Boolean::Xor) {
       result = _mm512_xor_si512(x, y);
-    if constexpr (Op == Boolean::Xnor)
+    }
+    if constexpr (Op == Boolean::Xnor) {
       result = _mm512_xor_si512(_mm512_xor_si512(x, y), _mm512_set1_epi32(-1));
-    if constexpr (Op == Boolean::Not)
+    }
+    if constexpr (Op == Boolean::Not) {
       result = _mm512_xor_si512(x, _mm512_set1_epi32(-1));
+    }
     if constexpr (Half) {
       auto original = _mm512_loadu_si512(reinterpret_cast<const __m512i *>(d + lane));
       auto selected = _mm512_sll_epi32(result, sd);

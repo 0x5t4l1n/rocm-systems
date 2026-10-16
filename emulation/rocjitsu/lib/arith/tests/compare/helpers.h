@@ -20,10 +20,12 @@ namespace rocjitsu::arith::test {
 
 // Raw operand access: 16-bit halves, 32-bit words or separate low/high VGPRs.
 inline uint64_t compare_operand(const uint32_t *const *v, int lane, int width, bool high) {
-  if (lane < 0)
+  if (lane < 0) {
     return 0; // DPP supplied zero rather than an input lane.
-  if (width == 16)
+  }
+  if (width == 16) {
     return uint16_t(v[0][lane] >> (high ? 16 : 0));
+  }
   return v[0][lane] | (width == 64 ? uint64_t(v[1][lane]) << 32 : 0);
 }
 
@@ -35,8 +37,9 @@ inline void write_compare_operand(uint32_t *const *v, int lane, int width, uint6
     v[0][lane] = (v[0][lane] & ~(0xffffU << shift)) | (uint32_t(bits) << shift);
   } else {
     v[0][lane] = uint32_t(bits);
-    if (width == 64)
+    if (width == 64) {
       v[1][lane] = uint32_t(bits >> 32);
+    }
   }
 }
 
@@ -51,8 +54,9 @@ WaveMask<Lanes> comparison_mask(uint64_t mode, WaveMask<Lanes> exec_mask, Predic
     bool active = mode & (RJ_ARITH_DPP8 | RJ_ARITH_DPP16)
                       ? dpp_source(mode, exec_mask, lane, source)
                       : bool((exec_mask >> lane) & 1);
-    if (active && predicate(source, lane))
+    if (active && predicate(source, lane)) {
       result |= WaveMask<Lanes>(1) << lane;
+    }
   }
   return result;
 }
@@ -72,8 +76,9 @@ void expect_comparison(const Registers<4, Lanes> &input, WaveMask<Lanes> expecte
   if (expected_error == RJ_ARITH_SUCCESS) {
     std::memcpy(&actual, storage, sizeof actual);
     EXPECT_EQ(actual, expected);
-    if (aliasing_register >= 0)
+    if (aliasing_register >= 0) {
       std::memcpy(want.v[aliasing_register] + 31, &expected, sizeof expected);
+    }
   } else if (aliasing_register < 0) {
     EXPECT_EQ(outside, ~Mask(0));
   }

@@ -65,7 +65,7 @@ template <int Lanes, class Call> void check_status(Call call) {
   Registers input = rocjitsu::arith::test::make_fp_inputs<32, Lanes>();
   const auto cpu_levels = rocjitsu::arith::test::supported_cpu_levels();
   for (uint64_t cpu : cpu_levels) {
-    for (const auto &test : status_cases_f32)
+    for (const auto &test : status_cases_f32) {
       for (uint64_t mode : {uint64_t(0), uint64_t(RJ_ARITH_ALU_CLAMP)}) {
         SCOPED_TRACE(::testing::Message()
                      << cpu << '/' << mode << '/' << test.a << '/' << test.b << '/' << test.c);
@@ -85,8 +85,9 @@ template <int Lanes, class Call> void check_status(Call call) {
         EXPECT_EQ(fp_status, 0x80000000U | causes);
         // Preserve previously accumulated causes as well as unrelated bits.
         fp_status = 0x40000000U | RJ_ARITH_EXCEPTION_FLOAT_DIV0;
-        for (int part = 0; part < 1; ++part)
+        for (int part = 0; part < 1; ++part) {
           rocjitsu::arith::test::write_fp(r.v + 4, lane, 32, test.c, part);
+        }
         ASSERT_EQ(call(cpu | RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL, exec_mask, mode, r.v + 6, r.v,
                        r.v + 2, &fp_status),
                   RJ_ARITH_SUCCESS);
@@ -99,6 +100,7 @@ template <int Lanes, class Call> void check_status(Call call) {
         r.expect_preserved(before, 0, 0);
         EXPECT_EQ(fp_status, 0x40000000U | RJ_ARITH_EXCEPTION_FLOAT_DIV0 | causes);
       }
+    }
   }
 }
 

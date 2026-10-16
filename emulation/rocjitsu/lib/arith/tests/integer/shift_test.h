@@ -35,8 +35,8 @@ template <int Width, int Lanes, class Call> void check_shift(Call call, Shift op
       RJ_ARITH_ALU_CLAMP);
   const auto modes = integer_modes(RJ_ARITH_ALU_CLAMP, Width == 32);
   const auto cpu_levels = supported_cpu_levels();
-  for (uint64_t cpu : cpu_levels)
-    for (uint64_t semantics : semantics_modes())
+  for (uint64_t cpu : cpu_levels) {
+    for (uint64_t semantics : semantics_modes()) {
       for (int scenario = 0; scenario < 5 + int(modes.size()); ++scenario) {
         uint64_t mode = scenario < 5 ? 0 : modes[scenario - 5];
         Mask exec_mask = exec_mask_for_case<Lanes>(scenario < 5 ? scenario : scenario % 2 ? 0 : 3);
@@ -45,16 +45,19 @@ template <int Width, int Lanes, class Call> void check_shift(Call call, Shift op
           auto r = input, expected = input;
           for (int lane = 0; lane < Lanes; ++lane) {
             int source;
-            if (!integer_source(mode, exec_mask, lane, source))
+            if (!integer_source(mode, exec_mask, lane, source)) {
               continue;
+            }
             uint32_t count = source < 0 ? 0 : input.v[0][source];
             uint64_t value = input.v[2][lane];
-            if constexpr (Width == 64)
+            if constexpr (Width == 64) {
               value |= uint64_t(input.v[3][lane]) << 32;
+            }
             uint64_t result = shift_reference(Width, operation, count, value);
             expected.v[aliasing_offset][lane] = uint32_t(result);
-            if constexpr (Width == 64)
+            if constexpr (Width == 64) {
               expected.v[aliasing_offset + 1][lane] = uint32_t(result >> 32);
+            }
           }
           ASSERT_EQ(call(cpu | semantics, exec_mask, mode,
                          exec_mask ? r.v + aliasing_offset : nullptr, exec_mask ? r.v : nullptr,
@@ -63,6 +66,8 @@ template <int Width, int Lanes, class Call> void check_shift(Call call, Shift op
           expect_integer_registers(r, expected);
         }
       }
+    }
+  }
 }
 
 } // namespace rocjitsu::arith::test

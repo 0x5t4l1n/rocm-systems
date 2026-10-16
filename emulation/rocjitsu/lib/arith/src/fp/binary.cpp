@@ -36,19 +36,24 @@ template <bool Multiply, bool Rdna3>
       extra[lane] = (x ^ y ^ negate) & 0x80000000U;
     }
     uint32_t causes = 0;
-    if (rocjitsu::arith::reports_fp_status(flags))
-      for (int lane = 0; lane < 32; ++lane)
-        if ((exec_mask >> lane) & 1)
+    if (rocjitsu::arith::reports_fp_status(flags)) {
+      for (int lane = 0; lane < 32; ++lane) {
+        if ((exec_mask >> lane) & 1) {
           causes |=
               rocjitsu::arith::mul_exceptions_f32(a[0][lane], b[0][lane], (mode >> 6) & 3, Rdna3);
+        }
+      }
+    }
     const int error =
         fma(rocjitsu::arith::without_fp_status(flags), exec_mask, mode, d, a, b, &source, nullptr);
-    if (!error && rocjitsu::arith::reports_fp_status(flags))
+    if (!error && rocjitsu::arith::reports_fp_status(flags)) {
       *state |= causes;
+    }
     return error;
   } else {
-    for (auto &value : extra)
+    for (auto &value : extra) {
       value = 0x3f800000U;
+    }
     const uint32_t b_modifiers = RJ_ARITH_ALU_ABS_B | RJ_ARITH_ALU_NEG_B;
     mode = (mode & ~b_modifiers) | ((mode & b_modifiers) << 1);
     return fma(rocjitsu::arith::without_fp_status(flags), exec_mask, mode, d, a, &source, b,
@@ -66,12 +71,15 @@ int multiply_dx9_exact(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32
   for (int lane = 0; lane < 32; ++lane) {
     for (int operand = 0; operand < 2; ++operand) {
       uint32_t value = (operand ? b : a)[0][lane];
-      if (mode & (RJ_ARITH_ALU_ABS_A << operand))
+      if (mode & (RJ_ARITH_ALU_ABS_A << operand)) {
         value &= 0x7fffffffU;
-      if (mode & (RJ_ARITH_ALU_NEG_A << operand))
+      }
+      if (mode & (RJ_ARITH_ALU_NEG_A << operand)) {
         value ^= 0x80000000U;
-      if ((flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) && !(value & 0x7f800000U))
+      }
+      if ((flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) && !(value & 0x7f800000U)) {
         value &= 0x80000000U;
+      }
       input[operand][lane] = value;
     }
     if (!(input[0][lane] & 0x7fffffffU) || !(input[1][lane] & 0x7fffffffU)) {
@@ -96,31 +104,38 @@ template <bool Reverse>
   for (int lane = 0; lane < 32; ++lane) {
     uint32_t input[] = {a[0][lane], b[0][lane]};
     for (int operand = 0; operand < 2; ++operand) {
-      if (mode & (RJ_ARITH_ALU_ABS_A << operand))
+      if (mode & (RJ_ARITH_ALU_ABS_A << operand)) {
         input[operand] &= 0x7fffffff;
-      if (mode & (RJ_ARITH_ALU_NEG_A << operand))
+      }
+      if (mode & (RJ_ARITH_ALU_NEG_A << operand)) {
         input[operand] ^= 0x80000000;
-      if ((flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) && !(input[operand] & 0x7f800000))
+      }
+      if ((flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) && !(input[operand] & 0x7f800000)) {
         input[operand] &= 0x80000000;
+      }
     }
     const uint32_t x = input[Reverse ? 1 : 0];
     uint32_t y = input[Reverse ? 0 : 1];
-    if ((y & 0x7fffffff) <= 0x7f800000)
+    if ((y & 0x7fffffff) <= 0x7f800000) {
       y ^= 0x80000000;
+    }
     uint32_t value = rocjitsu::arith::fma_value_f32(
         x, 0x3f800000, y, false,
         flags | RJ_ARITH_FP_IEEE_MODE | (omod ? RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS : 0), false);
     value = rocjitsu::arith::scale_omod_f32_bits(value, omod,
                                                  unsigned((flags & RJ_ARITH_FP_ROUND_MASK) >> 24));
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       value = (value & 0x80000000) || (value & 0x7fffffff) > 0x7f800000 ? 0
               : value > 0x3f800000                                      ? 0x3f800000
                                                                         : value;
+    }
     result[lane] = value;
   }
-  for (int lane = 0; lane < 32; ++lane)
-    if ((exec_mask >> lane) & 1)
+  for (int lane = 0; lane < 32; ++lane) {
+    if ((exec_mask >> lane) & 1) {
       d[0][lane] = result[lane];
+    }
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -130,8 +145,9 @@ template <rocjitsu::arith::Binary Op, bool Rdna3 = false>
 int binary(uint64_t flags, uint32_t exec_mask, uint64_t mode, uint32_t *const *d,
            const uint32_t *const *a, const uint32_t *const *b, uint32_t *state = nullptr) {
   if (rocjitsu::arith::reports_fp_status(flags) &&
-      (!rocjitsu::arith::is_exact(flags) || (flags & RJ_ARITH_FP_ROUND_MASK)))
+      (!rocjitsu::arith::is_exact(flags) || (flags & RJ_ARITH_FP_ROUND_MASK))) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   if (mode >> 32) {
     return rocjitsu::arith::execute_dpp(
         flags, exec_mask, mode, a, [&](uint32_t exec_mask, const uint32_t *const *source) {
@@ -149,42 +165,56 @@ int binary(uint64_t flags, uint32_t exec_mask, uint64_t mode, uint32_t *const *d
           Op == rocjitsu::arith::Binary::Add || Op == rocjitsu::arith::Binary::Mul ||
               Op == rocjitsu::arith::Binary::Sub || Op == rocjitsu::arith::Binary::Subrev ||
               Op == rocjitsu::arith::Binary::MulDx9Zero,
-          fp_flags))
+          fp_flags)) {
     return error;
+  }
 
   // RDNA3 ignores output scaling when denormal outputs are preserved or IEEE
   // mode is enabled. RDNA4 applies it independently of either guest setting.
-  if constexpr (Rdna3)
-    if (!(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) || (flags & RJ_ARITH_FP_IEEE_MODE))
+  if constexpr (Rdna3) {
+    if (!(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) || (flags & RJ_ARITH_FP_IEEE_MODE)) {
       mode &= ~uint64_t(RJ_ARITH_ALU_OMOD_HALF);
-  if (exec_mask == 0)
+    }
+  }
+  if (exec_mask == 0) {
     return RJ_ARITH_SUCCESS;
+  }
 #if defined(RJ_ARITH_HAVE_X86_64_V3)
   if constexpr (Op == rocjitsu::arith::Binary::Add || Op == rocjitsu::arith::Binary::Sub ||
-                Op == rocjitsu::arith::Binary::Subrev)
+                Op == rocjitsu::arith::Binary::Subrev) {
     if (rocjitsu::arith::is_exact(flags) && (flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V3 &&
         rocjitsu::arith::binary_exact_x86_64_v3(Op, flags, exec_mask, uint32_t(mode), d[0], a[0],
-                                                b[0]))
+                                                b[0])) {
       return RJ_ARITH_SUCCESS;
+    }
+  }
 #endif
 #if defined(RJ_ARITH_HAVE_X86_64_V4)
-  if constexpr (Op == rocjitsu::arith::Binary::Mul)
+  if constexpr (Op == rocjitsu::arith::Binary::Mul) {
     if (rocjitsu::arith::is_exact(flags) && (flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V4 &&
         rocjitsu::arith::mul_exact_x86_64_v4(flags, exec_mask, uint32_t(mode), d[0], a[0], b[0],
-                                             state))
+                                             state)) {
       return RJ_ARITH_SUCCESS;
+    }
+  }
 #endif
-  if constexpr (Op == rocjitsu::arith::Binary::Add || Op == rocjitsu::arith::Binary::Mul)
-    if (rocjitsu::arith::is_exact(flags))
+  if constexpr (Op == rocjitsu::arith::Binary::Add || Op == rocjitsu::arith::Binary::Mul) {
+    if (rocjitsu::arith::is_exact(flags)) {
       return binary_exact<Op == rocjitsu::arith::Binary::Mul, Rdna3>(
           flags, exec_mask, uint32_t(mode), d, a, b, state);
-  if constexpr (Op == rocjitsu::arith::Binary::MulDx9Zero)
-    if (rocjitsu::arith::is_exact(flags))
+    }
+  }
+  if constexpr (Op == rocjitsu::arith::Binary::MulDx9Zero) {
+    if (rocjitsu::arith::is_exact(flags)) {
       return multiply_dx9_exact<Rdna3>(flags, exec_mask, uint32_t(mode), d, a, b);
-  if constexpr (Op == rocjitsu::arith::Binary::Sub || Op == rocjitsu::arith::Binary::Subrev)
-    if (rocjitsu::arith::is_exact(flags))
+    }
+  }
+  if constexpr (Op == rocjitsu::arith::Binary::Sub || Op == rocjitsu::arith::Binary::Subrev) {
+    if (rocjitsu::arith::is_exact(flags)) {
       return subtract_exact<Op == rocjitsu::arith::Binary::Subrev>(flags, exec_mask, uint32_t(mode),
                                                                    d, a, b);
+    }
+  }
 #if defined(RJ_ARITH_HAVE_X86_64_V3)
   if ((flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V3) {
     rocjitsu::arith::binary_x86_64_v3(Op, flags, exec_mask, mode, d[0], a[0], b[0]);
@@ -200,42 +230,56 @@ int binary(uint64_t flags, uint32_t exec_mask, uint64_t mode, uint32_t *const *d
       y = rocjitsu::arith::flush_denorm_f32(y);
     }
     float value;
-    if constexpr (Op == rocjitsu::arith::Binary::Add)
+    if constexpr (Op == rocjitsu::arith::Binary::Add) {
       value = x + y;
-    if constexpr (Op == rocjitsu::arith::Binary::Sub)
+    }
+    if constexpr (Op == rocjitsu::arith::Binary::Sub) {
       value = x - y;
-    if constexpr (Op == rocjitsu::arith::Binary::Subrev)
+    }
+    if constexpr (Op == rocjitsu::arith::Binary::Subrev) {
       value = y - x;
-    if constexpr (Op == rocjitsu::arith::Binary::MulDx9Zero)
+    }
+    if constexpr (Op == rocjitsu::arith::Binary::MulDx9Zero) {
       value = (x == 0 || y == 0) ? 0.0f : x * y;
-    if constexpr (Op == rocjitsu::arith::Binary::Mul)
+    }
+    if constexpr (Op == rocjitsu::arith::Binary::Mul) {
       value = x * y;
-    if constexpr (Op == rocjitsu::arith::Binary::MinNum)
+    }
+    if constexpr (Op == rocjitsu::arith::Binary::MinNum) {
       value = rocjitsu::arith::minmax<false, false>(x, y);
-    if constexpr (Op == rocjitsu::arith::Binary::MaxNum)
+    }
+    if constexpr (Op == rocjitsu::arith::Binary::MaxNum) {
       value = rocjitsu::arith::minmax<true, false>(x, y);
-    if constexpr (Op == rocjitsu::arith::Binary::Minimum)
+    }
+    if constexpr (Op == rocjitsu::arith::Binary::Minimum) {
       value = rocjitsu::arith::minmax<false, true>(x, y);
-    if constexpr (Op == rocjitsu::arith::Binary::Maximum)
+    }
+    if constexpr (Op == rocjitsu::arith::Binary::Maximum) {
       value = rocjitsu::arith::minmax<true, true>(x, y);
+    }
     if constexpr (Op == rocjitsu::arith::Binary::MinLegacy ||
-                  Op == rocjitsu::arith::Binary::MaxLegacy)
+                  Op == rocjitsu::arith::Binary::MaxLegacy) {
       value = rocjitsu::arith::minmax_rdna3<Op == rocjitsu::arith::Binary::MaxLegacy>(
           x, y, flags & RJ_ARITH_FP_IEEE_MODE);
+    }
     value = rocjitsu::arith::as_float(
         rocjitsu::arith::scale_omod_f32_bits(rocjitsu::arith::as_bits(value), (mode >> 6) & 3,
                                              unsigned((flags & RJ_ARITH_FP_ROUND_MASK) >> 24)));
     value = rocjitsu::arith::alu_output(value, mode & ~RJ_ARITH_ALU_OMOD_HALF);
     if constexpr (Op == rocjitsu::arith::Binary::Add || Op == rocjitsu::arith::Binary::Sub ||
                   Op == rocjitsu::arith::Binary::Subrev || Op == rocjitsu::arith::Binary::Mul ||
-                  Op == rocjitsu::arith::Binary::MulDx9Zero)
-      if (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)
+                  Op == rocjitsu::arith::Binary::MulDx9Zero) {
+      if (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) {
         value = rocjitsu::arith::flush_denorm_f32(value);
+      }
+    }
     result[lane] = rocjitsu::arith::as_bits(value);
   }
-  for (int lane = 0; lane < 32; ++lane)
-    if ((exec_mask >> lane) & 1)
+  for (int lane = 0; lane < 32; ++lane) {
+    if ((exec_mask >> lane) & 1) {
       d[0][lane] = result[lane];
+    }
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -244,10 +288,12 @@ template <rocjitsu::arith::Binary Op, bool Rdna3 = false>
 int binary_wave64(uint64_t flags, uint64_t exec_mask, uint64_t mode, uint32_t *const *d,
                   const uint32_t *const *a, const uint32_t *const *b, uint32_t *state = nullptr) {
   // Validate before either Wave64 half can modify outputs, even when EXEC is empty.
-  if (int error = binary<Op, Rdna3>(flags, 0, mode, nullptr, nullptr, nullptr, state))
+  if (int error = binary<Op, Rdna3>(flags, 0, mode, nullptr, nullptr, nullptr, state)) {
     return error;
-  if (!exec_mask)
+  }
+  if (!exec_mask) {
     return RJ_ARITH_SUCCESS;
+  }
   for (int half = 0; half < 2; ++half) {
     uint64_t half_mode = mode;
     if (mode & RJ_ARITH_DPP16) {
@@ -259,8 +305,9 @@ int binary_wave64(uint64_t flags, uint64_t exec_mask, uint64_t mode, uint32_t *c
     uint32_t *dest = d[0] + half * 32;
     const uint32_t *x = a[0] + half * 32, *y = b[0] + half * 32;
     if (int error = binary<Op, Rdna3>(flags, uint32_t(exec_mask >> (half * 32)), half_mode, &dest,
-                                      &x, &y, state))
+                                      &x, &y, state)) {
       return error;
+    }
   }
   return RJ_ARITH_SUCCESS;
 }
@@ -275,10 +322,12 @@ int rj_arith_v_add_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode, ui
                            [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary<rocjitsu::arith::Binary::Add, true>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -291,10 +340,12 @@ int rj_arith_v_add_f32_w32_gfx12(uint64_t flags, uint32_t exec_mask, uint64_t mo
                                  [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary<rocjitsu::arith::Binary::Add>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -306,10 +357,12 @@ int rj_arith_v_sub_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode, ui
                            [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary<rocjitsu::arith::Binary::Sub, true>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -322,10 +375,12 @@ int rj_arith_v_sub_f32_w32_gfx12(uint64_t flags, uint32_t exec_mask, uint64_t mo
                                  [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary<rocjitsu::arith::Binary::Sub>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -337,10 +392,12 @@ int rj_arith_v_subrev_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode,
                               [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary<rocjitsu::arith::Binary::Subrev, true>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -353,10 +410,12 @@ int rj_arith_v_subrev_f32_w32_gfx12(uint64_t flags, uint32_t exec_mask, uint64_t
                                     [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary<rocjitsu::arith::Binary::Subrev>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -368,8 +427,9 @@ int rj_arith_v_mul_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode, ui
   flags = rocjitsu::arith::resolve_compatibility(
       flags, (flags & RJ_ARITH_FP_ROUND_MASK) ? RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS
                                               : RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return binary<rocjitsu::arith::Binary::Mul, true>(flags, exec_mask, mode, d, a, b, trapsts);
 }
 
@@ -382,8 +442,9 @@ int rj_arith_v_mul_f32_w32_gfx12(uint64_t flags, uint32_t exec_mask, uint64_t mo
   flags = rocjitsu::arith::resolve_compatibility(
       flags, (flags & RJ_ARITH_FP_ROUND_MASK) ? RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS
                                               : RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return binary<rocjitsu::arith::Binary::Mul>(flags, exec_mask, mode, d, a, b, excp_flag_user);
 }
 
@@ -395,10 +456,12 @@ int rj_arith_v_min_num_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode
                                const uint32_t *const *b,
                                [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary<rocjitsu::arith::Binary::MinNum>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -410,10 +473,12 @@ int rj_arith_v_max_num_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode
                                const uint32_t *const *b,
                                [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary<rocjitsu::arith::Binary::MaxNum>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -425,10 +490,12 @@ int rj_arith_v_minimum_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode
                                const uint32_t *const *b,
                                [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary<rocjitsu::arith::Binary::Minimum>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -440,10 +507,12 @@ int rj_arith_v_maximum_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode
                                const uint32_t *const *b,
                                [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary<rocjitsu::arith::Binary::Maximum>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -455,10 +524,12 @@ int rj_arith_v_mul_dx9_zero_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_t
                                     const uint32_t *const *b, [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary<rocjitsu::arith::Binary::MulDx9Zero, true>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -471,10 +542,12 @@ int rj_arith_v_mul_dx9_zero_f32_w32_gfx12(uint64_t flags, uint32_t exec_mask, ui
                                           [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary<rocjitsu::arith::Binary::MulDx9Zero>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -485,10 +558,12 @@ int rj_arith_v_min_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode, ui
                            const uint32_t *const *a, const uint32_t *const *b,
                            [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary<rocjitsu::arith::Binary::MinLegacy, true>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -499,10 +574,12 @@ int rj_arith_v_max_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode, ui
                            const uint32_t *const *a, const uint32_t *const *b,
                            [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary<rocjitsu::arith::Binary::MaxLegacy, true>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -514,10 +591,12 @@ int rj_arith_v_add_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode, ui
                            [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary_wave64<rocjitsu::arith::Binary::Add, true>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -530,10 +609,12 @@ int rj_arith_v_add_f32_w64_gfx12(uint64_t flags, uint64_t exec_mask, uint64_t mo
                                  [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary_wave64<rocjitsu::arith::Binary::Add>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -545,10 +626,12 @@ int rj_arith_v_sub_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode, ui
                            [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary_wave64<rocjitsu::arith::Binary::Sub, true>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -561,10 +644,12 @@ int rj_arith_v_sub_f32_w64_gfx12(uint64_t flags, uint64_t exec_mask, uint64_t mo
                                  [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary_wave64<rocjitsu::arith::Binary::Sub>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -576,10 +661,12 @@ int rj_arith_v_subrev_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode,
                               [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary_wave64<rocjitsu::arith::Binary::Subrev, true>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -592,10 +679,12 @@ int rj_arith_v_subrev_f32_w64_gfx12(uint64_t flags, uint64_t exec_mask, uint64_t
                                     [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary_wave64<rocjitsu::arith::Binary::Subrev>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -607,8 +696,9 @@ int rj_arith_v_mul_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode, ui
   flags = rocjitsu::arith::resolve_compatibility(
       flags, (flags & RJ_ARITH_FP_ROUND_MASK) ? RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS
                                               : RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return binary_wave64<rocjitsu::arith::Binary::Mul, true>(flags, exec_mask, mode, d, a, b,
                                                            trapsts);
 }
@@ -622,8 +712,9 @@ int rj_arith_v_mul_f32_w64_gfx12(uint64_t flags, uint64_t exec_mask, uint64_t mo
   flags = rocjitsu::arith::resolve_compatibility(
       flags, (flags & RJ_ARITH_FP_ROUND_MASK) ? RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS
                                               : RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return binary_wave64<rocjitsu::arith::Binary::Mul>(flags, exec_mask, mode, d, a, b,
                                                      excp_flag_user);
 }
@@ -636,10 +727,12 @@ int rj_arith_v_min_num_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode
                                const uint32_t *const *b,
                                [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary_wave64<rocjitsu::arith::Binary::MinNum>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -651,10 +744,12 @@ int rj_arith_v_max_num_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode
                                const uint32_t *const *b,
                                [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary_wave64<rocjitsu::arith::Binary::MaxNum>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -666,10 +761,12 @@ int rj_arith_v_minimum_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode
                                const uint32_t *const *b,
                                [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary_wave64<rocjitsu::arith::Binary::Minimum>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -681,10 +778,12 @@ int rj_arith_v_maximum_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode
                                const uint32_t *const *b,
                                [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary_wave64<rocjitsu::arith::Binary::Maximum>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -696,10 +795,12 @@ int rj_arith_v_mul_dx9_zero_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_t
                                     const uint32_t *const *b, [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary_wave64<rocjitsu::arith::Binary::MulDx9Zero, true>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -712,10 +813,12 @@ int rj_arith_v_mul_dx9_zero_f32_w64_gfx12(uint64_t flags, uint64_t exec_mask, ui
                                           [[maybe_unused]] uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary_wave64<rocjitsu::arith::Binary::MulDx9Zero>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -726,10 +829,12 @@ int rj_arith_v_min_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode, ui
                            const uint32_t *const *a, const uint32_t *const *b,
                            [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary_wave64<rocjitsu::arith::Binary::MinLegacy, true>(flags, exec_mask, mode, d, a, b);
 }
 
@@ -740,9 +845,11 @@ int rj_arith_v_max_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode, ui
                            const uint32_t *const *a, const uint32_t *const *b,
                            [[maybe_unused]] uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(flags, RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (rocjitsu::arith::reports_fp_status(flags))
+  }
+  if (rocjitsu::arith::reports_fp_status(flags)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
+  }
   return binary_wave64<rocjitsu::arith::Binary::MaxLegacy, true>(flags, exec_mask, mode, d, a, b);
 }

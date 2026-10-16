@@ -43,8 +43,9 @@ void mullit_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint64_t flags, uint32_
     value = _mm256_blendv_ps(value, sentinel, invalid);
     if (scale) {
       auto tiny = _mm256_cmp_ps(_mm256_and_ps(value, exponent), zero, _CMP_EQ_OQ);
-      if constexpr (!Rdna3)
+      if constexpr (!Rdna3) {
         value = _mm256_blendv_ps(value, zero, tiny);
+      }
       value = _mm256_mul_ps(value, _mm256_set1_ps(scale == 1 ? 2.0f : scale == 2 ? 4.0f : 0.5f));
       tiny = _mm256_cmp_ps(_mm256_and_ps(value, exponent), zero, _CMP_EQ_OQ);
       value = _mm256_blendv_ps(value, Rdna3 ? zero : _mm256_and_ps(value, bits(0x80000000)), tiny);
@@ -52,10 +53,12 @@ void mullit_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint64_t flags, uint32_
     if (mode & RJ_ARITH_ALU_CLAMP) {
       const auto unclamped = value;
       value = _mm256_min_ps(_mm256_max_ps(value, zero), _mm256_set1_ps(1.0f));
-      if constexpr (Rdna3)
-        if (flags & RJ_ARITH_FP_DX10_CLAMP_OFF)
+      if constexpr (Rdna3) {
+        if (flags & RJ_ARITH_FP_DX10_CLAMP_OFF) {
           value =
               _mm256_blendv_ps(value, unclamped, _mm256_cmp_ps(unclamped, unclamped, _CMP_UNORD_Q));
+        }
+      }
     }
     auto lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                             _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));

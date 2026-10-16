@@ -29,8 +29,9 @@ namespace rocjitsu::arith::test {
 template <int Width, int Lanes> rocjitsu::arith::test::Registers<10, Lanes> make_ldexp_inputs() {
   std::minstd_rand random;
   auto input = rocjitsu::arith::test::make_fp_inputs<Width, Lanes>(random);
-  for (int lane = 0; lane < Lanes; ++lane)
+  for (int lane = 0; lane < Lanes; ++lane) {
     input.v[2][lane] = uint32_t(int(random() >> 25) % 9 - 4);
+  }
   return input;
 }
 
@@ -40,23 +41,26 @@ void compute_ldexp_expected(const rocjitsu::arith::test::Registers<10, Lanes> &i
                             uint64_t exec_mask, uint64_t mode, int aliasing_offset,
                             rocjitsu::arith::test::Registers<10, Lanes> &expected_registers) {
   for (int lane = 0; lane < Lanes; ++lane) {
-    if (!((exec_mask >> lane) & 1))
+    if (!((exec_mask >> lane) & 1)) {
       continue;
+    }
     const int a_half = Width == 16 && bool(mode & RJ_ARITH_ALU_HIGH_A);
     const int b_half = Width == 16 && bool(mode & RJ_ARITH_ALU_HIGH_B);
     const int d_half = Width == 16 && bool(mode & RJ_ARITH_ALU_HIGH_D);
     // DPP8 reverses each group; FI controls reads from inactive sources.
     int source_lane = mode & RJ_ARITH_DPP8 ? (lane & ~7) + 7 - (lane & 7) : lane;
     uint64_t a = rocjitsu::arith::test::read_fp(input.v, source_lane, Width, a_half);
-    if ((mode & RJ_ARITH_DPP8) && !(mode & RJ_ARITH_DPP_FI) && !((exec_mask >> source_lane) & 1))
+    if ((mode & RJ_ARITH_DPP8) && !(mode & RJ_ARITH_DPP_FI) && !((exec_mask >> source_lane) & 1)) {
       a = 0;
+    }
     uint64_t b = rocjitsu::arith::test::read_fp(input.v + 2, lane, Width, b_half);
 
     double x =
         rocjitsu::arith::test::modified_fp(rocjitsu::arith::test::fp_value(a, Width), mode, 0);
     double value = std::ldexp(x, Width == 16 ? int16_t(b) : int32_t(b));
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       value = !(value > 0) ? 0 : std::min(value, 1.0);
+    }
     uint64_t expected = rocjitsu::arith::test::fp_bits(value, Width);
     rocjitsu::arith::test::write_fp(expected_registers.v + aliasing_offset, lane, Width, expected,
                                     d_half);
@@ -85,26 +89,28 @@ template <int Width, int Lanes, class Call> void check_ldexp(Call call) {
   });
 
   std::vector<uint64_t> modes = {0, RJ_ARITH_ALU_NEG_A, RJ_ARITH_ALU_CLAMP};
-  if constexpr (Width == 16)
+  if constexpr (Width == 16) {
     modes.push_back(RJ_ARITH_ALU_HIGH_A | RJ_ARITH_ALU_HIGH_D);
+  }
   if constexpr (Width != 64) {
     modes.push_back(RJ_ARITH_DPP8 | (0x53977ULL << RJ_ARITH_DPP8_SELECT_SHIFT));
     modes.push_back(RJ_ARITH_DPP8 | (0x53977ULL << RJ_ARITH_DPP8_SELECT_SHIFT) | RJ_ARITH_DPP_FI |
                     RJ_ARITH_ALU_NEG_A);
   }
   std::vector<int> aliasing_offsets = {6, 0, 2};
-  if constexpr (Width == 64)
+  if constexpr (Width == 64) {
     aliasing_offsets.push_back(1);
+  }
 
   // Default guest rounding and normal fractional inputs: the existing rocjitsu
   // arithmetic model reduces to IEEE arithmetic here. Special values are checked
   // by classification. No production helper or rj-arith result is a numeric oracle.
   const auto cpu_levels = rocjitsu::arith::test::supported_cpu_levels();
   for (uint64_t cpu : cpu_levels) {
-    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes())
-      for (uint64_t mode : modes)
+    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes()) {
+      for (uint64_t mode : modes) {
         for (Mask exec_mask :
-             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)})
+             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)}) {
           for (int aliasing_offset : aliasing_offsets) {
             SCOPED_TRACE(::testing::Message() << cpu << '/' << semantics << '/' << mode << '/'
                                               << exec_mask << '/' << aliasing_offset);
@@ -131,6 +137,9 @@ template <int Width, int Lanes, class Call> void check_ldexp(Call call) {
                                                      : Width == 32        ? 1e-6
                                                                           : 1e-14);
           }
+        }
+      }
+    }
   }
 }
 

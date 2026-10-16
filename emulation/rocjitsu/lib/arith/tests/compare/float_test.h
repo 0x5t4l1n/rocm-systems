@@ -66,15 +66,18 @@ void check_float_compare(Call call, bool gfx12, bool (*predicate)(double, double
                                  RJ_ARITH_ALU_ABS_A | RJ_ARITH_ALU_NEG_A | RJ_ARITH_ALU_ABS_B |
                                      RJ_ARITH_ALU_NEG_B,
                                  RJ_ARITH_ALU_CLAMP};
-  if constexpr (Width == 16)
+  if constexpr (Width == 16) {
     modes.insert(modes.end(), {RJ_ARITH_ALU_HIGH_A, RJ_ARITH_ALU_HIGH_B,
                                RJ_ARITH_ALU_HIGH_A | RJ_ARITH_ALU_HIGH_B});
-  if constexpr (Width != 64)
-    for (uint64_t descriptor : dpp_modes)
+  }
+  if constexpr (Width != 64) {
+    for (uint64_t descriptor : dpp_modes) {
       modes.push_back(descriptor | RJ_ARITH_ALU_NEG_A | RJ_ARITH_ALU_ABS_B);
+    }
+  }
   const auto cpu_levels = supported_cpu_levels();
-  for (uint64_t cpu : cpu_levels)
-    for (uint64_t semantics : semantics_modes())
+  for (uint64_t cpu : cpu_levels) {
+    for (uint64_t semantics : semantics_modes()) {
       for (int scenario = 0; scenario < int(modes.size()) + 5; ++scenario) {
         uint64_t mode = scenario < 5 ? 0 : modes[scenario - 5];
         Mask exec_mask = exec_mask_for_case<Lanes>(scenario);
@@ -93,18 +96,20 @@ void check_float_compare(Call call, bool gfx12, bool (*predicate)(double, double
                                                                       mode & RJ_ARITH_ALU_HIGH_B),
                                                       mode, 1, flush));
         });
-        for (int aliasing_register : {-1, 0, 2})
+        for (int aliasing_register : {-1, 0, 2}) {
           expect_comparison(input, expected, error, aliasing_register, [&](auto &r, Mask *d) {
             uint32_t status = 0x80000040U;
             int result = call(flags, exec_mask, mode, d, exec_mask ? r.v : nullptr,
                               exec_mask ? r.v + 2 : nullptr, &status);
-            if (!reporting || error || !exec_mask)
+            if (!reporting || error || !exec_mask) {
               EXPECT_EQ(status, 0x80000040U);
-            else
+            } else {
               EXPECT_EQ(status & ~(RJ_ARITH_EXCEPTION_INVALID | RJ_ARITH_EXCEPTION_INPUT_DENORM),
                         0x80000040U);
+            }
             return result;
           });
+        }
         // Modes without reporting must also accept null status storage.
         if (!reporting) {
           Mask d = 0;
@@ -114,11 +119,13 @@ void check_float_compare(Call call, bool gfx12, bool (*predicate)(double, double
           EXPECT_EQ(d, expected);
         }
       }
+    }
+  }
 
   // Keep status cases separate from random predicate checks: no cross-product
   // of modifiers, predicates' data, masks and aliasing is needed here.
-  for (uint64_t cpu : cpu_levels)
-    for (const auto &test : compare_status_cases)
+  for (uint64_t cpu : cpu_levels) {
+    for (const auto &test : compare_status_cases) {
       for (int setting = 0; setting < 4; ++setting) {
         SCOPED_TRACE(::testing::Message()
                      << cpu << '/' << test.a_class << '/' << test.b_class << '/' << setting);
@@ -147,18 +154,22 @@ void check_float_compare(Call call, bool gfx12, bool (*predicate)(double, double
           }
         }
       }
+    }
+  }
 
   // A single sNaN routed through DPP checks exception participation exactly:
   // an inactive/filtered source can become zero, so it must not raise INVALID.
   if constexpr (Width != 64) {
     if (gfx12) {
       Registers<4, Lanes> r;
-      for (int reg = 0; reg < 4; ++reg)
-        for (int lane = 0; lane < Lanes; ++lane)
+      for (int reg = 0; reg < 4; ++reg) {
+        for (int lane = 0; lane < Lanes; ++lane) {
           r.v[reg][lane] = 0;
+        }
+      }
       write_compare_operand(r.v, Lanes - 1, Width, compare_class_value<Width>(0));
-      for (uint64_t cpu : cpu_levels)
-        for (uint64_t mode : dpp_modes)
+      for (uint64_t cpu : cpu_levels) {
+        for (uint64_t mode : dpp_modes) {
           for (int scenario = 0; scenario < 5; ++scenario) {
             Mask exec_mask = exec_mask_for_case<Lanes>(scenario);
             SCOPED_TRACE(::testing::Message() << cpu << '/' << mode << '/' << scenario);
@@ -171,6 +182,8 @@ void check_float_compare(Call call, bool gfx12, bool (*predicate)(double, double
                       RJ_ARITH_SUCCESS);
             EXPECT_EQ(status, 0x80000040U | (exceptional ? RJ_ARITH_EXCEPTION_INVALID : 0));
           }
+        }
+      }
     }
   }
 }

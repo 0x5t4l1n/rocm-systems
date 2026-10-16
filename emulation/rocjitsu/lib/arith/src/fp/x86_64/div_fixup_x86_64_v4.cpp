@@ -26,10 +26,11 @@ template <bool Wide> struct Ops {
 
   // Broadcast the supplied bit pattern to each vector lane.
   static V set(uint64_t x) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_set1_epi64(int64_t(x));
-    else
+    } else {
       return _mm512_set1_epi32(int32_t(x));
+    }
   }
 
   // Return the bitwise intersection of the vector operands.
@@ -40,50 +41,56 @@ template <bool Wide> struct Ops {
 
   // Add corresponding integer lanes with unsigned wraparound.
   static V add(V a, V b) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_add_epi64(a, b);
-    else
+    } else {
       return _mm512_add_epi32(a, b);
+    }
   }
 
   // Subtract corresponding integer lanes with unsigned wraparound.
   static V sub(V a, V b) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_sub_epi64(a, b);
-    else
+    } else {
       return _mm512_sub_epi32(a, b);
+    }
   }
 
   // Shift each unsigned lane right by the supplied count.
   static V shr(V a, int count) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_srli_epi64(a, count);
-    else
+    } else {
       return _mm512_srli_epi32(a, count);
+    }
   }
 
   // Shift each lane left by the supplied count.
   static V shl(V a, int count) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_slli_epi64(a, count);
-    else
+    } else {
       return _mm512_slli_epi32(a, count);
+    }
   }
 
   // Return the lane mask for signed a > b.
   static Mask gt(V a, V b) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_cmp_epi64_mask(a, b, _MM_CMPINT_GT);
-    else
+    } else {
       return _mm512_cmp_epi32_mask(a, b, _MM_CMPINT_GT);
+    }
   }
 
   // Return the lane mask for equal operands.
   static Mask eq(V a, V b) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_cmpeq_epi64_mask(a, b);
-    else
+    } else {
       return _mm512_cmpeq_epi32_mask(a, b);
+    }
   }
 
   // Intersect lane predicates.
@@ -97,10 +104,11 @@ template <bool Wide> struct Ops {
 
   // Select values lane by lane according to the supplied predicate.
   static V select(Mask m, V yes, V no) {
-    if constexpr (Wide)
+    if constexpr (Wide) {
       return _mm512_mask_blend_epi64(__mmask8(m), no, yes);
-    else
+    } else {
       return _mm512_mask_blend_epi32(m, no, yes);
+    }
   }
 };
 
@@ -135,16 +143,16 @@ __m512i value(__m512i a, __m512i b, __m512i c, uint32_t mode, bool saturate, boo
   // Output modifiers apply to the fixed-up result, not the provisional quotient.
   unsigned omod = (mode >> 6) & 3;
   if (omod) {
-    if constexpr (Rdna3Half)
+    if constexpr (Rdna3Half) {
       result = rocjitsu::arith::fixup_half_omod<O>(result, omod, saturate);
-    else {
+    } else {
       auto exponent = _mm512_and_si512(result, inf),
            output_sign = _mm512_and_si512(result, signbit),
            step = O::set(uint64_t(1) << F::fraction);
       __m512i scaled;
-      if (omod == 3)
+      if (omod == 3) {
         scaled = O::select(O::eq(exponent, step), output_sign, O::sub(result, step));
-      else {
+      } else {
         auto increment = O::set(uint64_t(omod) << F::fraction);
         scaled = O::select(O::inverse(O::gt(O::sub(inf, increment), exponent)),
                            _mm512_or_si512(output_sign, overflow), O::add(result, increment));
@@ -159,9 +167,11 @@ __m512i value(__m512i a, __m512i b, __m512i c, uint32_t mode, bool saturate, boo
     result = O::select(O::either(negative, O::gt(result, inf)), zero, result);
     auto one = O::set(uint64_t(F::bias) << F::fraction);
     result = O::select(O::gt(result, one), one, result);
-    if constexpr (Rdna3Half)
-      if (dx10_clamp_off)
+    if constexpr (Rdna3Half) {
+      if (dx10_clamp_off) {
         result = O::select(O::gt(O::band(unclamped, magmask), inf), unclamped, result);
+      }
+    }
   }
   return result;
 }
@@ -221,12 +231,14 @@ void fixup_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint64_t flags, uint32_t
     }
   }
   // Delay FP64 writes for cross-half aliases; D1 wins when D0 and D1 alias.
-  if constexpr (Width == 64)
-    for (int reg = 0; reg < 2; ++reg)
+  if constexpr (Width == 64) {
+    for (int reg = 0; reg < 2; ++reg) {
       for (int lane = 0; lane < 32; lane += 16) {
         auto result = _mm512_loadu_si512(reinterpret_cast<const __m512i *>(staged[reg] + lane));
         _mm512_mask_storeu_epi32(d[reg] + lane, __mmask16(exec_mask >> lane), result);
       }
+    }
+  }
 }
 
 template void fixup_x86_64_v4<16>(uint32_t, uint32_t, uint64_t, uint32_t *const *,
@@ -252,8 +264,9 @@ namespace rocjitsu::arith {
 template <int Width>
 uint32_t fixup_exceptions_x86_64_v4(uint32_t exec_mask, uint32_t mode, const uint32_t *const *a,
                                     const uint32_t *const *b, const uint32_t *const *c) {
-  if (mode & RJ_ARITH_ALU_CLAMP)
+  if (mode & RJ_ARITH_ALU_CLAMP) {
     return 0;
+  }
 
   // Retain the cheap existing zero-cause test for ordinary FP32 waves.
   // A failed check now uses SIMD classification rather than scalar fallback.
@@ -261,23 +274,26 @@ uint32_t fixup_exceptions_x86_64_v4(uint32_t exec_mask, uint32_t mode, const uin
     if (!(mode & RJ_ARITH_ALU_OMOD_HALF)) {
       bool ordinary = true;
       const uint32_t *inputs[] = {a[0], b[0], c[0]};
-      for (const auto *input : inputs)
+      for (const auto *input : inputs) {
         for (int lane = 0; lane < 32; lane += 16) {
           auto exponent = _mm512_and_si512(_mm512_srli_epi32(_mm512_loadu_si512(input + lane), 23),
                                            _mm512_set1_epi32(255));
           ordinary &= !_mm512_cmp_epu32_mask(_mm512_sub_epi32(exponent, _mm512_set1_epi32(96)),
                                              _mm512_set1_epi32(62), _MM_CMPINT_GT);
         }
-      if (ordinary)
+      }
+      if (ordinary) {
         return 0;
+      }
     }
   }
   constexpr int lanes = Width == 64 ? 8 : 16;
   uint32_t causes = 0;
-  for (int lane = 0; lane < 32; lane += lanes)
+  for (int lane = 0; lane < 32; lane += lanes) {
     causes |= fixup_exception_lanes<Width, Ops<Width == 64>>(
         load<Width>(a, lane, mode, 0), load<Width>(b, lane, mode, 1), load<Width>(c, lane, mode, 2),
         mode, exec_mask >> lane);
+  }
   return causes;
 }
 

@@ -19,12 +19,14 @@ using namespace rocjitsu::arith::test;
 template <int Bits, bool Unsigned>
 uint32_t integer_dot(uint32_t a, uint32_t b, uint32_t c, uint32_t mode) {
   int64_t sum = Unsigned ? int64_t(c) : extend_bits(c, 32, true);
-  for (int shift = 0; shift < 32; shift += Bits)
+  for (int shift = 0; shift < 32; shift += Bits) {
     sum += extend_bits((a >> shift) & ((1U << Bits) - 1), Bits, mode & RJ_ARITH_DOT_SIGNED_A) *
            extend_bits((b >> shift) & ((1U << Bits) - 1), Bits, mode & RJ_ARITH_DOT_SIGNED_B);
-  if (mode & RJ_ARITH_DOT_CLAMP)
+  }
+  if (mode & RJ_ARITH_DOT_CLAMP) {
     sum = std::clamp(sum, Unsigned ? int64_t(0) : int64_t(INT32_MIN),
                      Unsigned ? int64_t(UINT32_MAX) : int64_t(INT32_MAX));
+  }
   return uint32_t(sum);
 }
 

@@ -26,10 +26,11 @@ void integer_add_sat_x86_64_v3(uint32_t exec_mask, uint32_t *d, const uint32_t *
     auto x = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(a + lane)),
          y = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(b + lane));
     __m256i result;
-    if constexpr (Op == IntegerAdd::Add)
+    if constexpr (Op == IntegerAdd::Add) {
       result = _mm256_add_epi32(x, y);
-    else
+    } else {
       result = _mm256_sub_epi32(x, y);
+    }
     if constexpr (Signed && Op == IntegerAdd::Add) {
       result = saturate_signed_sum(x, y, result);
     } else if constexpr (Signed) {
@@ -81,15 +82,17 @@ void integer_add_wrap_x86_64_v3(uint32_t exec_mask, uint32_t *d, const uint32_t 
     auto x = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(a + lane));
     auto y = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(b + lane));
     __m256i result;
-    if constexpr (Op == IntegerAdd::Sub)
+    if constexpr (Op == IntegerAdd::Sub) {
       result = _mm256_sub_epi32(x, y);
-    else if constexpr (Op == IntegerAdd::Subrev)
+    } else if constexpr (Op == IntegerAdd::Subrev) {
       result = _mm256_sub_epi32(y, x);
-    else
+    } else {
       result = _mm256_add_epi32(x, y);
-    if constexpr (Op == IntegerAdd::Add3)
+    }
+    if constexpr (Op == IntegerAdd::Add3) {
       result =
           _mm256_add_epi32(result, _mm256_loadu_si256(reinterpret_cast<const __m256i *>(c + lane)));
+    }
     auto active = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                     _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));
     _mm256_maskstore_epi32(reinterpret_cast<int *>(d + lane), active, result);

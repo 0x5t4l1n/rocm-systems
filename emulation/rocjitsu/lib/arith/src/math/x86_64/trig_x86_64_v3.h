@@ -48,10 +48,11 @@ template <bool Cosine> __m256 trig_value(__m256i bits) {
       _mm256_mul_ps(_mm256_fmadd_ps(t, _mm256_fmadd_ps(t, _mm256_fmadd_ps(t, c3, c2), c1), c0),
                     _mm256_set1_ps(0x1p-26f));
   __m256i sign = _mm256_srli_epi32(quadrant, 1);
-  if constexpr (Cosine)
+  if constexpr (Cosine) {
     sign = _mm256_xor_si256(sign, quadrant);
-  else
+  } else {
     sign = _mm256_xor_si256(sign, _mm256_srli_epi32(bits, 31));
+  }
 
   // Captured phase zeros are +0; the original small-sine region preserves -0.
   sign = _mm256_andnot_si256(

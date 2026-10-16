@@ -78,13 +78,14 @@ void trig_preop_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
         reinterpret_cast<__m128i *>(result[1] + lane),
         _mm_unpacklo_epi64(_mm256_castsi256_si128(hi), _mm256_extracti128_si256(hi, 1)));
   }
-  for (int reg = 0; reg < 2; ++reg)
+  for (int reg = 0; reg < 2; ++reg) {
     for (int lane = 0; lane < 32; lane += 8) {
       auto lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                               _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));
       auto value = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(result[reg] + lane));
       _mm256_maskstore_epi32(reinterpret_cast<int *>(d[reg] + lane), lane_exec_mask, value);
     }
+  }
 }
 
 template void trig_preop_x86_64_v3<false>(uint32_t, uint32_t, uint32_t *const *, const uint32_t *,

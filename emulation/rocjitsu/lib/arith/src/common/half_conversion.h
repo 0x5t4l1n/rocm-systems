@@ -14,13 +14,16 @@ inline uint16_t half_rtz(uint32_t raw) {
   // Adapted from rocjitsu's util::f32_to_f16_rtz; RDNA4 quiets source NaNs.
   uint32_t sign = (raw >> 16) & 0x8000;
   unsigned exponent = (raw >> 23) & 255, fraction = raw & 0x7fffff;
-  if (exponent == 255)
+  if (exponent == 255) {
     return uint16_t(sign | 0x7c00 | (fraction ? (fraction >> 13) | 0x200 : 0));
+  }
   int adjusted = int(exponent) - 112;
-  if (adjusted <= 0)
+  if (adjusted <= 0) {
     return uint16_t(sign | (adjusted < -10 ? 0 : (fraction | 0x800000) >> (14 - adjusted)));
-  if (adjusted >= 31)
+  }
+  if (adjusted >= 31) {
     return uint16_t(sign | 0x7bff);
+  }
   return uint16_t(sign | (unsigned(adjusted) << 10) | (fraction >> 13));
 }
 

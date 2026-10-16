@@ -14,12 +14,15 @@ namespace {
 
 // Validate flags and optionally write a to D; write=false preserves D.
 template <typename T> int move(uint64_t flags, uint64_t mode, T *d, T a, bool write) {
-  if (mode >> 32)
+  if (mode >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
-  if (int error = rocjitsu::arith::validate(flags, uint32_t(mode), true))
+  }
+  if (int error = rocjitsu::arith::validate(flags, uint32_t(mode), true)) {
     return error;
-  if (write)
+  }
+  if (write) {
     *d = a;
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -35,8 +38,9 @@ uint32_t signed_immediate(uint16_t immediate) {
 int rj_arith_s_mov_b32(uint64_t flags, uint64_t instruction_flags, uint32_t *d, uint32_t a) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return move(flags, instruction_flags, d, a, true);
 }
 
@@ -45,8 +49,9 @@ int rj_arith_s_mov_b32(uint64_t flags, uint64_t instruction_flags, uint32_t *d, 
 int rj_arith_s_mov_b64(uint64_t flags, uint64_t instruction_flags, uint64_t *d, uint64_t a) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return move(flags, instruction_flags, d, a, true);
 }
 
@@ -56,8 +61,9 @@ int rj_arith_s_cmov_b32(uint64_t flags, uint64_t instruction_flags, uint32_t *d,
                         uint32_t input_scc) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return move(flags, instruction_flags, d, a, (input_scc & 1) != 0);
 }
 
@@ -67,8 +73,9 @@ int rj_arith_s_cmov_b64(uint64_t flags, uint64_t instruction_flags, uint64_t *d,
                         uint32_t input_scc) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return move(flags, instruction_flags, d, a, (input_scc & 1) != 0);
 }
 
@@ -78,8 +85,9 @@ int rj_arith_s_movk_i32(uint64_t flags, uint64_t instruction_flags, uint32_t *d,
                         uint16_t immediate) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return move(flags, instruction_flags, d, signed_immediate(immediate), true);
 }
 
@@ -89,8 +97,9 @@ int rj_arith_s_cmovk_i32(uint64_t flags, uint64_t instruction_flags, uint32_t *d
                          uint16_t immediate, uint32_t input_scc) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return move(flags, instruction_flags, d, signed_immediate(immediate), (input_scc & 1) != 0);
 }
 
@@ -99,7 +108,8 @@ int rj_arith_s_cmovk_i32(uint64_t flags, uint64_t instruction_flags, uint32_t *d
 int rj_arith_s_getpc_b64(uint64_t flags, uint64_t instruction_flags, uint64_t *d, uint64_t pc) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return rj_arith_s_mov_b64(flags, instruction_flags, d, pc + 4);
 }

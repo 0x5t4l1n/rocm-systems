@@ -15,8 +15,9 @@ namespace {
 template <int Bits, bool Masked> __m256i difference(__m256i a, __m256i b) {
   if constexpr (Bits == 8) {
     auto absolute = _mm256_or_si256(_mm256_subs_epu8(a, b), _mm256_subs_epu8(b, a));
-    if constexpr (Masked)
+    if constexpr (Masked) {
       absolute = _mm256_andnot_si256(_mm256_cmpeq_epi8(b, _mm256_setzero_si256()), absolute);
+    }
 
     // Sum pairs and then groups of four bytes without mixing GPU lanes.
     auto pairs = _mm256_maddubs_epi16(absolute, _mm256_set1_epi8(1));
@@ -25,8 +26,9 @@ template <int Bits, bool Masked> __m256i difference(__m256i a, __m256i b) {
     auto absolute = _mm256_sub_epi16(_mm256_max_epu16(a, b), _mm256_min_epu16(a, b));
     return _mm256_add_epi32(_mm256_and_si256(absolute, _mm256_set1_epi32(0xffff)),
                             _mm256_srli_epi32(absolute, 16));
-  } else
+  } else {
     return _mm256_sub_epi32(_mm256_max_epu32(a, b), _mm256_min_epu32(a, b));
+  }
 }
 
 // Add difference sums to C, saturating unsigned overflow when clamp is enabled.
@@ -53,36 +55,41 @@ void sad_x86_64_v3(uint32_t exec_mask, bool clamp, uint32_t *const *d, const uin
     auto x = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(a[0] + lane));
     auto y = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(b + lane));
     __m256i accumulators[outputs], result[outputs];
-    for (int reg = 0; reg < outputs; ++reg)
+    for (int reg = 0; reg < outputs; ++reg) {
       accumulators[reg] = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(c[reg] + lane));
+    }
     if constexpr (sad_quad(Op)) {
       auto hi = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(a[1] + lane));
       __m256i windows[] = {x, _mm256_or_si256(_mm256_srli_epi32(x, 8), _mm256_slli_epi32(hi, 24)),
                            _mm256_or_si256(_mm256_srli_epi32(x, 16), _mm256_slli_epi32(hi, 16)),
                            _mm256_or_si256(_mm256_srli_epi32(x, 24), _mm256_slli_epi32(hi, 8))};
       __m256i sums[4];
-      for (int window = 0; window < 4; ++window)
+      for (int window = 0; window < 4; ++window) {
         sums[window] = difference<8, sad_masked(Op)>(windows[window], y);
+      }
       for (int reg = 0; reg < outputs; ++reg) {
         if constexpr (sad_packed(Op)) {
           auto packed = _mm256_or_si256(sums[2 * reg], _mm256_slli_epi32(sums[2 * reg + 1], 16));
           result[reg] = clamp ? _mm256_adds_epu16(packed, accumulators[reg])
                               : _mm256_add_epi16(packed, accumulators[reg]);
-        } else
+        } else {
           result[reg] = accumulate(sums[reg], accumulators[reg], clamp);
+        }
       }
     } else {
       auto sum = difference<bits, sad_masked(Op)>(x, y);
-      if constexpr (Op == Sad::HighU8)
+      if constexpr (Op == Sad::HighU8) {
         sum = _mm256_slli_epi32(sum, 16);
+      }
       result[0] = accumulate(sum, accumulators[0], clamp);
     }
     // All inputs for these lanes precede every destination write, including
     // cross-register aliases and repeated destination addresses.
     auto lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                             _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));
-    for (int reg = 0; reg < outputs; ++reg)
+    for (int reg = 0; reg < outputs; ++reg) {
       _mm256_maskstore_epi32(reinterpret_cast<int *>(d[reg] + lane), lane_exec_mask, result[reg]);
+    }
   }
 }
 

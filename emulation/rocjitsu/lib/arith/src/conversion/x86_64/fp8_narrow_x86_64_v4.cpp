@@ -47,9 +47,10 @@ template <bool Bf8, bool Stochastic> __m512i narrow(__m512i raw, __m512i seed, b
       _mm512_slli_epi32(_mm512_max_epi32(_mm512_sub_epi32(exponent, one), zero), fraction_bits);
   result = _mm512_add_epi32(result, normal_exponent);
   auto limit = _mm512_set1_epi32(terminal);
-  if (saturate)
+  if (saturate) {
     limit = select_greater(_mm512_set1_epi32(0x7f800000), magnitude,
                            _mm512_set1_epi32(terminal - 1), limit);
+  }
   result = _mm512_min_epu32(result, limit);
   auto sign = _mm512_and_si512(_mm512_srli_epi32(raw, 24), _mm512_set1_epi32(128));
   result = _mm512_or_si512(result, sign);

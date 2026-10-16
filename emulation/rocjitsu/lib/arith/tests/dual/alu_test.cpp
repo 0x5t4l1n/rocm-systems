@@ -17,8 +17,9 @@ TEST(v_dual_mul_f32_w32, Arithmetic) {
         (void)b;
         (void)s;
         // VOPD compatibility historically omitted MUL FP status.
-        if ((f & RJ_ARITH_SEMANTICS_MASK) == RJ_ARITH_SEMANTICS_COMPATIBILITY)
+        if ((f & RJ_ARITH_SEMANTICS_MASK) == RJ_ARITH_SEMANTICS_COMPATIBILITY) {
           f = (f & ~RJ_ARITH_SEMANTICS_MASK) | RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS;
+        }
         return rj_arith_v_mul_f32_w32(f, e, m, d, a, b, s);
       },
       0x40000000U, 0x40400000U, 0x40800000U, 0x40c00000U, false);
@@ -36,8 +37,9 @@ TEST(v_dual_mul_f32_w32_gfx12, Arithmetic) {
         (void)b;
         (void)s;
         // VOPD compatibility historically omitted MUL FP status.
-        if ((f & RJ_ARITH_SEMANTICS_MASK) == RJ_ARITH_SEMANTICS_COMPATIBILITY)
+        if ((f & RJ_ARITH_SEMANTICS_MASK) == RJ_ARITH_SEMANTICS_COMPATIBILITY) {
           f = (f & ~RJ_ARITH_SEMANTICS_MASK) | RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS;
+        }
         return rj_arith_v_mul_f32_w32_gfx12(f, e, m, d, a, b, s);
       },
       0x40000000U, 0x40400000U, 0x40800000U, 0x40c00000U, false);

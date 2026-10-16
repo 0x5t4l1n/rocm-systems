@@ -32,10 +32,11 @@ template <int Lanes, bool WithInputCarry, class Call> void check_carry(Call call
   const Mask input_carry = Mask(0xa5a5a5a5a5a5a5a5ULL);
   auto invoke = [&](uint64_t flags, Mask exec_mask, uint64_t mode, uint32_t *const *d, Mask *carry,
                     const uint32_t *const *a, const uint32_t *const *b) {
-    if constexpr (WithInputCarry)
+    if constexpr (WithInputCarry) {
       return call(flags, exec_mask, mode, d, carry, a, b, input_carry);
-    else
+    } else {
       return call(flags, exec_mask, mode, d, carry, a, b);
+    }
   };
   expect_alu_invalid_flags<true>(
       [&](uint64_t flags, uint64_t mode) {
@@ -53,8 +54,8 @@ template <int Lanes, bool WithInputCarry, class Call> void check_carry(Call call
   const bool reverse = operation == Carry::Subrev || operation == Carry::SubrevCi;
   const auto modes = integer_modes(RJ_ARITH_ALU_CLAMP, true);
   const auto cpu_levels = supported_cpu_levels();
-  for (uint64_t cpu : cpu_levels)
-    for (uint64_t semantics : semantics_modes())
+  for (uint64_t cpu : cpu_levels) {
+    for (uint64_t semantics : semantics_modes()) {
       for (int scenario = 0; scenario < 5 + int(modes.size()); ++scenario) {
         uint64_t mode = scenario < 5 ? 0 : modes[scenario - 5];
         Mask exec_mask = exec_mask_for_case<Lanes>(scenario < 5 ? scenario : scenario % 2 ? 0 : 3);
@@ -66,20 +67,23 @@ template <int Lanes, bool WithInputCarry, class Call> void check_carry(Call call
           Mask carry = ~Mask(0), want_carry = 0;
           for (int lane = 0; lane < Lanes; ++lane) {
             int source;
-            if (!integer_source(mode, exec_mask, lane, source))
+            if (!integer_source(mode, exec_mask, lane, source)) {
               continue;
+            }
             uint32_t a = reverse ? input.v[0][lane] : source < 0 ? 0 : input.v[0][source];
             uint32_t b = !reverse ? input.v[2][lane] : source < 0 ? 0 : input.v[2][source];
             auto result = carry_reference(operation, a, b, (input_carry >> lane) & 1,
                                           mode & RJ_ARITH_ALU_CLAMP);
             expected.v[offset][lane] = result.value;
-            if (result.carry)
+            if (result.carry) {
               want_carry |= Mask(1) << lane;
+            }
           }
           void *storage =
               alias >= 3 ? static_cast<void *>(r.v[0] + 1) : static_cast<void *>(&carry);
-          if (alias >= 3)
+          if (alias >= 3) {
             std::memcpy(expected.v[0] + 1, &want_carry, sizeof want_carry);
+          }
           ASSERT_EQ(invoke(cpu | semantics, exec_mask, mode, exec_mask ? r.v + offset : nullptr,
                            static_cast<Mask *>(storage), exec_mask ? r.v : nullptr,
                            exec_mask ? r.v + 2 : nullptr),
@@ -89,6 +93,8 @@ template <int Lanes, bool WithInputCarry, class Call> void check_carry(Call call
           expect_integer_registers(r, expected);
         }
       }
+    }
+  }
 }
 
 } // namespace rocjitsu::arith::test

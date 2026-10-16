@@ -37,8 +37,9 @@ uint32_t rcp_iflag_x86_64_v4(uint64_t flags, uint32_t exec_mask, uint32_t mode, 
           _mm512_cmpeq_epi32_mask(_mm512_and_si512(bits, _mm512_set1_epi32(0x7fffffff)), zero),
           bits, zero);
       value = _mm512_mul_ps(_mm512_castsi512_ps(bits), scale);
-    } else
+    } else {
       value = _mm512_castsi512_ps(bits);
+    }
     if (mode & RJ_ARITH_ALU_CLAMP) {
       const auto original = value;
       value = _mm512_min_ps(_mm512_max_ps(value, _mm512_setzero_ps()), _mm512_set1_ps(1));

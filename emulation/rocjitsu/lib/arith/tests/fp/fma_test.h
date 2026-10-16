@@ -35,15 +35,17 @@ void check_fma(Call entry_point, bool gfx12) {
   auto call = [&](uint64_t flags, Mask exec_mask, uint64_t mode, uint32_t *const *d,
                   const uint32_t *const *a, const uint32_t *const *b, const uint32_t *const *c,
                   uint32_t *fp_status) {
-    if constexpr (Accumulate)
+    if constexpr (Accumulate) {
       return entry_point(flags, exec_mask, mode, d, a, b, fp_status);
-    else
+    } else {
       return entry_point(flags, exec_mask, mode, d, a, b, c, fp_status);
+    }
   };
-  if constexpr (Width == 32)
+  if constexpr (Width == 32) {
     check_fma_simd<Width, Lanes>(call, {0, RJ_ARITH_ALU_NEG_A | RJ_ARITH_ALU_ABS_B,
                                         RJ_ARITH_ALU_CLAMP, RJ_ARITH_ALU_OMOD_2,
                                         RJ_ARITH_ALU_OMOD_4, RJ_ARITH_ALU_OMOD_HALF});
+  }
   using Registers = rocjitsu::arith::test::Registers<10, Lanes>;
   Registers input = make_fp_inputs<Width, Lanes>();
 
@@ -79,11 +81,11 @@ void check_fma(Call entry_point, bool gfx12) {
 
   const auto cpu_levels = rocjitsu::arith::test::supported_cpu_levels();
   for (uint64_t cpu : cpu_levels) {
-    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes())
+    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes()) {
       for (int mode_index = 0; mode_index < mode_count; ++mode_index) {
         uint64_t mode = modes[mode_index];
         for (Mask exec_mask :
-             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)})
+             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)}) {
           for (int aliasing_index = 0; aliasing_index < aliasing_count; ++aliasing_index) {
             int aliasing_offset = aliasing_offsets[aliasing_index];
             SCOPED_TRACE(::testing::Message() << cpu << '/' << semantics << '/' << mode << '/'
@@ -118,7 +120,9 @@ void check_fma(Call entry_point, bool gfx12) {
                                     /*atol=*/Width == 64 ? 1e-14 : 1e-5,
                                     /*rtol=*/Width == 64 ? 1e-14 : 1e-6);
           }
+        }
       }
+    }
   }
 }
 

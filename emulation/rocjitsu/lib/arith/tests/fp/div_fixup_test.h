@@ -32,8 +32,9 @@ void compute_div_fixup_expected(const rocjitsu::arith::test::Registers<10, Lanes
                                 uint64_t exec_mask, uint64_t mode, int aliasing_offset,
                                 rocjitsu::arith::test::Registers<10, Lanes> &expected_registers) {
   for (int lane = 0; lane < Lanes; ++lane) {
-    if (!((exec_mask >> lane) & 1))
+    if (!((exec_mask >> lane) & 1)) {
       continue;
+    }
     const int a_half = Width == 16 && bool(mode & RJ_ARITH_ALU_HIGH_A);
     const int b_half = Width == 16 && bool(mode & RJ_ARITH_ALU_HIGH_B);
     const int c_half = Width == 16 && bool(mode & RJ_ARITH_ALU_HIGH_C);
@@ -41,8 +42,9 @@ void compute_div_fixup_expected(const rocjitsu::arith::test::Registers<10, Lanes
     // DPP8 reverses each group; FI controls reads from inactive sources.
     int source_lane = mode & RJ_ARITH_DPP8 ? (lane & ~7) + 7 - (lane & 7) : lane;
     uint64_t a = rocjitsu::arith::test::read_fp(input.v, source_lane, Width, a_half);
-    if ((mode & RJ_ARITH_DPP8) && !(mode & RJ_ARITH_DPP_FI) && !((exec_mask >> source_lane) & 1))
+    if ((mode & RJ_ARITH_DPP8) && !(mode & RJ_ARITH_DPP_FI) && !((exec_mask >> source_lane) & 1)) {
       a = 0;
+    }
     uint64_t b = rocjitsu::arith::test::read_fp(input.v + 2, lane, Width, b_half);
     uint64_t c = rocjitsu::arith::test::read_fp(input.v + 4, lane, Width, c_half);
     // Existing independent classification/scaling reference.
@@ -70,16 +72,19 @@ void check_div_fixup(Call call, bool gfx12, const Cases &status_cases) {
     auto cpus = supported_cpu_levels();
     for (int scenario = 0; scenario < 128; ++scenario) {
       Registers values;
-      for (int reg = 0; reg < 10; ++reg)
-        for (int lane = 0; lane < Lanes; ++lane)
+      for (int reg = 0; reg < 10; ++reg) {
+        for (int lane = 0; lane < Lanes; ++lane) {
           values.v[reg][lane] = word();
+        }
+      }
       uint64_t mode = word() & (Width == 16 ? 0x1fffU : 0x1ffU);
       uint64_t flags = RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL |
                        (scenario & 1 ? RJ_ARITH_FP16_OVFL : 0) |
                        (scenario & 2 ? RJ_ARITH_FP_FLUSH_INPUT_DENORMALS : 0);
       Mask exec_mask = Mask(word());
-      if constexpr (Lanes == 64)
+      if constexpr (Lanes == 64) {
         exec_mask |= uint64_t(word()) << 32;
+      }
       int destination = scenario % 7;
       auto expected = values;
       uint32_t expected_status = 0x80000000U;
@@ -94,9 +99,11 @@ void check_div_fixup(Call call, bool gfx12, const Cases &status_cases) {
                        actual.v + 4, &status),
                   RJ_ARITH_SUCCESS);
         ASSERT_EQ(status, expected_status);
-        for (int reg = 0; reg < (Width == 64 ? 2 : 1); ++reg)
-          for (int lane = 0; lane < Lanes; ++lane)
+        for (int reg = 0; reg < (Width == 64 ? 2 : 1); ++reg) {
+          for (int lane = 0; lane < Lanes; ++lane) {
             ASSERT_EQ(actual.v[destination + reg][lane], expected.v[destination + reg][lane]);
+          }
+        }
         actual.expect_preserved(values, destination, Width == 64 ? 2 : 1);
       }
     }
@@ -124,18 +131,19 @@ void check_div_fixup(Call call, bool gfx12, const Cases &status_cases) {
                     RJ_ARITH_ALU_NEG_A);
   }
   std::vector<int> aliasing_offsets = {6, 0, 2, 4};
-  if constexpr (Width == 64)
+  if constexpr (Width == 64) {
     aliasing_offsets.push_back(1);
+  }
 
   // Default guest rounding and normal fractional inputs: the existing rocjitsu
   // arithmetic model reduces to IEEE arithmetic here. Special values are checked
   // by classification. No production helper or rj-arith result is a numeric oracle.
   const auto cpu_levels = rocjitsu::arith::test::supported_cpu_levels();
   for (uint64_t cpu : cpu_levels) {
-    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes())
-      for (uint64_t mode : modes)
+    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes()) {
+      for (uint64_t mode : modes) {
         for (Mask exec_mask :
-             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)})
+             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)}) {
           for (int aliasing_offset : aliasing_offsets) {
             SCOPED_TRACE(::testing::Message() << cpu << '/' << semantics << '/' << mode << '/'
                                               << exec_mask << '/' << aliasing_offset);
@@ -155,10 +163,11 @@ void check_div_fixup(Call call, bool gfx12, const Cases &status_cases) {
             bool reporting =
                 gfx12 && (semantics == RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL ||
                           (Width != 16 && semantics == RJ_ARITH_SEMANTICS_COMPATIBILITY));
-            if (!reporting || !exec_mask)
+            if (!reporting || !exec_mask) {
               EXPECT_EQ(fp_status, 0x80000000U);
-            else
+            } else {
               EXPECT_EQ(fp_status & 0x80000000U, 0x80000000U);
+            }
             compute_div_fixup_expected<Width>(input, exec_mask, mode, aliasing_offset,
                                               expected_registers);
 
@@ -168,10 +177,13 @@ void check_div_fixup(Call call, bool gfx12, const Cases &status_cases) {
                                                      : Width == 32        ? 1e-6
                                                                           : 1e-14);
           }
+        }
+      }
+    }
   }
   if (gfx12) {
     for (uint64_t cpu : cpu_levels) {
-      for (const auto &test : status_cases)
+      for (const auto &test : status_cases) {
         for (uint64_t mode : {uint64_t(0), uint64_t(RJ_ARITH_ALU_CLAMP)}) {
           SCOPED_TRACE(::testing::Message()
                        << cpu << '/' << mode << '/' << test.a << '/' << test.b << '/' << test.c);
@@ -191,8 +203,9 @@ void check_div_fixup(Call call, bool gfx12, const Cases &status_cases) {
           EXPECT_EQ(fp_status, 0x80000000U | causes);
           // Preserve previously accumulated causes as well as unrelated bits.
           fp_status = 0x40000000U | RJ_ARITH_EXCEPTION_FLOAT_DIV0;
-          for (int part = 0; part < 1; ++part)
+          for (int part = 0; part < 1; ++part) {
             rocjitsu::arith::test::write_fp(r.v + 4, lane, Width, test.c, part);
+          }
           ASSERT_EQ(call(cpu | RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL, exec_mask, mode, r.v + 6,
                          r.v, r.v + 2, r.v + 4, &fp_status),
                     RJ_ARITH_SUCCESS);
@@ -205,6 +218,7 @@ void check_div_fixup(Call call, bool gfx12, const Cases &status_cases) {
           r.expect_preserved(before, 0, 0);
           EXPECT_EQ(fp_status, 0x40000000U | RJ_ARITH_EXCEPTION_FLOAT_DIV0 | causes);
         }
+      }
     }
   }
 }

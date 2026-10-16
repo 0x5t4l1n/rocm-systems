@@ -15,10 +15,11 @@ namespace {
 
 // Extract the selected halfword and sign- or zero-extend it to 32-bit lanes.
 template <bool Signed, bool High> __m256i widen(__m256i value) {
-  if constexpr (Signed)
+  if constexpr (Signed) {
     return _mm256_srai_epi32(High ? value : _mm256_slli_epi32(value, 16), 16);
-  else
+  } else {
     return High ? _mm256_srli_epi32(value, 16) : _mm256_and_si256(value, _mm256_set1_epi32(65535));
+  }
 }
 
 // Return halfword multiply-add results clamped to signed/unsigned 16-bit range.
@@ -26,11 +27,12 @@ template <bool Signed, bool High> __m256i saturated(__m256i a, __m256i b, __m256
   // Even the largest unsigned result, 65535 * 65535 + 65535, fits uint32_t.
   auto value = _mm256_add_epi32(_mm256_mullo_epi32(widen<Signed, High>(a), widen<Signed, High>(b)),
                                 widen<Signed, High>(c));
-  if constexpr (Signed)
+  if constexpr (Signed) {
     return _mm256_min_epi32(_mm256_max_epi32(value, _mm256_set1_epi32(-32768)),
                             _mm256_set1_epi32(32767));
-  else
+  } else {
     return _mm256_min_epu32(value, _mm256_set1_epi32(65535));
+  }
 }
 
 } // namespace
@@ -42,11 +44,12 @@ template <bool Signed, Integer16Ternary Op, bool Packed>
 void integer16_ternary_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *d, const uint32_t *a,
                                  const uint32_t *b, const uint32_t *c) {
   const int d_shift = mode & RJ_ARITH_ALU_HIGH_D ? 16 : 0;
-  if constexpr (!Packed)
+  if constexpr (!Packed) {
     mode = (mode & RJ_ARITH_ALU_HIGH_A ? RJ_ARITH_PK_LO_A_HIGH : 0) |
            (mode & RJ_ARITH_ALU_HIGH_B ? RJ_ARITH_PK_LO_B_HIGH : 0) |
            (mode & RJ_ARITH_ALU_HIGH_C ? RJ_ARITH_PK_LO_C_HIGH : 0) |
            (mode & RJ_ARITH_ALU_CLAMP ? RJ_ARITH_PK_CLAMP : 0);
+  }
   auto sa = packed_integer_selection(mode & RJ_ARITH_PK_LO_A_HIGH, mode & RJ_ARITH_PK_HI_A_LOW);
   auto sb = packed_integer_selection(mode & RJ_ARITH_PK_LO_B_HIGH, mode & RJ_ARITH_PK_HI_B_LOW);
   auto sc = packed_integer_selection(mode & RJ_ARITH_PK_LO_C_HIGH, mode & RJ_ARITH_PK_HI_C_LOW);

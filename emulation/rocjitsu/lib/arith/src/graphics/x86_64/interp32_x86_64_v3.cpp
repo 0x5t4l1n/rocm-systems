@@ -29,11 +29,13 @@ void interp32_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *d, const ui
 
     // Each shuffle reads all four source lanes, regardless of EXEC.
     x = _mm256_permute_ps(x, P2 ? _MM_SHUFFLE(2, 2, 2, 2) : _MM_SHUFFLE(1, 1, 1, 1));
-    if constexpr (!P2)
+    if constexpr (!P2) {
       z = _mm256_permute_ps(z, _MM_SHUFFLE(0, 0, 0, 0));
+    }
     auto value = _mm256_fmadd_ps(x, y, z);
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       value = _mm256_min_ps(_mm256_max_ps(value, _mm256_setzero_ps()), _mm256_set1_ps(1));
+    }
     auto lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                             _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));
     _mm256_maskstore_epi32(reinterpret_cast<int *>(d + lane), lane_exec_mask,

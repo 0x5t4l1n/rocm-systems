@@ -91,10 +91,12 @@ inline __m256 log2_loose(__m256 input) {
 
 // Half inputs have already widened exactly to normal FP32 values (or zero).
 template <Unary Op, bool Half = false> __m256 unary_value(__m256 value) {
-  if constexpr (Op == Unary::Exp)
+  if constexpr (Op == Unary::Exp) {
     return exp2_loose<Half>(value);
-  if constexpr (Op == Unary::Log)
+  }
+  if constexpr (Op == Unary::Log) {
     return log2_loose(value);
+  }
   if constexpr (Op == Unary::Fract) {
     value = _mm256_sub_ps(value, _mm256_floor_ps(value));
     auto limit = _mm256_castsi256_ps(_mm256_set1_epi32(Half ? 0x3f7fe000 : 0x3f7fffff));
@@ -122,18 +124,24 @@ template <Unary Op, bool Half = false> __m256 unary_value(__m256 value) {
                         _mm256_cmpgt_epi32(magnitude, _mm256_set1_epi32(0x7f800000 - 1)));
     value = _mm256_castsi256_ps(_mm256_blendv_epi8(mantissa, original, special));
   }
-  if constexpr (Op == Unary::Trunc)
+  if constexpr (Op == Unary::Trunc) {
     value = _mm256_round_ps(value, _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
-  if constexpr (Op == Unary::Ceil)
+  }
+  if constexpr (Op == Unary::Ceil) {
     value = _mm256_round_ps(value, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC);
-  if constexpr (Op == Unary::Floor)
+  }
+  if constexpr (Op == Unary::Floor) {
     value = _mm256_round_ps(value, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC);
-  if constexpr (Op == Unary::Rndne)
+  }
+  if constexpr (Op == Unary::Rndne) {
     value = _mm256_round_ps(value, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
-  if constexpr (Op == Unary::Sqrt || Op == Unary::Rsq)
+  }
+  if constexpr (Op == Unary::Sqrt || Op == Unary::Rsq) {
     value = _mm256_sqrt_ps(value);
-  if constexpr (Op == Unary::Rcp || Op == Unary::Rsq)
+  }
+  if constexpr (Op == Unary::Rcp || Op == Unary::Rsq) {
     value = _mm256_div_ps(_mm256_set1_ps(1), value);
+  }
   return value;
 }
 

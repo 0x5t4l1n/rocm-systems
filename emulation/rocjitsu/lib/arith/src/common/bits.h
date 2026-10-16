@@ -22,11 +22,12 @@ template <int Bits, bool Signed> int64_t extend_integer(uint32_t value) {
   value &= UINT32_MAX >> (32 - Bits);
   if constexpr (Signed) {
     constexpr uint32_t sign = 1U << (Bits - 1);
-    if constexpr (Bits <= 16)
+    if constexpr (Bits <= 16) {
       return int64_t(value ^ sign) - sign;
-    else
+    } else {
       // Keep the wider-field form that avoids slower GCC high-product lowering.
       return int64_t(value) - ((value & sign) ? INT64_C(1) << Bits : 0);
+    }
   } else {
     return value;
   }
@@ -39,26 +40,30 @@ template <typename T> uint32_t bit_population(T x) {
   x = (x + (x >> 4)) & T(0x0f0f0f0f0f0f0f0fULL);
   x += x >> 8;
   x += x >> 16;
-  if constexpr (sizeof(T) == 8)
+  if constexpr (sizeof(T) == 8) {
     x += x >> 32;
+  }
   return uint32_t(x) & (sizeof(T) == 8 ? 127 : 63);
 }
 
 // Leading or trailing zero count; a zero word returns UINT32_MAX.
 template <bool Trailing, typename T> uint32_t bit_count_zero(T a) {
-  if (!a)
+  if (!a) {
     return UINT32_MAX;
+  }
 #if defined(__GNUC__) || defined(__clang__)
   if constexpr (Trailing) {
-    if constexpr (sizeof(T) == 8)
+    if constexpr (sizeof(T) == 8) {
       return __builtin_ctzll(a);
-    else
+    } else {
       return __builtin_ctz(a);
+    }
   } else {
-    if constexpr (sizeof(T) == 8)
+    if constexpr (sizeof(T) == 8) {
       return __builtin_clzll(a);
-    else
+    } else {
       return __builtin_clz(a);
+    }
   }
 #else
   uint32_t n = 0;

@@ -29,10 +29,11 @@ uint32_t mad64_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
         _mm512_cvtepu32_epi64(_mm256_loadu_si256(reinterpret_cast<const __m256i *>(c[1] + lane)));
     auto cv = _mm512_or_si512(low, _mm512_slli_epi64(high, 32));
     __m512i product;
-    if constexpr (Signed)
+    if constexpr (Signed) {
       product = _mm512_mul_epi32(av, bv);
-    else
+    } else {
       product = _mm512_mul_epu32(av, bv);
+    }
     auto result = _mm512_add_epi64(product, cv);
     if constexpr (Signed) {
       auto overflow =
@@ -49,8 +50,9 @@ uint32_t mad64_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
     } else {
       auto carry = _mm512_cmplt_epu64_mask(result, product);
       output_carry |= uint32_t(carry) << lane;
-      if (mode & RJ_ARITH_ALU_CLAMP)
+      if (mode & RJ_ARITH_ALU_CLAMP) {
         result = _mm512_mask_set1_epi64(result, carry, -1);
+      }
     }
     _mm256_storeu_si256(reinterpret_cast<__m256i *>(staged[0] + lane),
                         _mm512_cvtepi64_epi32(result));
@@ -58,11 +60,12 @@ uint32_t mad64_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
                         _mm512_cvtepi64_epi32(_mm512_srli_epi64(result, 32)));
   }
   // Commit both halves only after all source reads, with D1 winning overlaps.
-  for (int reg = 0; reg < 2; ++reg)
+  for (int reg = 0; reg < 2; ++reg) {
     for (int lane = 0; lane < 32; lane += 16) {
       auto result = _mm512_loadu_si512(reinterpret_cast<const __m512i *>(staged[reg] + lane));
       _mm512_mask_storeu_epi32(d[reg] + lane, __mmask16(exec_mask >> lane), result);
     }
+  }
   return output_carry & exec_mask;
 }
 

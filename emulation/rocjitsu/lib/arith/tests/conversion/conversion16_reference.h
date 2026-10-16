@@ -18,8 +18,9 @@ namespace rocjitsu::arith::test {
 // Round FP32 bits to FP16 with optional finite-overflow saturation.
 inline uint16_t conversion16_narrow(uint32_t value, bool saturate) {
   uint16_t result = uint16_t(conversion_reencode(value, 23, 127, 10, 15));
-  if (saturate && (value & 0x7fffffff) < 0x7f800000 && (result & 0x7fff) == 0x7c00)
+  if (saturate && (value & 0x7fffffff) < 0x7f800000 && (result & 0x7fff) == 0x7c00) {
     --result;
+  }
   return result;
 }
 
@@ -35,10 +36,12 @@ inline uint32_t conversion16_reference(int op, uint32_t raw, uint32_t original, 
     value = uint32_t(conversion_encode(negative, magnitude, 0, 23, 127));
   } else {
     value = op == 4 ? raw : uint32_t(conversion_reencode(half, 10, 15, 23, 127));
-    if (mode & RJ_ARITH_ALU_ABS_A)
+    if (mode & RJ_ARITH_ALU_ABS_A) {
       value &= 0x7fffffff;
-    if (mode & RJ_ARITH_ALU_NEG_A)
+    }
+    if (mode & RJ_ARITH_ALU_NEG_A) {
       value ^= 0x80000000;
+    }
   }
   uint32_t result;
   if (op == 2 || op == 3) {
@@ -47,12 +50,13 @@ inline uint32_t conversion16_reference(int op, uint32_t raw, uint32_t original, 
     bool negative = value >> 31;
     uint32_t fraction = value & 0x7fffff;
     uint32_t limit = op == 3 ? 65535 : negative ? 32768 : 32767;
-    if ((exponent == 255 && fraction) || (op == 3 && negative) || exponent < 127)
+    if ((exponent == 255 && fraction) || (op == 3 && negative) || exponent < 127) {
       result = 0;
-    else {
+    } else {
       uint32_t magnitude = exponent >= 143 ? limit : (0x800000 | fraction) >> (150 - exponent);
-      if (magnitude > limit)
+      if (magnitude > limit) {
         magnitude = limit;
+      }
       result = negative ? uint16_t(0u - magnitude) : magnitude;
     }
   } else {
@@ -60,31 +64,35 @@ inline uint32_t conversion16_reference(int op, uint32_t raw, uint32_t original, 
     int omod = (mode >> 6) & 3;
     if (op == 5) {
       result = uint32_t(conversion_reencode(value, 23, 127, 23, 127, scales[omod]));
-      if (omod && (result & 0x7fffffff) == 0)
+      if (omod && (result & 0x7fffffff) == 0) {
         result = 0;
-      if (mode & RJ_ARITH_ALU_CLAMP)
+      }
+      if (mode & RJ_ARITH_ALU_CLAMP) {
         result = (result & 0x80000000) || result > 0x7f800000 ? 0
                  : result > 0x3f800000                        ? 0x3f800000
                                                               : result;
+      }
     } else {
       result = conversion16_narrow(value, saturate);
       if (omod) {
         unsigned magnitude = result & 0x7fff;
-        if (magnitude < 0x400 || (magnitude == 0x400 && (value & 0x7fffffff) < 0x387ff000))
+        if (magnitude < 0x400 || (magnitude == 0x400 && (value & 0x7fffffff) < 0x387ff000)) {
           result = 0;
-        else if (omod == 3 && magnitude < 0x800)
+        } else if (omod == 3 && magnitude < 0x800) {
           result &= 0x8000;
-        else {
+        } else {
           uint32_t scaled = uint32_t(conversion_reencode(result, 10, 15, 23, 127, scales[omod]));
           result = conversion16_narrow(scaled, saturate);
         }
       }
-      if (mode & RJ_ARITH_ALU_CLAMP)
+      if (mode & RJ_ARITH_ALU_CLAMP) {
         result = (result & 0x8000) || result > 0x7c00 ? 0 : result > 0x3c00 ? 0x3c00 : result;
+      }
     }
   }
-  if (op == 5)
+  if (op == 5) {
     return result;
+  }
   int shift = mode & RJ_ARITH_ALU_HIGH_D ? 16 : 0;
   return (original & ~(uint32_t(65535) << shift)) | (result << shift);
 }

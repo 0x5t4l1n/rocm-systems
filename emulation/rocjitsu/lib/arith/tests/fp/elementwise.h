@@ -21,10 +21,13 @@ namespace rocjitsu::arith::test {
 template <int Width, int Lanes> Registers<10, Lanes> make_fp_inputs(std::minstd_rand &random) {
   static_assert(Width == 16 || Width == 32 || Width == 64);
   Registers<10, Lanes> input;
-  for (int operand = 0; operand < 5; ++operand)
-    for (int lane = 0; lane < Lanes; ++lane)
-      for (int half = 0; half < (Width == 16 ? 2 : 1); ++half)
+  for (int operand = 0; operand < 5; ++operand) {
+    for (int lane = 0; lane < Lanes; ++lane) {
+      for (int half = 0; half < (Width == 16 ? 2 : 1); ++half) {
         write_fp(input.v + 2 * operand, lane, Width, random_fp(random, Width), half);
+      }
+    }
+  }
   for (int operand = 0; operand < 3; ++operand) {
     write_fp(input.v + 2 * operand, 2 * operand, Width,
              fp_bits(std::numeric_limits<double>::quiet_NaN(), Width));
@@ -52,8 +55,9 @@ void expect_fp_result(const Registers<10, Lanes> &input, const Registers<10, Lan
   result.expect_preserved(input, aliasing_offset, register_count);
   for (int lane = 0; lane < Lanes; ++lane) {
     if (!((exec_mask >> lane) & 1)) {
-      for (int reg = 0; reg < register_count; ++reg)
+      for (int reg = 0; reg < register_count; ++reg) {
         EXPECT_EQ(result.v[aliasing_offset + reg][lane], input.v[aliasing_offset + reg][lane]);
+      }
       continue;
     }
     int half = 0;
@@ -62,10 +66,11 @@ void expect_fp_result(const Registers<10, Lanes> &input, const Registers<10, Lan
       EXPECT_EQ(uint16_t(result.v[aliasing_offset][lane] >> (16 * (1 - half))),
                 uint16_t(input.v[aliasing_offset][lane] >> (16 * (1 - half))));
     }
-    for (int output_half = half; output_half < half + (Packed ? 2 : 1); ++output_half)
+    for (int output_half = half; output_half < half + (Packed ? 2 : 1); ++output_half) {
       expect_fp(read_fp(result.v + aliasing_offset, lane, Width, output_half),
                 read_fp(expected.v + aliasing_offset, lane, Width, output_half), Width, semantics,
                 atol, rtol);
+    }
   }
 }
 

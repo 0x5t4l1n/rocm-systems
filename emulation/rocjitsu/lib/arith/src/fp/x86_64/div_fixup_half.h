@@ -31,8 +31,9 @@ inline typename O::V fixup_half_omod(typename O::V result, uint32_t omod, bool s
     auto tiny = omod == 1 ? O::shl(magnitude, 1) : O::shl(magnitude, 2);
 
     // Multiplying a subnormal by four may cross a second exponent boundary.
-    if (omod == 2)
+    if (omod == 2) {
       tiny = O::select(O::gt(tiny, O::set(0x7ff)), O::add(O::shr(tiny, 1), O::set(0x400)), tiny);
+    }
     scaled = O::select(O::eq(exponent, O::set(0)), tiny, O::add(magnitude, O::set(omod << 10)));
     scaled = O::select(O::gt(scaled, O::set(0x7bff)), O::set(saturate ? 0x7bff : 0x7c00), scaled);
   }

@@ -29,15 +29,21 @@ using Registers = rocjitsu::arith::test::Registers<64, 64>;
 TEST(WmmaBF16BF16W64, Arithmetic) {
   std::minstd_rand random;
   uint32_t a[16][16], b[16][16], c[16][16];
-  for (int row = 0; row < 16; ++row)
-    for (int k = 0; k < 16; ++k)
+  for (int row = 0; row < 16; ++row) {
+    for (int k = 0; k < 16; ++k) {
       a[row][k] = rocjitsu::arith::test::random_bf16_bits(random);
-  for (int k = 0; k < 16; ++k)
-    for (int col = 0; col < 16; ++col)
+    }
+  }
+  for (int k = 0; k < 16; ++k) {
+    for (int col = 0; col < 16; ++col) {
       b[k][col] = rocjitsu::arith::test::random_bf16_bits(random);
-  for (int row = 0; row < 16; ++row)
-    for (int col = 0; col < 16; ++col)
+    }
+  }
+  for (int row = 0; row < 16; ++row) {
+    for (int col = 0; col < 16; ++col) {
       c[row][col] = rocjitsu::arith::test::random_bf16_bits(random);
+    }
+  }
   // One NaN and one infinity per logical operand where the format has Inf.
   a[1][2] = rocjitsu::arith::test::kBF16QuietNaNBits;
   a[3][4] = rocjitsu::arith::test::kBF16PositiveInfinityBits;
@@ -47,18 +53,23 @@ TEST(WmmaBF16BF16W64, Arithmetic) {
   c[11][12] = rocjitsu::arith::test::kBF16PositiveInfinityBits;
 
   Registers input;
-  for (int row = 0; row < 16; ++row)
-    for (int k = 0; k < 16; ++k)
+  for (int row = 0; row < 16; ++row) {
+    for (int k = 0; k < 16; ++k) {
       rocjitsu::arith::test::set_wmma_gfx11<16, 64>(input.v, row, k, a[row][k]);
-  for (int k = 0; k < 16; ++k)
-    for (int col = 0; col < 16; ++col)
+    }
+  }
+  for (int k = 0; k < 16; ++k) {
+    for (int col = 0; col < 16; ++col) {
       rocjitsu::arith::test::set_wmma_gfx11<16, 64>(input.v + 8, col, k, b[k][col]);
+    }
+  }
   // C/D layout: register and lane select a row/column; packed gfx12
   // stores adjacent rows in halves, while gfx11 OPSEL preserves the other half.
-  for (int row = 0; row < 16; ++row)
+  for (int row = 0; row < 16; ++row) {
     for (int col = 0; col < 16; ++col) {
       input.v[16 + (row / 4)][col + 16 * (row % 4)] = c[row][col] | (c[row][col] << 16);
     }
+  }
 
   // Offline goldens from rocjitsu ad2bb973ec4's original DOT models.
   // Reference computation uses logical matrices, independently of the VGPR
@@ -94,8 +105,8 @@ TEST(WmmaBF16BF16W64, Arithmetic) {
   const uint64_t modes[] = {0, RJ_ARITH_WMMA_HIGH_C_D};
   const auto cpu_levels = rocjitsu::arith::test::supported_cpu_levels();
   for (uint64_t cpu : cpu_levels) {
-    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes())
-      for (uint64_t mode : modes)
+    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes()) {
+      for (uint64_t mode : modes) {
         for (int aliasing_offset : {0, 4, 8, 12, 16, 21}) {
           SCOPED_TRACE(::testing::Message()
                        << cpu << '/' << semantics << '/' << mode << '/' << aliasing_offset);
@@ -103,7 +114,7 @@ TEST(WmmaBF16BF16W64, Arithmetic) {
           ASSERT_EQ(rj_arith_v_wmma_bf16_16x16x16_bf16_w64(
                         cpu | semantics, mode, r.v + aliasing_offset, r.v, r.v + 8, r.v + 16),
                     RJ_ARITH_SUCCESS);
-          for (int row = 0; row < 16; ++row)
+          for (int row = 0; row < 16; ++row) {
             for (int col = 0; col < 16; ++col) {
               uint32_t actual = r.v[aliasing_offset + (row / 4)][col + 16 * (row % 4)];
               uint32_t before = input.v[aliasing_offset + (row / 4)][col + 16 * (row % 4)];
@@ -115,8 +126,11 @@ TEST(WmmaBF16BF16W64, Arithmetic) {
                                                 golden[row][col], semantics,
                                                 /*atol=*/2e-4, /*rtol=*/4e-3);
             }
+          }
           r.expect_preserved(input, aliasing_offset, 4);
         }
+      }
+    }
   }
   rocjitsu::arith::test::expect_wmma_exact_simd<true, 64, true, true>(
       rj_arith_v_wmma_bf16_16x16x16_bf16_w64);

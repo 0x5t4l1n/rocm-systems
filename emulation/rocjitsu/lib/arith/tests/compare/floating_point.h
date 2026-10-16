@@ -45,10 +45,12 @@ template <int Width> uint64_t compare_class_value(int index) {
 template <int Width, int Lanes> Registers<4, Lanes> make_compare_float_inputs() {
   Registers<4, Lanes> input;
   std::minstd_rand random;
-  for (int reg = 0; reg < 4; ++reg)
-    for (int lane = 0; lane < Lanes; ++lane)
+  for (int reg = 0; reg < 4; ++reg) {
+    for (int lane = 0; lane < Lanes; ++lane) {
       input.v[reg][lane] = random_word(random);
-  for (int lane = 0; lane < Lanes; ++lane)
+    }
+  }
+  for (int lane = 0; lane < Lanes; ++lane) {
     for (int half = 0; half < (Width == 16 ? 2 : 1); ++half) {
       if (lane < 20) {
         write_compare_operand(input.v, lane, Width, compare_class_value<Width>((lane + half) % 10),
@@ -60,6 +62,7 @@ template <int Width, int Lanes> Registers<4, Lanes> make_compare_float_inputs() 
                               half);
       }
     }
+  }
   write_compare_operand(input.v, 20, Width, 0);
   write_compare_operand(input.v + 2, 20, Width, 1ULL << (Width - 1));
   return input;
@@ -72,20 +75,25 @@ template <int Width, int Lanes> Registers<4, Lanes> make_compare_float_inputs() 
 template <int Width>
 double compare_float_value(uint64_t bits, uint64_t mode, int operand, bool flush) {
   constexpr uint64_t sign = 1ULL << (Width - 1), inf = compare_infinity<Width>();
-  if (mode & (RJ_ARITH_ALU_ABS_A << operand))
+  if (mode & (RJ_ARITH_ALU_ABS_A << operand)) {
     bits &= ~sign;
-  if (mode & (RJ_ARITH_ALU_NEG_A << operand))
+  }
+  if (mode & (RJ_ARITH_ALU_NEG_A << operand)) {
     bits ^= sign;
-  if (flush && !(bits & inf))
+  }
+  if (flush && !(bits & inf)) {
     bits &= sign;
-  if ((bits & (sign - 1)) > inf)
+  }
+  if ((bits & (sign - 1)) > inf) {
     return std::numeric_limits<double>::quiet_NaN();
-  if constexpr (Width == 16)
+  }
+  if constexpr (Width == 16) {
     return f16_value(uint16_t(bits));
-  else if constexpr (Width == 32)
+  } else if constexpr (Width == 32) {
     return bit_cast<float>(uint32_t(bits));
-  else
+  } else {
     return bit_cast<double>(bits);
+  }
 }
 
 } // namespace rocjitsu::arith::test

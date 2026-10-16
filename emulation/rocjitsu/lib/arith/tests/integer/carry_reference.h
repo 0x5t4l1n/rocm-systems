@@ -36,8 +36,9 @@ inline CarryResult carry_reference(Carry operation, uint32_t a, uint32_t b, bool
     value = first - second;
     carry = first < second;
   }
-  if (clamp && carry)
+  if (clamp && carry) {
     value = op % 3 == 0 ? UINT32_MAX : 0;
+  }
   return {uint32_t(value), carry};
 }
 

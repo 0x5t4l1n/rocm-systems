@@ -36,12 +36,14 @@ void check_graphics(Call call, int op, int interpolation, bool lighting = false,
                     bool gfx12 = true) {
   Registers<4, Lanes> input;
   std::minstd_rand random;
-  for (int reg = 0; reg < 4; ++reg)
-    for (int lane = 0; lane < Lanes; ++lane)
+  for (int reg = 0; reg < 4; ++reg) {
+    for (int lane = 0; lane < Lanes; ++lane) {
       input.v[reg][lane] =
           interpolation == 16 && (reg == 0 || (reg == 2 && !(op & 1)))
               ? uint32_t(random_f16_bits(random)) | (uint32_t(random_f16_bits(random)) << 16)
               : random_f32_bits(random);
+    }
+  }
   // Add exceptional values and equal magnitudes explicitly; random finite inputs alone rarely
   // exercise these branches.
   for (int reg = 0; reg < 3; ++reg) {
@@ -51,18 +53,20 @@ void check_graphics(Call call, int op, int interpolation, bool lighting = false,
         interpolation == 16 && (reg == 0 || (reg == 2 && !(op & 1))) ? 0x7c007c00U : 0x7f800000U;
     input.v[reg][15] = 0;
     input.v[reg][16] = 0x80000000U;
-    if (!interpolation)
+    if (!interpolation) {
       input.v[reg][17] = 0x3f800000U;
+    }
   }
   uint64_t modifiers = interpolation
                            ? RJ_ARITH_ALU_NEG_A | RJ_ARITH_ALU_NEG_B | RJ_ARITH_ALU_NEG_C |
                                  RJ_ARITH_ALU_CLAMP | RJ_ARITH_INTERP_WAIT_EXP_MASK
                            : 0x1ff;
-  if (interpolation == 16)
+  if (interpolation == 16) {
     modifiers |= RJ_ARITH_ALU_HIGH_A | (op & 1 ? RJ_ARITH_ALU_HIGH_D : RJ_ARITH_ALU_HIGH_C);
-  for (auto cpu : supported_cpu_levels())
-    for (auto semantics : semantics_modes())
-      for (int scenario = 0; scenario < 40; ++scenario)
+  }
+  for (auto cpu : supported_cpu_levels()) {
+    for (auto semantics : semantics_modes()) {
+      for (int scenario = 0; scenario < 40; ++scenario) {
         for (int d : {0, 1, 2, 3}) {
           SCOPED_TRACE(::testing::Message()
                        << cpu << '/' << semantics << '/' << scenario << '/' << d);
@@ -71,8 +75,9 @@ void check_graphics(Call call, int op, int interpolation, bool lighting = false,
           uint64_t mode = interpolation == 16   ? interp16_mode(op, scenario * 7 % 64, scenario % 8)
                           : interpolation == 32 ? interp32_mode(scenario % 16, scenario % 8)
                                                 : uint64_t(scenario * 37) & 0x1ff;
-          if (!interpolation && scenario >= 33)
+          if (!interpolation && scenario >= 33) {
             mode |= dpp_modes[scenario - 33];
+          }
           uint64_t guest =
               (!interpolation && scenario % 3 == 0 ? RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS : 0) |
               (scenario % 3 == 1 ? RJ_ARITH_FP16_OVFL : 0);
@@ -81,11 +86,13 @@ void check_graphics(Call call, int op, int interpolation, bool lighting = false,
                            actual.v + 1, actual.v + 2, &status);
           int expected_error = RJ_ARITH_SUCCESS;
           if ((lighting || interpolation) &&
-              semantics == RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS)
+              semantics == RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS) {
             expected_error = RJ_ARITH_ERROR_UNSUPPORTED_SEMANTICS;
-          if ((lighting || interpolation) && semantics == RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL)
+          }
+          if ((lighting || interpolation) && semantics == RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL) {
             expected_error = lighting ? RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS
                                       : RJ_ARITH_ERROR_UNSUPPORTED_SEMANTICS;
+          }
           ASSERT_EQ(error, expected_error);
           EXPECT_EQ(status, 0x80000000U);
           if (error) {
@@ -102,18 +109,19 @@ void check_graphics(Call call, int op, int interpolation, bool lighting = false,
               continue;
             }
             uint32_t a = source < 0 ? 0 : input.v[0][source], expected;
-            if (interpolation == 16)
+            if (interpolation == 16) {
               expected =
                   interp16_reference(op, input.v[0], input.v[1], input.v[2], input.v[d][lane], lane,
                                      scenario * 7 % 64, guest & RJ_ARITH_FP16_OVFL);
-            else if (interpolation == 32)
+            } else if (interpolation == 32) {
               expected = bit_cast<uint32_t>(
                   interp32_reference(op, input.v[0], input.v[1], input.v[2], lane, scenario % 16));
-            else if (lighting)
+            } else if (lighting) {
               expected = mullit_reference(a, input.v[1][lane], input.v[2][lane], uint32_t(mode),
                                           !gfx12, guest);
-            else
+            } else {
               expected = cube_reference(op, a, input.v[1][lane], input.v[2][lane], uint32_t(mode));
+            }
             // P2 writes one FP16 halfword: compare its numeric value tolerantly but require the
             // other half to remain bit-identical.
             if (interpolation == 16 && (op & 1)) {
@@ -122,13 +130,17 @@ void check_graphics(Call call, int op, int interpolation, bool lighting = false,
               expect_f32(bit_cast<uint32_t>(f16_value(uint16_t(actual.v[d][lane] >> shift))),
                          f16_value(uint16_t(expected >> shift)), RJ_ARITH_SEMANTICS_LOOSE,
                          /*atol=*/0x1p-24f, /*rtol=*/1e-3f);
-            } else
+            } else {
               expect_f32(actual.v[d][lane], bit_cast<float>(expected),
                          !interpolation && !lighting ? semantics : RJ_ARITH_SEMANTICS_LOOSE,
                          /*atol=*/1e-44f, /*rtol=*/2e-7f);
+            }
           }
           actual.expect_preserved(input, d, 1);
         }
+      }
+    }
+  }
   auto unchanged = input;
   auto invalid = [&](uint64_t flags, uint64_t mode) {
     uint32_t status = 0x80000000U;
@@ -138,10 +150,11 @@ void check_graphics(Call call, int op, int interpolation, bool lighting = false,
     EXPECT_EQ(status, 0x80000000U);
     return result;
   };
-  if (interpolation)
+  if (interpolation) {
     expect_alu_invalid_flags<false>(invalid, modifiers);
-  else
+  } else {
     expect_alu_invalid_flags<true>(invalid, modifiers);
+  }
 }
 
 } // namespace rocjitsu::arith::test

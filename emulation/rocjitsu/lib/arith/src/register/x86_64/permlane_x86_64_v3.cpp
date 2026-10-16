@@ -21,9 +21,9 @@ void permlane_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *d, const ui
   auto shifts = _mm256_setr_epi32(0, 4, 8, 12, 16, 20, 24, 28);
   for (int lane = 0; lane < 32; lane += 8) {
     __m256i index;
-    if constexpr (Var)
+    if constexpr (Var) {
       index = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(b + lane));
-    else {
+    } else {
       auto packed = _mm256_set1_epi32(int(lane & 8 ? hi : lo));
       index = _mm256_srlv_epi32(packed, shifts);
     }

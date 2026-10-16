@@ -25,8 +25,9 @@ inline uint32_t bit_count_reference(BitCount operation, uint32_t a, uint32_t b, 
     bool sign = op == 2 && (a >> 31);
     for (int bit = 0; bit < 32; ++bit) {
       int position = op == 1 ? bit : 31 - bit;
-      if (bool((a >> position) & 1) != sign)
+      if (bool((a >> position) & 1) != sign) {
         return count;
+      }
       ++count;
     }
     return UINT32_MAX;
@@ -34,8 +35,9 @@ inline uint32_t bit_count_reference(BitCount operation, uint32_t a, uint32_t b, 
   uint32_t count = 0;
   for (int bit = 0; bit < 32; ++bit) {
     bool selected = op == 3 || ((op == 4 || op == 6) ? bit < lane : bit + 32 < lane);
-    if (selected && ((a >> bit) & 1))
+    if (selected && ((a >> bit) & 1)) {
       ++count;
+    }
   }
   return b + count;
 }

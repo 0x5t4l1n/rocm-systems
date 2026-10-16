@@ -51,33 +51,42 @@ void run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
   uint32_t result[2][32];
   for (int lane = 0; lane < 32; lane += 4) {
     auto x = load(a, lane, ka, na), y = _mm256_setzero_pd();
-    if constexpr (fp64_sources(Op) >= 2)
+    if constexpr (fp64_sources(Op) >= 2) {
       y = load(b, lane, kb, nb);
+    }
     if ((basic || selection) && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)) {
       x = flush_denorm(x);
       y = flush_denorm(y);
     }
     __m256d value;
-    if constexpr (Op == Fp64::Add)
+    if constexpr (Op == Fp64::Add) {
       value = _mm256_add_pd(x, y);
-    if constexpr (Op == Fp64::Mul)
+    }
+    if constexpr (Op == Fp64::Mul) {
       value = _mm256_mul_pd(x, y);
+    }
     if constexpr (Op == Fp64::Fma) {
       auto z = load(c, lane, kc, nc);
-      if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)
+      if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) {
         z = flush_denorm(z);
+      }
       value = _mm256_fmadd_pd(x, y, z);
     }
-    if constexpr (Op == Fp64::MinLegacy || Op == Fp64::MaxLegacy)
+    if constexpr (Op == Fp64::MinLegacy || Op == Fp64::MaxLegacy) {
       value = minmax_rdna3<Op == Fp64::MaxLegacy>(x, y, flags & RJ_ARITH_FP_IEEE_MODE);
-    if constexpr (Op == Fp64::MinNum)
+    }
+    if constexpr (Op == Fp64::MinNum) {
       value = minmax<false, false>(x, y);
-    if constexpr (Op == Fp64::MaxNum)
+    }
+    if constexpr (Op == Fp64::MaxNum) {
       value = minmax<true, false>(x, y);
-    if constexpr (Op == Fp64::Minimum)
+    }
+    if constexpr (Op == Fp64::Minimum) {
       value = minmax<false, true>(x, y);
-    if constexpr (Op == Fp64::Maximum)
+    }
+    if constexpr (Op == Fp64::Maximum) {
       value = minmax<true, true>(x, y);
+    }
     if constexpr (Op == Fp64::FrexpMant) {
       auto original = _mm256_castpd_si256(x);
       auto magnitude = _mm256_and_si256(original, _mm256_set1_epi64x(INT64_MAX));
@@ -94,20 +103,27 @@ void run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
           _mm256_cmpgt_epi64(magnitude, _mm256_set1_epi64x(INT64_C(0x7ff0000000000000) - 1)));
       value = _mm256_castsi256_pd(_mm256_blendv_epi8(mantissa, original, special));
     }
-    if constexpr (Op == Fp64::Trunc)
+    if constexpr (Op == Fp64::Trunc) {
       value = _mm256_round_pd(x, _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC);
-    if constexpr (Op == Fp64::Ceil)
+    }
+    if constexpr (Op == Fp64::Ceil) {
       value = _mm256_round_pd(x, _MM_FROUND_TO_POS_INF | _MM_FROUND_NO_EXC);
-    if constexpr (Op == Fp64::Rndne)
+    }
+    if constexpr (Op == Fp64::Rndne) {
       value = _mm256_round_pd(x, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
-    if constexpr (Op == Fp64::Floor)
+    }
+    if constexpr (Op == Fp64::Floor) {
       value = _mm256_round_pd(x, _MM_FROUND_TO_NEG_INF | _MM_FROUND_NO_EXC);
-    if constexpr (Op == Fp64::Sqrt || Op == Fp64::Rsq)
+    }
+    if constexpr (Op == Fp64::Sqrt || Op == Fp64::Rsq) {
       value = _mm256_sqrt_pd(x);
-    if constexpr (Op == Fp64::Rcp)
+    }
+    if constexpr (Op == Fp64::Rcp) {
       value = _mm256_div_pd(_mm256_set1_pd(1), x);
-    if constexpr (Op == Fp64::Rsq)
+    }
+    if constexpr (Op == Fp64::Rsq) {
       value = _mm256_div_pd(_mm256_set1_pd(1), value);
+    }
     if constexpr (Op == Fp64::Fract) {
       value = _mm256_sub_pd(x, _mm256_floor_pd(x));
       auto limit = _mm256_castsi256_pd(_mm256_set1_epi64x(INT64_C(0x3fefffffffffffff)));
@@ -119,12 +135,14 @@ void run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
     }
     if (mode & RJ_ARITH_ALU_CLAMP) {
       auto clamped = _mm256_min_pd(_mm256_max_pd(value, _mm256_setzero_pd()), _mm256_set1_pd(1));
-      if (flags & RJ_ARITH_FP_DX10_CLAMP_OFF)
+      if (flags & RJ_ARITH_FP_DX10_CLAMP_OFF) {
         clamped = _mm256_blendv_pd(clamped, value, _mm256_cmp_pd(value, value, _CMP_UNORD_Q));
+      }
       value = clamped;
     }
-    if (basic && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
+    if (basic && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) {
       value = flush_denorm(value);
+    }
 
     // Gather low words and high words into separate 128-bit halves.
     auto words = _mm256_permutevar8x32_epi32(_mm256_castpd_si256(value),
@@ -134,7 +152,7 @@ void run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
                      _mm256_extracti128_si256(words, 1));
   }
   // Source halves can alias either output half, so delay all masked writes.
-  for (int reg = 0; reg < 2; ++reg)
+  for (int reg = 0; reg < 2; ++reg) {
     for (int lane = 0; lane < 32; lane += 8) {
       auto lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                               _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));
@@ -142,6 +160,7 @@ void run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
           reinterpret_cast<int *>(d[reg] + lane), lane_exec_mask,
           _mm256_loadu_si256(reinterpret_cast<const __m256i *>(result[reg] + lane)));
     }
+  }
 }
 
 } // namespace

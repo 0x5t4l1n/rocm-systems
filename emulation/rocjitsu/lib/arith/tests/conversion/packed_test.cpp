@@ -29,14 +29,15 @@ template <int Lanes, class Call> void check_packed(Call call, PackedConversion o
         return packed_conversion_reference(op, uint32_t(a), b, mode);
       },
       [=](uint64_t actual, uint64_t expected, uint64_t flags, uint32_t mode) {
-        if (op)
+        if (op) {
           conversion_bits(actual, expected, flags, mode);
-        else
+        } else {
           for (int shift : {0, 16}) {
             float a = f16_value(uint16_t(actual >> shift)),
                   e = f16_value(uint16_t(expected >> shift));
             conversion_float(bit_cast<uint32_t>(a), bit_cast<uint32_t>(e), 32);
           }
+        }
       },
       modifiers, false,
       RJ_ARITH_FP_IEEE_MODE | RJ_ARITH_FP_FLUSH_INPUT_DENORMALS |

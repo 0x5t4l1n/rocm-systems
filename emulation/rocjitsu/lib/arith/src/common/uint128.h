@@ -77,19 +77,23 @@ public:
 
   // Shift left modulo 2^128; distance must be in [0, 127].
   friend constexpr Uint128 operator<<(Uint128 value, int distance) {
-    if (distance == 0)
+    if (distance == 0) {
       return value;
-    if (distance >= 64)
+    }
+    if (distance >= 64) {
       return {0, value.low_ << (distance - 64)};
+    }
     return {value.low_ << distance, (value.high_ << distance) | (value.low_ >> (64 - distance))};
   }
 
   // Shift right with zero fill; distance must be in [0, 127].
   friend constexpr Uint128 operator>>(Uint128 value, int distance) {
-    if (distance == 0)
+    if (distance == 0) {
       return value;
-    if (distance >= 64)
+    }
+    if (distance >= 64) {
       return {value.high_ >> (distance - 64), 0};
+    }
     return {(value.low_ >> distance) | (value.high_ << (64 - distance)), value.high_ >> distance};
   }
 

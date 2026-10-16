@@ -77,9 +77,11 @@ TEST(s_bfm_b32, Arithmetic) {
         uint32_t a = uint32_t(raw_a);
         uint32_t b = uint32_t(raw_b);
         uint64_t result = 0;
-        for (int bit = 0; bit < int(a % 32); ++bit)
-          if (bit + int(b % 32) < 32)
+        for (int bit = 0; bit < int(a % 32); ++bit) {
+          if (bit + int(b % 32) < 32) {
             result |= 1ULL << (bit + int(b % 32));
+          }
+        }
         return std::make_pair(result, cc);
       },
       false);
@@ -157,9 +159,11 @@ TEST(s_bfm_b64, Arithmetic) {
         uint64_t a = uint64_t(raw_a);
         uint64_t b = uint64_t(raw_b);
         uint64_t result = 0;
-        for (int bit = 0; bit < int(a % 64); ++bit)
-          if (bit + int(b % 64) < 64)
+        for (int bit = 0; bit < int(a % 64); ++bit) {
+          if (bit + int(b % 64) < 64) {
             result |= 1ULL << (bit + int(b % 64));
+          }
+        }
         return std::make_pair(result, cc);
       },
       false);

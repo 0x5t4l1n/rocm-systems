@@ -23,8 +23,8 @@ namespace rocjitsu::arith::test {
 // Check scalar predicates, SCC aliases, and FP-status expectations for the supplied entry point.
 template <int Width, bool Floating, class Call, class Predicate>
 void check_scalar_compare(Call call, Predicate predicate) {
-  for (auto cpu : supported_cpu_levels())
-    for (auto semantics : semantics_modes())
+  for (auto cpu : supported_cpu_levels()) {
+    for (auto semantics : semantics_modes()) {
       for (bool flush : {false, true}) {
         std::minstd_rand random;
         for (int sample = 0; sample < 128; ++sample) {
@@ -36,8 +36,9 @@ void check_scalar_compare(Call call, Predicate predicate) {
               b = compare_class_value<Width>(sample / 10);
             }
           }
-          if (sample >= 100 && sample % 4 == 0)
+          if (sample >= 100 && sample % 4 == 0) {
             b = a;
+          }
           uint32_t result = 0xdeadbeefU, status = 0x80000040U, expected_status = status;
           uint64_t flags = cpu | semantics | (flush ? RJ_ARITH_FP_FLUSH_INPUT_DENORMALS : 0);
           bool expected;
@@ -48,15 +49,18 @@ void check_scalar_compare(Call call, Predicate predicate) {
             bool snan = (am > inf && !(am & quiet)) || (bm > inf && !(bm & quiet));
             bool denorm = (am && !(am & inf)) || (bm && !(bm & inf));
             if (semantics == RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL) {
-              if (snan)
+              if (snan) {
                 expected_status |= RJ_ARITH_EXCEPTION_INVALID;
-              if (am < inf && bm < inf && denorm && !flush)
+              }
+              if (am < inf && bm < inf && denorm && !flush) {
                 expected_status |= RJ_ARITH_EXCEPTION_INPUT_DENORM;
+              }
             }
             expected = predicate(compare_float_value<Width>(a, 0, 0, flush),
                                  compare_float_value<Width>(b, 0, 0, flush));
-          } else
+          } else {
             expected = predicate(a, b);
+          }
           SCOPED_TRACE(::testing::Message()
                        << cpu << '/' << semantics << '/' << flush << '/' << sample);
           ASSERT_EQ(call(flags, 0, &result, a, b, &status), RJ_ARITH_SUCCESS);
@@ -70,6 +74,8 @@ void check_scalar_compare(Call call, Predicate predicate) {
           EXPECT_EQ(alias, expected_alias);
         }
       }
+    }
+  }
   uint32_t output = 123, status = 456;
   expect_invalid_flags(
       [&](auto flags, auto mode) {

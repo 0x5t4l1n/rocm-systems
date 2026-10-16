@@ -35,13 +35,16 @@ void wmma_exact(uint32_t mode, bool saturate, uint32_t *const *d, const uint32_t
     int shift = Rdna3 ? high : 16 * (reg % 2);
     for (int col = 0; col < 16; col += Columns) {
       auto acc = exact_dot::load<V>(c[dest_reg] + first_lane + col);
-      if constexpr (Packed)
+      if constexpr (Packed) {
         acc = exact_dot::bit_and(exact_dot::shift_right(acc, exact_dot::constant<V>(shift)),
                                  exact_dot::constant<V>(65535));
-      if (mode & RJ_ARITH_WMMA_ABS_C)
+      }
+      if (mode & RJ_ARITH_WMMA_ABS_C) {
         acc = exact_dot::bit_and(acc, exact_dot::constant<V>(Packed ? 0x7fff : 0x7fffffff));
-      if (mode & RJ_ARITH_WMMA_NEG_C)
+      }
+      if (mode & RJ_ARITH_WMMA_NEG_C) {
         acc = exact_dot::bit_xor(acc, exact_dot::constant<V>(Packed ? 0x8000 : int(0x80000000U)));
+      }
       for (int step = 0; step < 16; step += Step) {
         V av[Step], bv[Step];
         for (int j = 0; j < Step; ++j) {
@@ -53,19 +56,22 @@ void wmma_exact(uint32_t mode, bool saturate, uint32_t *const *d, const uint32_t
           int input_reg = Rdna3 ? k / 2 : (k % KPerLane) / 2;
           int input_lane = 16 * (Rdna3 ? group : k / KPerLane);
           uint32_t left = (a[input_reg][row + input_lane] >> (16 * (k % 2))) & 65535;
-          if (mode & (1U << (3 * (k % 2))))
+          if (mode & (1U << (3 * (k % 2)))) {
             left ^= 0x8000;
+          }
           av[j] = exact_dot::constant<V>(int(left));
           auto right = exact_dot::load<V>(b[input_reg] + input_lane + col);
           right = exact_dot::bit_and(
               exact_dot::shift_right(right, exact_dot::constant<V>(16 * (k % 2))),
               exact_dot::constant<V>(65535));
-          if (mode & (2U << (3 * (k % 2))))
+          if (mode & (2U << (3 * (k % 2)))) {
             right = exact_dot::bit_xor(right, exact_dot::constant<V>(0x8000));
+          }
           bv[j] = right;
         }
-        if constexpr (Packed)
+        if constexpr (Packed) {
           acc = exact_dot::widen<Bf16>(acc);
+        }
         acc = exact_dot::dot<Bf16, Rdna3, Packed>(av, bv, acc, saturate);
       }
       if constexpr (Packed) {
@@ -80,9 +86,11 @@ void wmma_exact(uint32_t mode, bool saturate, uint32_t *const *d, const uint32_t
     }
   }
   // All source and preserved-half reads precede writes, including partial aliasing.
-  for (int reg = 0; reg < DestinationRegisters; ++reg)
-    for (int lane = 0; lane < Lanes; lane += Columns)
+  for (int reg = 0; reg < DestinationRegisters; ++reg) {
+    for (int lane = 0; lane < Lanes; lane += Columns) {
       exact_dot::store(d[reg] + lane, exact_dot::load<V>(result[reg] + lane));
+    }
+  }
 }
 
 } // namespace rocjitsu::arith

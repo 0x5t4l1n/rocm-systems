@@ -38,12 +38,14 @@ __m256 narrow_product_f32(__m512d p, unsigned mode) {
 // domain, the exact-product comparison also yields inherited MUL exceptions.
 bool mul_exact_x86_64_v4(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *d,
                          const uint32_t *a, const uint32_t *b, uint32_t *state) {
-  if (mode & RJ_ARITH_ALU_OMOD_HALF)
+  if (mode & RJ_ARITH_ALU_OMOD_HALF) {
     return false;
+  }
   const unsigned rounding = unsigned((flags & RJ_ARITH_FP_ROUND_MASK) >> 24);
   const bool report = reports_fp_status(flags);
-  if (report && rounding)
+  if (report && rounding) {
     return false;
+  }
 
   // Zero and product exponents [-126, 126] cannot underflow or overflow.
   __m256i out[4];
@@ -58,16 +60,21 @@ bool mul_exact_x86_64_v4(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint
         _mm256_cmpge_epu32_mask(ma, _mm256_set1_epi32(0x7f800000)) ||
         _mm256_cmplt_epu32_mask(_mm256_sub_epi32(mb, _mm256_set1_epi32(1)),
                                 _mm256_set1_epi32(0x007fffff)) ||
-        _mm256_cmpge_epu32_mask(mb, _mm256_set1_epi32(0x7f800000)))
+        _mm256_cmpge_epu32_mask(mb, _mm256_set1_epi32(0x7f800000))) {
       return false;
-    if (mode & RJ_ARITH_ALU_ABS_A)
+    }
+    if (mode & RJ_ARITH_ALU_ABS_A) {
       aa = ma;
-    if (mode & RJ_ARITH_ALU_ABS_B)
+    }
+    if (mode & RJ_ARITH_ALU_ABS_B) {
       bb = mb;
-    if (mode & RJ_ARITH_ALU_NEG_A)
+    }
+    if (mode & RJ_ARITH_ALU_NEG_A) {
       aa = _mm256_xor_si256(aa, _mm256_set1_epi32(0x80000000U));
-    if (mode & RJ_ARITH_ALU_NEG_B)
+    }
+    if (mode & RJ_ARITH_ALU_NEG_B) {
       bb = _mm256_xor_si256(bb, _mm256_set1_epi32(0x80000000U));
+    }
     auto p = _mm512_mul_round_pd(_mm512_cvtps_pd(_mm256_castsi256_ps(aa)),
                                  _mm512_cvtps_pd(_mm256_castsi256_ps(bb)),
                                  _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
@@ -75,23 +82,28 @@ bool mul_exact_x86_64_v4(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint
         _mm512_and_si512(_mm512_srli_epi64(_mm512_castpd_si512(p), 52), _mm512_set1_epi64(2047));
     if ((_mm512_cmplt_epi64_mask(e, _mm512_set1_epi64(897)) &
          _mm512_cmp_pd_mask(p, _mm512_setzero_pd(), _CMP_NEQ_OQ)) ||
-        _mm512_cmpgt_epi64_mask(e, _mm512_set1_epi64(1149)))
+        _mm512_cmpgt_epi64_mask(e, _mm512_set1_epi64(1149))) {
       return false;
+    }
     auto rounded = narrow_product_f32(p, rounding);
     auto u = _mm256_castps_si256(rounded);
     if (report &&
-        (_mm512_cmp_pd_mask(p, _mm512_cvtps_pd(rounded), _CMP_NEQ_OQ) & ((exec_mask >> i) & 255)))
+        (_mm512_cmp_pd_mask(p, _mm512_cvtps_pd(rounded), _CMP_NEQ_OQ) & ((exec_mask >> i) & 255))) {
       causes |= RJ_ARITH_EXCEPTION_INEXACT;
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    }
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       u = _mm256_min_epu32(
           _mm256_mask_mov_epi32(u, _mm256_movepi32_mask(u), _mm256_setzero_si256()),
           _mm256_set1_epi32(0x3f800000));
+    }
     out[i / 8] = u;
   }
-  for (int i = 0; i < 4; ++i)
+  for (int i = 0; i < 4; ++i) {
     _mm256_mask_storeu_epi32(d + i * 8, __mmask8(exec_mask >> (i * 8)), out[i]);
-  if (report)
+  }
+  if (report) {
     *state |= causes;
+  }
   return true;
 }
 
@@ -113,18 +125,21 @@ __m512 fused(__m512 a, __m512 b, __m512 c, unsigned rounding) {
 
 // Apply source modifiers and guest input flushing; mark unsupported fast-path lanes in bad.
 __m512 prepare_fma_input(__m512i x, uint64_t flags, uint32_t mode, int src, __mmask16 &bad) {
-  if (mode & (RJ_ARITH_ALU_ABS_A << src))
+  if (mode & (RJ_ARITH_ALU_ABS_A << src)) {
     x = _mm512_and_si512(x, _mm512_set1_epi32(0x7fffffff));
-  if (mode & (RJ_ARITH_ALU_NEG_A << src))
+  }
+  if (mode & (RJ_ARITH_ALU_NEG_A << src)) {
     x = _mm512_xor_si512(x, _mm512_set1_epi32(0x80000000U));
+  }
   auto m = _mm512_and_si512(x, _mm512_set1_epi32(0x7fffffff));
   auto sub = _mm512_cmplt_epu32_mask(m, _mm512_set1_epi32(0x00800000)) &
              _mm512_cmpneq_epi32_mask(m, _mm512_setzero_si512());
   bad |= _mm512_cmpge_epu32_mask(m, _mm512_set1_epi32(0x7f800000));
-  if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)
+  if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) {
     x = _mm512_mask_and_epi32(x, sub, x, _mm512_set1_epi32(0x80000000U));
-  else
+  } else {
     bad |= sub;
+  }
   return _mm512_castsi512_ps(x);
 }
 
@@ -161,8 +176,9 @@ __m512 prepare_fma_input(__m512i x, uint64_t flags, uint32_t mode, int src, __mm
   const auto z = _mm512_setzero_ps();
   __mmask16 exact = (_mm512_cmp_ps_mask(a, z, _CMP_EQ_OQ) | _mm512_cmp_ps_mask(b, z, _CMP_EQ_OQ)) &
                     _mm512_cmp_ps_mask(c, z, _CMP_EQ_OQ);
-  if (!(zeros & ~exact))
+  if (!(zeros & ~exact)) {
     return exact;
+  }
   for (int half = 0; half < 2; ++half) {
     auto aa = half ? _mm512_extractf32x8_ps(a, 1) : _mm512_castps512_ps256(a);
     auto bb = half ? _mm512_extractf32x8_ps(b, 1) : _mm512_castps512_ps256(b);
@@ -187,8 +203,9 @@ __m512 prepare_fma_input(__m512i x, uint64_t flags, uint32_t mode, int src, __mm
   auto exact_zero = zeros ? exact_fma_zeros(aa, bb, cc, zeros) : __mmask16(0);
   bad |= (_mm512_cmple_epu32_mask(m, _mm512_set1_epi32(0x00800000)) & ~exact_zero) |
          _mm512_cmpge_epu32_mask(m, _mm512_set1_epi32(0x7f800000));
-  if (mode & RJ_ARITH_ALU_OMOD_HALF)
+  if (mode & RJ_ARITH_ALU_OMOD_HALF) {
     u = scale_fma_result(u, mode, rounding);
+  }
   if (mode & RJ_ARITH_ALU_CLAMP) {
     u = _mm512_mask_mov_epi32(u, _mm512_movepi32_mask(u), _mm512_setzero_si512());
     u = _mm512_min_epu32(u, _mm512_set1_epi32(0x3f800000));
@@ -206,9 +223,11 @@ namespace {
                                      bool rdna3, bool dx9_zero) {
   uint32_t repaired[16];
   _mm512_storeu_si512(repaired, result);
-  for (int i = 0; i < 16; ++i)
-    if ((bad >> i) & 1)
+  for (int i = 0; i < 16; ++i) {
+    if ((bad >> i) & 1) {
       repaired[i] = fma_instruction_value(a[i], b[i], c[i], flags, mode, rdna3, dx9_zero);
+    }
+  }
   return _mm512_loadu_si512(repaired);
 }
 
@@ -221,8 +240,9 @@ namespace {
   uint32_t repaired[16];
   _mm512_storeu_si512(repaired, result);
   for (int i = 0; i < 16; ++i) {
-    if (!((bad >> i) & 1))
+    if (!((bad >> i) & 1)) {
       continue;
+    }
     uint16_t x = uint16_t(a[i] >> (mode & RJ_ARITH_ALU_HIGH_A ? 16 : 0));
     uint16_t y = uint16_t(b[i] >> (mode & RJ_ARITH_ALU_HIGH_B ? 16 : 0));
     uint16_t z = uint16_t(c[i] >> (mode & RJ_ARITH_ALU_HIGH_C ? 16 : 0));
@@ -257,9 +277,10 @@ bool fma_exact_x86_64_v4(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint
       bb = _mm512_mask_mov_ps(bb, has_zero, _mm512_set1_ps(1));
     }
     out[k] = fma_result(aa, bb, cc, flags, mode, bad);
-    if (bad)
+    if (bad) {
       out[k] =
           repair_fma(out[k], bad, flags, mode, a + 16 * k, b + 16 * k, c + 16 * k, rdna3, dx9_zero);
+    }
   }
   _mm512_mask_storeu_epi32(d, __mmask16(exec_mask), out[0]);
   _mm512_mask_storeu_epi32(d + 16, __mmask16(exec_mask >> 16), out[1]);
@@ -348,8 +369,9 @@ bool half_fma_exact_x86_64_v4(uint64_t flags, uint32_t exec_mask, uint32_t mode,
   const unsigned rounding = unsigned((flags & RJ_ARITH_FP_ROUND_MASK) >> 24);
   if (report &&
       ((flags & (RJ_ARITH_FP_FLUSH_INPUT_DENORMALS | RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) ||
-       rounding))
+       rounding)) {
     return false;
+  }
   __m512i results[2];
   uint32_t causes = 0;
   for (int lane = 0; lane < 32; lane += 16) {
@@ -358,21 +380,26 @@ bool half_fma_exact_x86_64_v4(uint64_t flags, uint32_t exec_mask, uint32_t mode,
     __mmask16 input_denormal = 0, bad = 0;
     for (int operand = 0; operand < 3; ++operand) {
       auto bits = _mm512_loadu_si512(inputs[operand] + lane);
-      if (mode & (RJ_ARITH_ALU_HIGH_A << operand))
+      if (mode & (RJ_ARITH_ALU_HIGH_A << operand)) {
         bits = _mm512_srli_epi32(bits, 16);
+      }
       bits = _mm512_and_si512(bits, _mm512_set1_epi32(0xffff));
-      if (mode & (RJ_ARITH_ALU_ABS_A << operand))
+      if (mode & (RJ_ARITH_ALU_ABS_A << operand)) {
         bits = _mm512_and_si512(bits, _mm512_set1_epi32(0x7fff));
-      if (mode & (RJ_ARITH_ALU_NEG_A << operand))
+      }
+      if (mode & (RJ_ARITH_ALU_NEG_A << operand)) {
         bits = _mm512_xor_si512(bits, _mm512_set1_epi32(0x8000));
+      }
       auto magnitude = _mm512_and_si512(bits, _mm512_set1_epi32(0x7fff));
       bad |= _mm512_cmpge_epu32_mask(magnitude, _mm512_set1_epi32(0x7c00));
       auto denormal = _mm512_cmplt_epu32_mask(_mm512_sub_epi32(magnitude, _mm512_set1_epi32(1)),
                                               _mm512_set1_epi32(0x3ff));
-      if (report)
+      if (report) {
         input_denormal |= denormal;
-      if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)
+      }
+      if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) {
         bits = _mm512_mask_and_epi32(bits, denormal, bits, _mm512_set1_epi32(0x8000));
+      }
       values[operand] = _mm512_cvt_roundph_ps(_mm512_cvtepi32_epi16(bits), _MM_FROUND_NO_EXC);
     }
     __m512 down, up;
@@ -389,18 +416,23 @@ bool half_fma_exact_x86_64_v4(uint64_t flags, uint32_t exec_mask, uint32_t mode,
       // Existing tininess threshold: 2^-14 - 2^-26, excluding the midpoint.
       auto tiny = _mm512_cmplt_epu32_mask(magnitude, _mm512_set1_epi32(0x387ff000));
       auto hm = _mm512_and_si512(half, _mm512_set1_epi32(0x7fff));
-      if (!omod && inexact)
+      if (!omod && inexact) {
         causes |= RJ_ARITH_EXCEPTION_INEXACT;
-      if (!omod && (inexact & tiny))
+      }
+      if (!omod && (inexact & tiny)) {
         causes |= RJ_ARITH_EXCEPTION_UNDERFLOW;
-      if (active & _mm512_cmpeq_epi32_mask(hm, _mm512_set1_epi32(0x7c00)))
+      }
+      if (active & _mm512_cmpeq_epi32_mask(hm, _mm512_set1_epi32(0x7c00))) {
         causes |= RJ_ARITH_EXCEPTION_OVERFLOW;
+      }
       if ((omod == 1 || omod == 2) &&
           (active & _mm512_cmplt_epi32_mask(hm, _mm512_set1_epi32(0x7c00)) &
-           _mm512_cmpge_epi32_mask(_mm512_srli_epi32(hm, 10), _mm512_set1_epi32(31 - omod))))
+           _mm512_cmpge_epi32_mask(_mm512_srli_epi32(hm, 10), _mm512_set1_epi32(31 - omod)))) {
         causes |= RJ_ARITH_EXCEPTION_OVERFLOW;
-      if (active & input_denormal)
+      }
+      if (active & input_denormal) {
         causes |= RJ_ARITH_EXCEPTION_INPUT_DENORM;
+      }
     }
     if (omod) {
       // Inherited OMOD acts on the already-rounded half, flushes tiny
@@ -413,10 +445,11 @@ bool half_fma_exact_x86_64_v4(uint64_t flags, uint32_t exec_mask, uint32_t mode,
                    _mm512_cmplt_epi32_mask(_mm512_and_si512(odd, _mm512_set1_epi32(0x7fffffff)),
                                            _mm512_set1_epi32(0x387ff000)));
       half = _mm512_mask_mov_epi32(half, tiny, _mm512_setzero_si512());
-      if (omod == 3)
+      if (omod == 3) {
         half = _mm512_mask_and_epi32(half,
                                      _mm512_cmplt_epi32_mask(magnitude, _mm512_set1_epi32(0x800)),
                                      half, _mm512_set1_epi32(0x8000));
+      }
       auto wide = _mm512_cvt_roundph_ps(_mm512_cvtepi32_epi16(half), _MM_FROUND_NO_EXC);
       wide = _mm512_mul_ps(wide, _mm512_set1_ps(omod == 3 ? 0.5f : omod == 1 ? 2.0f : 4.0f));
       half = _mm512_cvtepu16_epi32(narrow_half(wide, 0));
@@ -424,18 +457,21 @@ bool half_fma_exact_x86_64_v4(uint64_t flags, uint32_t exec_mask, uint32_t mode,
     } else {
       half = finish_half_fma(half, odd, flags, mode);
     }
-    if (bad)
+    if (bad) {
       half = repair_half_fma(half, bad, flags, mode, a + lane, b + lane, c + lane, rdna3,
                              report ? __mmask16(exec_mask >> lane) : 0, causes);
+    }
     const unsigned shift = mode & RJ_ARITH_ALU_HIGH_D ? 16 : 0;
     results[lane / 16] = _mm512_or_si512(
         _mm512_slli_epi32(half, shift),
         _mm512_and_si512(_mm512_loadu_si512(d + lane), _mm512_set1_epi32(~(0xffffU << shift))));
   }
-  for (int lane = 0; lane < 32; lane += 16)
+  for (int lane = 0; lane < 32; lane += 16) {
     _mm512_mask_storeu_epi32(d + lane, __mmask16(exec_mask >> lane), results[lane / 16]);
-  if (reports_fp_status(flags))
+  }
+  if (reports_fp_status(flags)) {
     *state |= causes;
+  }
   return true;
 }
 
@@ -445,17 +481,21 @@ bool packed_fma_exact_x86_64_v4(uint64_t flags, uint32_t exec_mask, const uint32
                                 uint32_t *d, const uint32_t *a, const uint32_t *b,
                                 const uint32_t *c, uint32_t *state, bool rdna3) {
   uint32_t staged[32], causes = 0;
-  for (int lane = 0; lane < 32; lane += 16)
+  for (int lane = 0; lane < 32; lane += 16) {
     _mm512_storeu_si512(staged + lane, _mm512_loadu_si512(d + lane));
+  }
   if (!half_fma_exact_x86_64_v4(flags, exec_mask, modes[0], staged, a, b, c, &causes, rdna3) ||
       !half_fma_exact_x86_64_v4(flags, exec_mask, modes[1] | RJ_ARITH_ALU_HIGH_D, staged, a, b, c,
-                                &causes, rdna3))
+                                &causes, rdna3)) {
     return false;
-  for (int lane = 0; lane < 32; lane += 16)
+  }
+  for (int lane = 0; lane < 32; lane += 16) {
     _mm512_mask_storeu_epi32(d + lane, __mmask16(exec_mask >> lane),
                              _mm512_loadu_si512(staged + lane));
-  if (reports_fp_status(flags))
+  }
+  if (reports_fp_status(flags)) {
     *state |= causes;
+  }
   return true;
 }
 
@@ -466,30 +506,35 @@ bool div_fmas_exact_x86_64_v4(uint64_t flags, uint32_t exec_mask, uint32_t *d, c
                               const uint32_t *b, const uint32_t *c, uint32_t *state,
                               uint32_t mode) {
   const uint32_t *inputs[] = {a, b, c};
-  for (const auto *input : inputs)
+  for (const auto *input : inputs) {
     for (int lane = 0; lane < 32; lane += 16) {
       auto magnitude =
           _mm512_and_si512(_mm512_loadu_si512(input + lane), _mm512_set1_epi32(0x7fffffff));
       auto exponent = _mm512_srli_epi32(magnitude, 23);
       if (_mm512_cmp_epu32_mask(_mm512_sub_epi32(exponent, _mm512_set1_epi32(96)),
                                 _mm512_set1_epi32(62), _MM_CMPINT_GT) &
-          _mm512_cmpneq_epi32_mask(magnitude, _mm512_setzero_si512()))
+          _mm512_cmpneq_epi32_mask(magnitude, _mm512_setzero_si512())) {
         return false;
+      }
     }
+  }
   // Stage numeric results so reporting still sees original aliased sources.
   uint32_t result[32];
-  if (!fma_exact_x86_64_v4(flags, ~0U, mode, result, a, b, c))
+  if (!fma_exact_x86_64_v4(flags, ~0U, mode, result, a, b, c)) {
     return false;
+  }
   uint32_t causes = 0;
-  if (reports_fp_status(flags) && !(mode & (RJ_ARITH_ALU_CLAMP | RJ_ARITH_ALU_OMOD_HALF)))
+  if (reports_fp_status(flags) && !(mode & (RJ_ARITH_ALU_CLAMP | RJ_ARITH_ALU_OMOD_HALF))) {
     for (int lane = 0; lane < 32; lane += 8) {
       // Apply source modifiers to FP32 inputs, then widen to FP64.
       auto widen = [mode](const uint32_t *p, int operand) {
         auto bits = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(p));
-        if (mode & (RJ_ARITH_ALU_ABS_A << operand))
+        if (mode & (RJ_ARITH_ALU_ABS_A << operand)) {
           bits = _mm256_and_si256(bits, _mm256_set1_epi32(0x7fffffff));
-        if (mode & (RJ_ARITH_ALU_NEG_A << operand))
+        }
+        if (mode & (RJ_ARITH_ALU_NEG_A << operand)) {
           bits = _mm256_xor_si256(bits, _mm256_set1_epi32(INT32_MIN));
+        }
         return _mm512_cvtps_pd(_mm256_castsi256_ps(bits));
       };
       auto product = _mm512_mul_pd(widen(a + lane, 0), widen(b + lane, 1));
@@ -509,14 +554,18 @@ bool div_fmas_exact_x86_64_v4(uint64_t flags, uint32_t exec_mask, uint32_t *d, c
                                             reinterpret_cast<const __m256i *>(result + lane)))),
                                         _CMP_NEQ_OQ) |
                      _mm512_cmp_pd_mask(residual, _mm512_setzero_pd(), _CMP_NEQ_OQ);
-      if (inexact & __mmask8(exec_mask >> lane))
+      if (inexact & __mmask8(exec_mask >> lane)) {
         causes |= RJ_ARITH_EXCEPTION_INEXACT;
+      }
     }
-  for (int lane = 0; lane < 32; lane += 16)
+  }
+  for (int lane = 0; lane < 32; lane += 16) {
     _mm512_mask_storeu_epi32(d + lane, __mmask16(exec_mask >> lane),
                              _mm512_loadu_si512(result + lane));
-  if (reports_fp_status(flags))
+  }
+  if (reports_fp_status(flags)) {
     *state |= causes;
+  }
   return true;
 }
 
@@ -552,14 +601,15 @@ void mixed_fma_exact_x86_64_v4(MixedFma destination, bool rdna3, uint64_t flags,
       // Half denormals were handled in their own format. Do not flush their
       // widened values using the independent FP32 policy.
       uint64_t input_flags = flags & ~RJ_ARITH_FP_FLUSH_INPUT_DENORMALS;
-      if (!half && flush)
+      if (!half && flush) {
         input_flags |= RJ_ARITH_FP_FLUSH_INPUT_DENORMALS;
+      }
       values[operand] = prepare_fma_input(bits, input_flags, source_mode, 0, bad);
     }
     __m512i out;
-    if (destination == MixedFma::Float)
+    if (destination == MixedFma::Float) {
       out = fma_result(values[0], values[1], values[2], flags, mode & RJ_ARITH_ALU_CLAMP, bad);
-    else {
+    } else {
       __m512 down, up;
       auto odd = half_fma_odd(values, rounding, down, up);
       auto magnitude = _mm512_and_si512(odd, _mm512_set1_epi32(0x7fffffff));
@@ -582,16 +632,18 @@ void mixed_fma_exact_x86_64_v4(MixedFma destination, bool rdna3, uint64_t flags,
     bad &= __mmask16(exec_mask >> lane);
     if (bad) {
       for (int i = 0; i < 16; ++i) {
-        if (!((bad >> i) & 1))
+        if (!((bad >> i) & 1)) {
           continue;
+        }
         uint32_t decoded[3];
-        for (int operand = 0; operand < 3; ++operand)
+        for (int operand = 0; operand < 3; ++operand) {
           decoded[operand] = mixed_fma_input(inputs[operand][lane + i], mode >> operand,
                                              mixed_fma_flush_input(flags, mode >> operand));
-        if (destination == MixedFma::Float)
+        }
+        if (destination == MixedFma::Float) {
           result[lane + i] = fma_value_f32(decoded[0], decoded[1], decoded[2],
                                            mode & RJ_ARITH_ALU_CLAMP, flags, rdna3);
-        else {
+        } else {
           int shift = destination == MixedFma::High ? 16 : 0;
           auto half = mixed_fma_half_value(decoded[0], decoded[1], decoded[2],
                                            mode & RJ_ARITH_ALU_CLAMP, flags);
@@ -600,9 +652,10 @@ void mixed_fma_exact_x86_64_v4(MixedFma destination, bool rdna3, uint64_t flags,
       }
     }
   }
-  for (int lane = 0; lane < 32; lane += 16)
+  for (int lane = 0; lane < 32; lane += 16) {
     _mm512_mask_storeu_epi32(d + lane, __mmask16(exec_mask >> lane),
                              _mm512_load_si512(result + lane));
+  }
 }
 
 } // namespace rocjitsu::arith

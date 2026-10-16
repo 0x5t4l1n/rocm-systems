@@ -34,8 +34,9 @@ void compute_packed_fma_expected(const rocjitsu::arith::test::Registers<10, Lane
                                  rocjitsu::arith::test::Registers<10, Lanes> &expected_registers,
                                  bool gfx12) {
   for (int lane = 0; lane < Lanes; ++lane) {
-    if (!((exec_mask >> lane) & 1))
+    if (!((exec_mask >> lane) & 1)) {
       continue;
+    }
     for (int half = 0; half < 2; ++half) {
       const int a_half = half, b_half = half, c_half = half, d_half = half;
       uint64_t a = rocjitsu::arith::test::read_fp(input.v, lane, 16, a_half);
@@ -45,9 +46,10 @@ void compute_packed_fma_expected(const rocjitsu::arith::test::Registers<10, Lane
       // Existing independent integer FMA oracle, validated by the old
       // suite against the inherited rocjitsu model and captured cases.
       uint32_t reference_mode = uint32_t(mode) & 0x1ffU;
-      if constexpr (!Accumulate)
+      if constexpr (!Accumulate) {
         reference_mode = uint32_t((mode >> (half ? 3 : 0)) & 7) |
                          (mode & RJ_ARITH_PK_CLAMP ? RJ_ARITH_ALU_CLAMP : 0);
+      }
       uint64_t expected = rocjitsu::arith::test::half_fma_reference::evaluate(
           uint32_t(a), uint32_t(b), uint32_t(c), reference_mode, false, 0, !gfx12);
       rocjitsu::arith::test::write_fp(expected_registers.v + aliasing_offset, lane, 16, expected,
@@ -66,10 +68,11 @@ void check_half_fma(Call entry_point, bool gfx12, const Cases &status_cases) {
   auto call = [&](uint64_t flags, Mask exec_mask, uint64_t mode, uint32_t *const *d,
                   const uint32_t *const *a, const uint32_t *const *b, const uint32_t *const *c,
                   uint32_t *fp_status) {
-    if constexpr (Accumulate)
+    if constexpr (Accumulate) {
       return entry_point(flags, exec_mask, mode, d, a, b, fp_status);
-    else
+    } else {
       return entry_point(flags, exec_mask, mode, d, a, b, c, fp_status);
+    }
   };
   std::vector<uint64_t> simd_modes = {0, RJ_ARITH_ALU_NEG_A, clamp};
   if constexpr (!Packed) {
@@ -108,13 +111,14 @@ void check_half_fma(Call entry_point, bool gfx12, const Cases &status_cases) {
   // by classification. No production helper or rj-arith result is a numeric oracle.
   const auto cpu_levels = rocjitsu::arith::test::supported_cpu_levels();
   for (uint64_t cpu : cpu_levels) {
-    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes())
-      for (uint64_t mode : modes)
+    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes()) {
+      for (uint64_t mode : modes) {
         for (Mask exec_mask :
-             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)})
+             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)}) {
           for (int aliasing_offset : {6, 0, 2, 4}) {
-            if (Accumulate && aliasing_offset == 4)
+            if (Accumulate && aliasing_offset == 4) {
               continue;
+            }
             SCOPED_TRACE(::testing::Message() << cpu << '/' << semantics << '/' << mode << '/'
                                               << exec_mask << '/' << aliasing_offset);
             Registers r = input, expected_registers = input;
@@ -131,23 +135,28 @@ void check_half_fma(Call entry_point, bool gfx12, const Cases &status_cases) {
             }
             ASSERT_EQ(result, RJ_ARITH_SUCCESS);
             bool reporting = gfx12 && (semantics == RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL);
-            if (!reporting || !exec_mask)
+            if (!reporting || !exec_mask) {
               EXPECT_EQ(fp_status, 0x80000000U);
-            else
+            } else {
               EXPECT_EQ(fp_status & 0x80000000U, 0x80000000U);
-            if constexpr (Packed)
+            }
+            if constexpr (Packed) {
               compute_packed_fma_expected<Lanes, Accumulate>(
                   input, exec_mask, mode, aliasing_offset, expected_registers, gfx12);
-            else
+            } else {
               compute_fma_expected<16>(input, exec_mask, mode, aliasing_offset, expected_registers,
                                        gfx12, Accumulate);
+            }
             expect_fp_result<16, Packed>(input, r, expected_registers, exec_mask, aliasing_offset,
                                          mode, semantics, /*atol=*/1e-5, /*rtol=*/5e-4);
           }
+        }
+      }
+    }
   }
   if (gfx12) {
     for (uint64_t cpu : cpu_levels) {
-      for (const auto &test : status_cases)
+      for (const auto &test : status_cases) {
         for (uint64_t mode : {uint64_t(0), clamp}) {
           SCOPED_TRACE(::testing::Message()
                        << cpu << '/' << mode << '/' << test.a << '/' << test.b << '/' << test.c);
@@ -167,8 +176,9 @@ void check_half_fma(Call entry_point, bool gfx12, const Cases &status_cases) {
           EXPECT_EQ(fp_status, 0x80000000U | causes);
           // Preserve previously accumulated causes as well as unrelated bits.
           fp_status = 0x40000000U | RJ_ARITH_EXCEPTION_FLOAT_DIV0;
-          for (int part = 0; part < (Packed ? 2 : 1); ++part)
+          for (int part = 0; part < (Packed ? 2 : 1); ++part) {
             rocjitsu::arith::test::write_fp(r.v + (Accumulate ? 6 : 4), lane, 16, test.c, part);
+          }
           ASSERT_EQ(call(cpu | RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL, exec_mask, mode, r.v + 6,
                          r.v, r.v + 2, r.v + 4, &fp_status),
                     RJ_ARITH_SUCCESS);
@@ -181,6 +191,7 @@ void check_half_fma(Call entry_point, bool gfx12, const Cases &status_cases) {
           r.expect_preserved(before, 0, 0);
           EXPECT_EQ(fp_status, 0x40000000U | RJ_ARITH_EXCEPTION_FLOAT_DIV0 | causes);
         }
+      }
     }
   }
 }

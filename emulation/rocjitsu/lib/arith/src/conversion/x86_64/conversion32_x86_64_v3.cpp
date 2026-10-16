@@ -27,9 +27,9 @@ void conversion32_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *d, cons
     __m256i result;
     if constexpr (to_float) {
       __m256 x;
-      if constexpr (Op == Conversion32::SignedToFloat)
+      if constexpr (Op == Conversion32::SignedToFloat) {
         x = _mm256_cvtepi32_ps(raw);
-      else {
+      } else {
         // Both 16-bit pieces convert exactly; the FMA rounds the unsigned
         // value once, avoiding signed-conversion/2^32 double rounding.
         auto high = _mm256_cvtepi32_ps(_mm256_srli_epi32(raw, 16));
@@ -37,8 +37,9 @@ void conversion32_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *d, cons
         x = _mm256_fmadd_ps(high, _mm256_set1_ps(65536), low);
       }
       x = _mm256_mul_ps(x, scale);
-      if (mode & RJ_ARITH_ALU_CLAMP)
+      if (mode & RJ_ARITH_ALU_CLAMP) {
         x = _mm256_min_ps(_mm256_max_ps(x, zero), _mm256_set1_ps(1));
+      }
       result = _mm256_castps_si256(x);
     } else {
       raw = _mm256_xor_si256(_mm256_and_si256(raw, abs_mask), neg_mask);
@@ -62,14 +63,16 @@ void conversion32_x86_64_v3(uint32_t exec_mask, uint32_t mode, uint32_t *d, cons
           auto up = _mm256_cmp_ps(_mm256_sub_ps(x, lower), _mm256_set1_ps(0.5f), _CMP_GE_OQ);
           x = _mm256_add_ps(lower, _mm256_and_ps(up, _mm256_set1_ps(1)));
         }
-        if constexpr (Op == Conversion32::Floor)
+        if constexpr (Op == Conversion32::Floor) {
           x = _mm256_floor_ps(x);
+        }
         result = _mm256_cvttps_epi32(x);
         result =
             _mm256_blendv_epi8(result, _mm256_set1_epi32(INT32_MAX), _mm256_castps_si256(overflow));
         auto nan_result = _mm256_setzero_si256();
-        if constexpr (Op != Conversion32::FloatToSigned)
+        if constexpr (Op != Conversion32::FloatToSigned) {
           nan_result = _mm256_xor_si256(_mm256_srai_epi32(raw, 31), _mm256_set1_epi32(INT32_MAX));
+        }
         result = _mm256_blendv_epi8(result, nan_result, _mm256_castps_si256(nan));
       }
     }

@@ -26,10 +26,11 @@ template <int Width, int Lanes, bool Floating, class Call>
 void check_constant_compare(Call call, bool value) {
   using Mask = WaveMask<Lanes>;
   auto invoke = [&](uint64_t flags, Mask exec_mask, uint64_t mode, Mask *d, uint32_t *status) {
-    if constexpr (Floating)
+    if constexpr (Floating) {
       return call(flags, exec_mask, mode, d, nullptr, nullptr, status);
-    else
+    } else {
       return call(flags, exec_mask, mode, d, nullptr, nullptr);
+    }
   };
   uint64_t low_modifiers = Floating
                                ? RJ_ARITH_ALU_ABS_A | RJ_ARITH_ALU_ABS_B | RJ_ARITH_ALU_NEG_A |
@@ -47,12 +48,14 @@ void check_constant_compare(Call call, bool value) {
       },
       low_modifiers);
   std::vector<uint64_t> modes = {0, low_modifiers};
-  if constexpr (Width != 64)
-    for (uint64_t descriptor : dpp_modes)
+  if constexpr (Width != 64) {
+    for (uint64_t descriptor : dpp_modes) {
       modes.push_back(descriptor | low_modifiers);
+    }
+  }
   const auto cpu_levels = supported_cpu_levels();
-  for (uint64_t cpu : cpu_levels)
-    for (uint64_t semantics : semantics_modes())
+  for (uint64_t cpu : cpu_levels) {
+    for (uint64_t semantics : semantics_modes()) {
       for (int scenario = 0; scenario < int(modes.size()) + 5; ++scenario) {
         uint64_t mode = scenario < 5 ? 0 : modes[scenario - 5];
         Mask exec_mask = exec_mask_for_case<Lanes>(scenario);
@@ -83,6 +86,8 @@ void check_constant_compare(Call call, bool value) {
           }
         }
       }
+    }
+  }
 }
 
 } // namespace rocjitsu::arith::test

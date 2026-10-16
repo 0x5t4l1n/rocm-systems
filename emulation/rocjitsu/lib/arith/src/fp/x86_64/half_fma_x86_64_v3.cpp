@@ -19,8 +19,9 @@ namespace rocjitsu::arith {
 template <FmaOperands Operands>
 void half_fma_x86_64_v3(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *d,
                         const uint32_t *a, const uint32_t *b, const uint32_t *c, uint16_t literal) {
-  if constexpr (Operands != FmaOperands::Registers)
+  if constexpr (Operands != FmaOperands::Registers) {
     mode &= RJ_ARITH_ALU_HIGH_A | RJ_ARITH_ALU_HIGH_B | RJ_ARITH_ALU_HIGH_D;
+  }
   int a_shift = mode & RJ_ARITH_ALU_HIGH_A ? 16 : 0;
   int b_shift = mode & RJ_ARITH_ALU_HIGH_B ? 16 : 0;
   int c_shift = mode & RJ_ARITH_ALU_HIGH_C ? 16 : 0;

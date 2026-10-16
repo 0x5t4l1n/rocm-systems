@@ -30,9 +30,11 @@ template <int Width, int Lanes>
 rocjitsu::arith::test::Registers<10, Lanes> make_div_scale_inputs() {
   auto input = rocjitsu::arith::test::make_fp_inputs<Width, Lanes>();
   // DIV_SCALE requires A to be either denominator B or numerator C.
-  for (int lane = 0; lane < Lanes; ++lane)
-    for (int reg = 0; reg < Width / 32; ++reg)
+  for (int lane = 0; lane < Lanes; ++lane) {
+    for (int reg = 0; reg < Width / 32; ++reg) {
       input.v[reg][lane] = input.v[2 + 2 * (lane % 2) + reg][lane];
+    }
+  }
   return input;
 }
 
@@ -45,8 +47,9 @@ compute_div_scale_expected(const rocjitsu::arith::test::Registers<10, Lanes> &in
                            rocjitsu::arith::test::Registers<10, Lanes> &expected_registers) {
   uint64_t expected_condition = 0;
   for (int lane = 0; lane < Lanes; ++lane) {
-    if (!((exec_mask >> lane) & 1))
+    if (!((exec_mask >> lane) & 1)) {
       continue;
+    }
     uint64_t a = rocjitsu::arith::test::read_fp(input.v, lane, Width, 0);
     uint64_t b = rocjitsu::arith::test::read_fp(input.v + 2, lane, Width, 0);
     uint64_t c = rocjitsu::arith::test::read_fp(input.v + 4, lane, Width, 0);
@@ -70,16 +73,17 @@ compute_div_scale_expected(const rocjitsu::arith::test::Registers<10, Lanes> &in
     if (delta >= threshold) {
       adjustment = x == y ? scale : 0;
       post_scale = true;
-    } else if (!de)
+    } else if (!de) {
       adjustment = scale;
-    else if (de >= exponent_mask - 2) {
+    } else if (de >= exponent_mask - 2) {
       post_scale = delta <= -threshold;
       adjustment = post_scale && x != y ? 0 : -scale;
     } else if (delta <= -threshold) {
       adjustment = x == y ? 0 : scale;
       post_scale = true;
-    } else if (ne <= fraction_bits + 1)
+    } else if (ne <= fraction_bits + 1) {
       adjustment = scale;
+    }
     double value =
         y == 0 || z == 0 ? std::numeric_limits<double>::quiet_NaN() : std::ldexp(x, adjustment);
     expected_condition |= uint64_t(post_scale) << lane;
@@ -103,21 +107,28 @@ template <int Width, int Lanes, class Call> void check_div_scale(Call call) {
   auto cpus = supported_cpu_levels();
   for (int sample = 0; sample < 128; ++sample) {
     Registers source;
-    for (int reg = 0; reg < 10; ++reg)
-      for (int lane = 0; lane < Lanes; ++lane)
+    for (int reg = 0; reg < 10; ++reg) {
+      for (int lane = 0; lane < Lanes; ++lane) {
         source.v[reg][lane] = uint32_t(engine() >> 7) ^ (uint32_t(engine() >> 7) << 16);
-    for (int lane = 0; lane < Lanes; ++lane)
-      for (int reg = 0; reg < Width / 32; ++reg)
+      }
+    }
+    for (int lane = 0; lane < Lanes; ++lane) {
+      for (int reg = 0; reg < Width / 32; ++reg) {
         source.v[reg][lane] = source.v[2 + 2 * (lane % 2) + reg][lane];
+      }
+    }
     uint64_t flags =
         RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS | (uint64_t(sample % 4) << 24);
     uint32_t mode = ((sample >> 2) & 3) << 6;
-    if (sample & 16)
+    if (sample & 16) {
       flags |= RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS;
-    if (sample & 32)
+    }
+    if (sample & 32) {
       flags |= RJ_ARITH_FP_FLUSH_INPUT_DENORMALS;
-    if (sample & 64)
+    }
+    if (sample & 64) {
       mode |= RJ_ARITH_ALU_CLAMP;
+    }
     int dest = ((sample >> 3) & 3) * 2;
     Mask exec_mask = sample & 1 ? Mask(0xaaaaaaaaaaaaaaaaULL) : ~Mask(0);
     auto expected = source;
@@ -132,9 +143,11 @@ template <int Width, int Lanes, class Call> void check_div_scale(Call call) {
                      actual.v + 2, actual.v + 4),
                 error);
       EXPECT_EQ(condition, expected_condition);
-      for (int reg = 0; reg < Width / 32; ++reg)
-        for (int lane = 0; lane < Lanes; ++lane)
+      for (int reg = 0; reg < Width / 32; ++reg) {
+        for (int lane = 0; lane < Lanes; ++lane) {
           ASSERT_EQ(actual.v[dest + reg][lane], expected.v[dest + reg][lane]);
+        }
+      }
       actual.expect_preserved(source, dest, Width / 32);
     }
   }
@@ -153,18 +166,19 @@ template <int Width, int Lanes, class Call> void check_div_scale(Call call) {
   });
 
   std::vector<int> aliasing_offsets = {6, 0, 2, 4};
-  if constexpr (Width == 64)
+  if constexpr (Width == 64) {
     aliasing_offsets.push_back(1);
+  }
 
   // Default guest rounding and normal fractional inputs: the existing rocjitsu
   // arithmetic model reduces to IEEE arithmetic here. Special values are checked
   // by classification. No production helper or rj-arith result is a numeric oracle.
   const auto cpu_levels = rocjitsu::arith::test::supported_cpu_levels();
   for (uint64_t cpu : cpu_levels) {
-    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes())
-      for (uint64_t mode : {uint64_t(0), uint64_t(RJ_ARITH_ALU_NEG_A)})
+    for (uint64_t semantics : rocjitsu::arith::test::semantics_modes()) {
+      for (uint64_t mode : {uint64_t(0), uint64_t(RJ_ARITH_ALU_NEG_A)}) {
         for (Mask exec_mask :
-             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)})
+             {Mask(0), ~Mask(0), Mask(0xaaaaaaaaaaaaaaaaULL), Mask(1) << (Lanes - 1)}) {
           for (int aliasing_offset : aliasing_offsets) {
             SCOPED_TRACE(::testing::Message() << cpu << '/' << semantics << '/' << mode << '/'
                                               << exec_mask << '/' << aliasing_offset);
@@ -181,6 +195,9 @@ template <int Width, int Lanes, class Call> void check_div_scale(Call call) {
                 input, r, expected_registers, exec_mask, aliasing_offset, 0, semantics,
                 /*atol=*/Width == 64 ? 1e-14 : 1e-5, /*rtol=*/Width == 64 ? 1e-14 : 1e-6);
           }
+        }
+      }
+    }
   }
 }
 

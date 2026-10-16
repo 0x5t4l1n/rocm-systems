@@ -37,7 +37,7 @@ static bool supports_bf16_dot(uint32_t mode, const uint32_t *const *a, const uin
   for (int operand = 0; operand < 2; ++operand) {
     const uint32_t *const *v = operand ? b : a;
     __m512i min_exp = _mm512_set1_epi16(255), max_exp = _mm512_setzero_si512();
-    for (int reg = 0; reg < (Rdna3 ? 8 : 128 / Lanes); ++reg)
+    for (int reg = 0; reg < (Rdna3 ? 8 : 128 / Lanes); ++reg) {
       for (int lane = 0; lane < Lanes; lane += 16) {
         __m512i magnitude =
             _mm512_and_si512(_mm512_loadu_si512(v[reg] + lane), _mm512_set1_epi16(0x7fff));
@@ -46,23 +46,26 @@ static bool supports_bf16_dot(uint32_t mode, const uint32_t *const *a, const uin
         __mmask32 special =
             _mm512_cmp_epu16_mask(magnitude, _mm512_set1_epi16(0x7f80), _MM_CMPINT_GE);
         // DPBF16 flushes subnormal factors even under the default host environment.
-        if (tiny & ~zero)
+        if (tiny & ~zero) {
           return false;
+        }
         __m512i exponent = _mm512_srli_epi16(magnitude, 7);
         max_exp = _mm512_max_epu16(max_exp, _mm512_maskz_mov_epi16(~special, exponent));
         // Zero factors do not lower the minimum nonzero exponent.
         min_exp = _mm512_min_epu16(
             min_exp, _mm512_mask_mov_epi16(exponent, zero | special, _mm512_set1_epi16(255)));
       }
+    }
     minimum[operand] = min_exponent(min_exp);
     maximum[operand] = max_exponent(max_exp);
   }
 
   // Preserve the previous conservative bounds on every possible product.
-  if (minimum[0] + minimum[1] < 128 || maximum[0] + maximum[1] > 380)
+  if (minimum[0] + minimum[1] < 128 || maximum[0] + maximum[1] > 380) {
     return false;
+  }
   constexpr int Registers = 256 / Lanes / (Packed && !Rdna3 ? 2 : 1);
-  for (int reg = 0; reg < Registers; ++reg)
+  for (int reg = 0; reg < Registers; ++reg) {
     for (int lane = 0; lane < Lanes; lane += 16) {
       auto words = _mm512_loadu_si512(c[reg] + lane);
       if constexpr (Packed) {
@@ -73,15 +76,18 @@ static bool supports_bf16_dot(uint32_t mode, const uint32_t *const *a, const uin
         }
         auto magnitude = _mm512_and_si512(words, _mm512_set1_epi16(0x7fff));
         auto tiny = _mm512_cmp_epu16_mask(magnitude, _mm512_set1_epi16(0x80), _MM_CMPINT_LT);
-        if (tiny & _mm512_cmpneq_epi16_mask(magnitude, _mm512_setzero_si512()))
+        if (tiny & _mm512_cmpneq_epi16_mask(magnitude, _mm512_setzero_si512())) {
           return false;
+        }
       } else {
         auto magnitude = _mm512_and_si512(words, _mm512_set1_epi32(INT32_MAX));
         auto tiny = _mm512_cmp_epu32_mask(magnitude, _mm512_set1_epi32(0x00800000), _MM_CMPINT_LT);
-        if (tiny & _mm512_cmpneq_epi32_mask(magnitude, _mm512_setzero_si512()))
+        if (tiny & _mm512_cmpneq_epi32_mask(magnitude, _mm512_setzero_si512())) {
           return false;
+        }
       }
     }
+  }
   return true;
 }
 
@@ -101,18 +107,22 @@ static void wmma_bf16(uint32_t mode, uint32_t *const *d, const uint32_t *const *
   // DPBF16 consumes the high half first, with fixed DAZ/FTZ. Swap both
   // factors' halves to match the loose low-then-high order, not the exact GPU model.
   __m512i right[Groups][8];
-  for (int group = 0; group < Groups; ++group)
+  for (int group = 0; group < Groups; ++group) {
     for (int pair = 0; pair < 8; ++pair) {
       int reg = Rdna3 ? pair : pair % (Registers / 2);
       int lane = 16 * (Rdna3 ? group : pair / (Registers / 2));
       right[group][pair] =
           _mm512_rol_epi32(_mm512_xor_si512(_mm512_loadu_si512(b[reg] + lane), b_sign), 16);
     }
+  }
   uint32_t result[DestRegisters][Lanes];
-  if constexpr (Packed && !Rdna3)
-    for (auto &reg : result)
-      for (auto &word : reg)
+  if constexpr (Packed && !Rdna3) {
+    for (auto &reg : result) {
+      for (auto &word : reg) {
         word = 0;
+      }
+    }
+  }
   for (int row = 0; row < 16; ++row) {
     int group = Rdna3 ? row % Groups : 0;
     int reg = Rdna3 ? row / Groups : row % Registers;
@@ -120,8 +130,9 @@ static void wmma_bf16(uint32_t mode, uint32_t *const *d, const uint32_t *const *
     int dest = Packed && !Rdna3 ? reg / 2 : reg;
     int shift = Rdna3 ? (mode & RJ_ARITH_WMMA_HIGH_C_D ? 16 : 0) : 16 * (reg % 2);
     auto bits = _mm512_loadu_si512(c[dest] + lane);
-    if constexpr (Packed)
+    if constexpr (Packed) {
       bits = _mm512_slli_epi32(_mm512_srl_epi32(bits, _mm_cvtsi32_si128(shift)), 16);
+    }
     if constexpr (Modified) {
       bits = _mm512_and_si512(bits, _mm512_set1_epi32(mode & RJ_ARITH_WMMA_ABS_C ? INT32_MAX : -1));
       bits = _mm512_xor_si512(bits, _mm512_set1_epi32(mode & RJ_ARITH_WMMA_NEG_C ? INT32_MIN : 0));
@@ -140,10 +151,12 @@ static void wmma_bf16(uint32_t mode, uint32_t *const *d, const uint32_t *const *
       acc = _mm512_dpbf16_ps(acc, (__m512bh)left, (__m512bh)right[group][pair]);
       // Packed GPU WMMA truncates BF16 after each DOT2 (gfx11) or DOT4
       // (gfx12). VCVTNEPS2BF16 rounds instead and is not interchangeable.
-      if constexpr (Packed)
-        if (Rdna3 || step % 2)
+      if constexpr (Packed) {
+        if (Rdna3 || step % 2) {
           acc = _mm512_castsi512_ps(
               _mm512_and_si512(_mm512_castps_si512(acc), _mm512_set1_epi32(-65536)));
+        }
+      }
     }
     bits = _mm512_castps_si512(acc);
     if constexpr (Packed) {
@@ -155,9 +168,11 @@ static void wmma_bf16(uint32_t mode, uint32_t *const *d, const uint32_t *const *
     _mm512_storeu_si512(result[dest] + lane, bits);
   }
   // Stage every source/preserved-half read before writing potentially aliased D.
-  for (int reg = 0; reg < DestRegisters; ++reg)
-    for (int lane = 0; lane < Lanes; lane += 16)
+  for (int reg = 0; reg < DestRegisters; ++reg) {
+    for (int lane = 0; lane < Lanes; lane += 16) {
       _mm512_storeu_si512(d[reg] + lane, _mm512_loadu_si512(result[reg] + lane));
+    }
+  }
 }
 
 // Try loose BF16 WMMA with validated modifiers. Return true after writing D,
@@ -165,12 +180,14 @@ static void wmma_bf16(uint32_t mode, uint32_t *const *d, const uint32_t *const *
 template <int Lanes, bool Rdna3, bool Packed>
 bool wmma_avx512bf16(uint32_t mode, uint32_t *const *d, const uint32_t *const *a,
                      const uint32_t *const *b, const uint32_t *const *c) {
-  if (!supports_bf16_dot<Lanes, Rdna3, Packed>(mode, a, b, c))
+  if (!supports_bf16_dot<Lanes, Rdna3, Packed>(mode, a, b, c)) {
     return false;
-  if (mode)
+  }
+  if (mode) {
     wmma_bf16<Lanes, Rdna3, Packed, true>(mode, d, a, b, c);
-  else
+  } else {
     wmma_bf16<Lanes, Rdna3, Packed, false>(0, d, a, b, c);
+  }
   return true;
 }
 

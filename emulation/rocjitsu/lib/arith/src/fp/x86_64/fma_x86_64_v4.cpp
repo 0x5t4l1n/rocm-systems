@@ -56,8 +56,9 @@ void run(uint32_t exec_mask, uint32_t modifiers, uint32_t *d, const uint32_t *a,
       vb = _mm512_mask_mov_ps(vb, has_zero, _mm512_set1_ps(1));
     }
     auto result = _mm512_fmadd_ps(va, vb, vc);
-    if (Dx9Zero || (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
+    if (Dx9Zero || (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) {
       result = flush_denorm_f32(result);
+    }
     if (modifiers & RJ_ARITH_ALU_OMOD_HALF) {
       result = prepare_omod_f32(result, modifiers);
       result = _mm512_mul_ps(result, scale);

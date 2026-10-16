@@ -40,18 +40,23 @@ __m256i dpp16_index(uint32_t ctrl, __m256i position) {
                                  _mm256_set1_epi32(3));
     return _mm256_or_si256(_mm256_andnot_si256(_mm256_set1_epi32(3), position), pick);
   }
-  if (ctrl <= 0x10f)
+  if (ctrl <= 0x10f) {
     return _mm256_and_si256(_mm256_add_epi32(position, _mm256_set1_epi32(int(ctrl & 15))),
                             _mm256_set1_epi32(15));
-  if (ctrl <= 0x12f)
+  }
+  if (ctrl <= 0x12f) {
     return _mm256_and_si256(_mm256_sub_epi32(position, _mm256_set1_epi32(int(ctrl & 15))),
                             _mm256_set1_epi32(15));
-  if (ctrl == 0x140)
+  }
+  if (ctrl == 0x140) {
     return _mm256_xor_si256(position, _mm256_set1_epi32(15));
-  if (ctrl == 0x141)
+  }
+  if (ctrl == 0x141) {
     return _mm256_xor_si256(position, _mm256_set1_epi32(7));
-  if (ctrl <= 0x15f)
+  }
+  if (ctrl <= 0x15f) {
     return _mm256_set1_epi32(int(ctrl & 15));
+  }
   return _mm256_xor_si256(position, _mm256_set1_epi32(int(ctrl & 15)));
 }
 } // namespace

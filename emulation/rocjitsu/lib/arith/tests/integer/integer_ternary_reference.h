@@ -19,10 +19,12 @@ enum class Ternary { LshlAdd, AddLshl, LshlOr, AndOr, Or3, Xor3, Xad, Lerp };
 // Compute the selected combined shift/boolean or three-input integer operation.
 inline uint32_t integer_ternary_reference(Ternary operation, uint32_t a, uint32_t b, uint32_t c) {
   int op = int(operation);
-  if (op == 0)
+  if (op == 0) {
     return uint32_t(uint64_t(a) * (1ULL << (b % 32)) + c);
-  if (op == 1)
+  }
+  if (op == 1) {
     return uint32_t((uint64_t(a) + b) * (1ULL << (c % 32)));
+  }
   if (op == 7) {
     uint32_t result = 0;
     for (int byte = 0; byte < 4; ++byte) {
@@ -43,8 +45,9 @@ inline uint32_t integer_ternary_reference(Ternary operation, uint32_t a, uint32_
                  : op == 4 ? x + y + z != 0
                  : op == 5 ? (x + y + z) % 2 != 0
                            : x != y;
-    if (value)
+    if (value) {
       result |= 1U << bit;
+    }
   }
   return op == 6 ? uint32_t(uint64_t(result) + c) : result;
 }

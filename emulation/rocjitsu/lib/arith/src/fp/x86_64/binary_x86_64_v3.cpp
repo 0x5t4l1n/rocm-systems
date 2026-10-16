@@ -60,38 +60,51 @@ void run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *d, const u
       y = flush_denorm_f32(y);
     }
     __m256 value;
-    if constexpr (Op == Binary::Add)
+    if constexpr (Op == Binary::Add) {
       value = _mm256_add_ps(x, y);
-    if constexpr (Op == Binary::Sub)
+    }
+    if constexpr (Op == Binary::Sub) {
       value = _mm256_sub_ps(x, y);
-    if constexpr (Op == Binary::Subrev)
+    }
+    if constexpr (Op == Binary::Subrev) {
       value = _mm256_sub_ps(y, x);
+    }
     if constexpr (Op == Binary::MulDx9Zero) {
       auto zero = _mm256_setzero_ps();
       auto has_zero =
           _mm256_or_ps(_mm256_cmp_ps(x, zero, _CMP_EQ_OQ), _mm256_cmp_ps(y, zero, _CMP_EQ_OQ));
       value = _mm256_andnot_ps(has_zero, _mm256_mul_ps(x, y));
     }
-    if constexpr (Op == Binary::Mul)
+    if constexpr (Op == Binary::Mul) {
       value = _mm256_mul_ps(x, y);
-    if constexpr (Op == Binary::MinNum)
+    }
+    if constexpr (Op == Binary::MinNum) {
       value = minmax<false, false>(x, y);
-    if constexpr (Op == Binary::MaxNum)
+    }
+    if constexpr (Op == Binary::MaxNum) {
       value = minmax<true, false>(x, y);
-    if constexpr (Op == Binary::Minimum)
+    }
+    if constexpr (Op == Binary::Minimum) {
       value = minmax<false, true>(x, y);
-    if constexpr (Op == Binary::Maximum)
+    }
+    if constexpr (Op == Binary::Maximum) {
       value = minmax<true, true>(x, y);
-    if constexpr (Op == Binary::MinLegacy || Op == Binary::MaxLegacy)
+    }
+    if constexpr (Op == Binary::MinLegacy || Op == Binary::MaxLegacy) {
       value = minmax_rdna3<Op == Binary::MaxLegacy>(x, y, flags & RJ_ARITH_FP_IEEE_MODE);
-    if (mode & RJ_ARITH_ALU_OMOD_HALF)
+    }
+    if (mode & RJ_ARITH_ALU_OMOD_HALF) {
       value = scale_omod(value, mode, unsigned((flags & RJ_ARITH_FP_ROUND_MASK) >> 24));
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    }
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       value = _mm256_min_ps(_mm256_max_ps(value, _mm256_setzero_ps()), _mm256_set1_ps(1));
+    }
     if constexpr (Op == Binary::Add || Op == Binary::Sub || Op == Binary::Subrev ||
-                  Op == Binary::Mul || Op == Binary::MulDx9Zero)
-      if (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)
+                  Op == Binary::Mul || Op == Binary::MulDx9Zero) {
+      if (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) {
         value = flush_denorm_f32(value);
+      }
+    }
     auto lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                             _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));
     _mm256_maskstore_epi32(reinterpret_cast<int *>(d + lane), lane_exec_mask,
@@ -136,15 +149,18 @@ void binary_x86_64_v3(Binary op, uint64_t flags, uint32_t exec_mask, uint32_t mo
 // the scalar path retains empirical NaN rules. Default host FP state is required.
 bool binary_exact_x86_64_v3(Binary op, uint64_t flags, uint32_t exec_mask, uint32_t mode,
                             uint32_t *d, const uint32_t *a, const uint32_t *b) {
-  if (flags & RJ_ARITH_FP_ROUND_MASK)
+  if (flags & RJ_ARITH_FP_ROUND_MASK) {
     return false;
-  for (const uint32_t *input : {a, b})
+  }
+  for (const uint32_t *input : {a, b}) {
     for (int lane = 0; lane < 32; lane += 8) {
       auto bits = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(input + lane));
       auto exponent = _mm256_and_si256(bits, _mm256_set1_epi32(0x7f800000));
-      if (_mm256_movemask_epi8(_mm256_cmpeq_epi32(exponent, _mm256_set1_epi32(0x7f800000))))
+      if (_mm256_movemask_epi8(_mm256_cmpeq_epi32(exponent, _mm256_set1_epi32(0x7f800000)))) {
         return false;
+      }
     }
+  }
   binary_x86_64_v3(op, flags, exec_mask, mode, d, a, b);
   return true;
 }

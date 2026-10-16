@@ -45,21 +45,23 @@ void convert(bool saturate, uint32_t exec_mask, uint32_t mode, uint32_t *d, cons
   const auto zero = _mm512_setzero_ps();
   for (int lane = 0; lane < 32; lane += 16) {
     auto raw = _mm512_loadu_si512(reinterpret_cast<const __m512i *>(a + lane));
-    if constexpr (Op != Conversion16::FloatToHalf)
+    if constexpr (Op != Conversion16::FloatToHalf) {
       raw = _mm512_and_si512(_mm512_srl_epi32(raw, sa), _mm512_set1_epi32(65535));
+    }
     __m512 value;
     if constexpr (from_integer) {
-      if constexpr (Op == Conversion16::SignedToHalf)
+      if constexpr (Op == Conversion16::SignedToHalf) {
         raw = _mm512_srai_epi32(_mm512_slli_epi32(raw, 16), 16);
+      }
       value = _mm512_cvtepi32_ps(raw);
     } else {
       constexpr uint32_t sign = Op == Conversion16::FloatToHalf ? 0x80000000 : 0x8000;
       raw = _mm512_and_si512(
           raw, _mm512_set1_epi32(int(mode & RJ_ARITH_ALU_ABS_A ? ~sign : UINT32_MAX)));
       raw = _mm512_xor_si512(raw, _mm512_set1_epi32(int(mode & RJ_ARITH_ALU_NEG_A ? sign : 0)));
-      if constexpr (Op == Conversion16::FloatToHalf)
+      if constexpr (Op == Conversion16::FloatToHalf) {
         value = _mm512_castsi512_ps(raw);
-      else {
+      } else {
         if constexpr (Op == Conversion16::HalfToFloat && GuestWidening) {
           if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) {
             auto tiny = _mm512_cmp_epi32_mask(_mm512_and_si512(raw, _mm512_set1_epi32(0x7fff)),
@@ -112,12 +114,15 @@ void convert(bool saturate, uint32_t exec_mask, uint32_t mode, uint32_t *d, cons
       }
     } else if constexpr (Op == Conversion16::HalfToFloat) {
       const auto input_bits = _mm512_castps_si512(value);
-      if (!GuestWidening || omod || (flags & RJ_ARITH_FP_IEEE_MODE))
+      if (!GuestWidening || omod || (flags & RJ_ARITH_FP_IEEE_MODE)) {
         value = _mm512_mul_ps(value, scale);
-      if (mode & RJ_ARITH_ALU_CLAMP)
+      }
+      if (mode & RJ_ARITH_ALU_CLAMP) {
         value = _mm512_min_ps(_mm512_max_ps(value, zero), _mm512_set1_ps(1));
-      if (omod)
+      }
+      if (omod) {
         value = _mm512_mask_mov_ps(value, _mm512_cmp_ps_mask(value, zero, _CMP_EQ_OQ), zero);
+      }
       result = _mm512_castps_si512(value);
       if constexpr (GuestWidening) {
         // Preserve the widening NaN policy through OMOD and DX10_CLAMP-off.

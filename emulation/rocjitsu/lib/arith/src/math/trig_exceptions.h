@@ -20,24 +20,30 @@ inline uint32_t exceptions(uint32_t input, uint32_t result, bool cosine, uint32_
   constexpr unsigned fraction = Width == 16 ? 10 : 23, bias = Width == 16 ? 15 : 127;
   constexpr uint32_t sign = 1U << (Width - 1), infinity = (2 * bias + 1) << fraction;
   input &= sign - 1;
-  if (mode & RJ_ARITH_ALU_CLAMP)
+  if (mode & RJ_ARITH_ALU_CLAMP) {
     return 0;
-  if (input >= infinity)
+  }
+  if (input >= infinity) {
     return input == infinity || !(input & (1U << (fraction - 1))) ? RJ_ARITH_EXCEPTION_INVALID : 0;
-  if (!input || (Width == 32 && cosine && input < (1U << fraction)))
+  }
+  if (!input || (Width == 32 && cosine && input < (1U << fraction))) {
     return 0;
+  }
   uint32_t flags = input < (1U << fraction) ? RJ_ARITH_EXCEPTION_INPUT_DENORM : 0;
-  if (mode & RJ_ARITH_ALU_OMOD_HALF)
+  if (mode & RJ_ARITH_ALU_OMOD_HALF) {
     return flags;
+  }
 
   // Multiples of a quarter turn produce exact 0 or +/-1. Every other finite
   // input reports inexact, even if the rounded approximation is 0 or +/-1.
   int shift = int(fraction + bias - 2) - int(input >> fraction);
-  if (shift <= 0 || (shift <= int(fraction) && !(input & ((1U << shift) - 1))))
+  if (shift <= 0 || (shift <= int(fraction) && !(input & ((1U << shift) - 1)))) {
     return flags;
+  }
   flags |= RJ_ARITH_EXCEPTION_INEXACT;
-  if (!cosine && (result & (sign - 1)) < (1U << fraction))
+  if (!cosine && (result & (sign - 1)) < (1U << fraction)) {
     flags |= RJ_ARITH_EXCEPTION_UNDERFLOW;
+  }
   return flags;
 }
 

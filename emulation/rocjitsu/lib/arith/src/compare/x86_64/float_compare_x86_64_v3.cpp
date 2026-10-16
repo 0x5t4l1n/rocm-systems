@@ -18,10 +18,11 @@ template <int Bits> struct Lanes {
 
   // Broadcast the supplied bit pattern to each vector lane.
   static V set(uint64_t x) {
-    if constexpr (Bits == 64)
+    if constexpr (Bits == 64) {
       return _mm256_set1_epi64x(int64_t(x));
-    else
+    } else {
       return _mm256_set1_epi32(int(x));
+    }
   }
 
   // Load source values in the vector layout expected by this kernel.
@@ -32,8 +33,9 @@ template <int Bits> struct Lanes {
       auto high =
           _mm256_cvtepu32_epi64(_mm_loadu_si128(reinterpret_cast<const __m128i *>(p[1] + lane)));
       return _mm256_or_si256(low, _mm256_slli_epi64(high, 32));
-    } else
+    } else {
       return _mm256_loadu_si256(reinterpret_cast<const V *>(p[0] + lane));
+    }
   }
 
   // Return the bitwise intersection of the vector operands.
@@ -47,18 +49,20 @@ template <int Bits> struct Lanes {
 
   // Return the lane mask for equal operands.
   static M eq(V a, V b) {
-    if constexpr (Bits == 64)
+    if constexpr (Bits == 64) {
       return _mm256_cmpeq_epi64(a, b);
-    else
+    } else {
       return _mm256_cmpeq_epi32(a, b);
+    }
   }
 
   // Return the lane mask for signed a > b.
   static M gt(V a, V b) {
-    if constexpr (Bits == 64)
+    if constexpr (Bits == 64) {
       return _mm256_cmpgt_epi64(a, b);
-    else
+    } else {
       return _mm256_cmpgt_epi32(a, b);
+    }
   }
 
   // Select values lane by lane according to the supplied predicate.
@@ -66,10 +70,11 @@ template <int Bits> struct Lanes {
 
   // Collect per-lane predicates into a scalar bit mask.
   static uint32_t mask(M m) {
-    if constexpr (Bits == 64)
+    if constexpr (Bits == 64) {
       return uint32_t(_mm256_movemask_pd(_mm256_castsi256_pd(m)));
-    else
+    } else {
       return uint32_t(_mm256_movemask_ps(_mm256_castsi256_ps(m)));
+    }
   }
 
   // Return the lane mask for unsigned a < b.

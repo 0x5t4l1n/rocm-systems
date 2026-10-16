@@ -18,16 +18,20 @@ using namespace rocjitsu::arith::test;
 
 // Decode FP16/BF16 dot input bits with source modifiers and the format's denormal policy.
 template <bool Bf16> double half_dot_input(uint16_t bits, uint32_t mode) {
-  if (mode & RJ_ARITH_ALU_ABS_A)
+  if (mode & RJ_ARITH_ALU_ABS_A) {
     bits &= 0x7fff;
-  if (mode & RJ_ARITH_ALU_NEG_A)
+  }
+  if (mode & RJ_ARITH_ALU_NEG_A) {
     bits ^= 0x8000;
+  }
   if constexpr (Bf16) {
-    if (!(bits & 0x7f80))
+    if (!(bits & 0x7f80)) {
       bits &= 0x8000;
+    }
     return bf16_value(bits);
-  } else
+  } else {
     return half_value(bits);
+  }
 }
 
 // Check 16-bit dot accumulation, packing, and source modifiers for the supplied entry point.
@@ -67,9 +71,10 @@ template <int Lanes, bool Bf16, class Call> void check_half_dot(Call call) {
         EXPECT_EQ(actual & keep, old & keep);
         double sum =
             half_dot_input<Bf16>(uint16_t(c >> (mode & RJ_ARITH_ALU_HIGH_C ? 16 : 0)), mode >> 2);
-        for (int half = 0; half < 2; ++half)
+        for (int half = 0; half < 2; ++half) {
           sum += half_dot_input<Bf16>(uint16_t(a >> (16 * half)), mode) *
                  half_dot_input<Bf16>(uint16_t(b >> (16 * half)), mode >> 1);
+        }
         if constexpr (Bf16) {
           uint16_t result = uint16_t(actual >> shift);
           if (!(result & 0x7f80)) {
@@ -80,11 +85,13 @@ template <int Lanes, bool Bf16, class Call> void check_half_dot(Call call) {
         if constexpr (Bf16) {
           uint16_t rounded =
               uint16_t(conversion_reencode(bit_cast<uint32_t>(float(sum)), 23, 127, 7, 127));
-          if (!(rounded & 0x7f80))
+          if (!(rounded & 0x7f80)) {
             rounded &= 0x8000;
+          }
           expected = bf16_value(rounded);
-        } else
+        } else {
           expected = float(half_value(half_bits(sum, flags & RJ_ARITH_FP16_OVFL)));
+        }
         float value =
             Bf16 ? bf16_value(uint16_t(actual >> shift)) : f16_value(uint16_t(actual >> shift));
         expect_f32(bit_cast<uint32_t>(value), expected, RJ_ARITH_SEMANTICS_LOOSE,

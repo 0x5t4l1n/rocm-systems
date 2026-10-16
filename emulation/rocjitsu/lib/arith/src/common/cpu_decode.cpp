@@ -28,8 +28,9 @@ uint64_t decode_cpu(const CpuState &s) {
 
   if ((s.leaf1_ecx & v3_leaf1_ecx) != v3_leaf1_ecx ||
       (s.leaf7_ebx & v3_leaf7_ebx) != v3_leaf7_ebx || (s.ext1_ecx & v3_ext1_ecx) != v3_ext1_ecx ||
-      (s.xcr0 & v3_xcr0) != v3_xcr0)
+      (s.xcr0 & v3_xcr0) != v3_xcr0) {
     return RJ_ARITH_CPU_BASELINE;
+  }
 
   // CPUID(7, 0).EBX additions for x86-64-v4:
   // AVX512F (16), AVX512DQ (17), AVX512CD (28), AVX512BW (30), AVX512VL (31).
@@ -39,8 +40,9 @@ uint64_t decode_cpu(const CpuState &s) {
   // and the full ZMM16-31 registers (7) must all be enabled by the OS.
   constexpr uint64_t v4_xcr0 = 0xe6;
 
-  if ((s.leaf7_ebx & v4_leaf7_ebx) != v4_leaf7_ebx || (s.xcr0 & v4_xcr0) != v4_xcr0)
+  if ((s.leaf7_ebx & v4_leaf7_ebx) != v4_leaf7_ebx || (s.xcr0 & v4_xcr0) != v4_xcr0) {
     return RJ_ARITH_CPU_X86_64_V3;
+  }
 
   // CPUID(7, 0).EBX addition for rj-arith's Zen4 tier: AVX512IFMA (21).
   constexpr uint32_t zen4_leaf7_ebx = 0x00200000;
@@ -55,8 +57,9 @@ uint64_t decode_cpu(const CpuState &s) {
 
   if ((s.leaf7_ebx & zen4_leaf7_ebx) != zen4_leaf7_ebx ||
       (s.leaf7_ecx & zen4_leaf7_ecx) != zen4_leaf7_ecx ||
-      (s.leaf71_eax & zen4_leaf71_eax) != zen4_leaf71_eax)
+      (s.leaf71_eax & zen4_leaf71_eax) != zen4_leaf71_eax) {
     return RJ_ARITH_CPU_X86_64_V4;
+  }
   return RJ_ARITH_CPU_X86_64_ZEN4;
 }
 

@@ -22,11 +22,14 @@ template <int Lanes, bool Stochastic, bool Bf8, class Call> void check_fp8_narro
   const uint32_t edges[] = {0x3f880000U, 0x3f87ffffU, 0x3f880001U, 0x3f980000U,
                             0x3fa00000U, 0x3f9fffffU, 0x3fa00001U, 0x3b000001U,
                             0x37800001U, 0x43e80000U, 0x47700000U};
-  for (int lane = 0; lane < 11; ++lane)
+  for (int lane = 0; lane < 11; ++lane) {
     input.v[0][lane + 16] = edges[lane];
-  if constexpr (Stochastic)
-    for (int lane = 0; lane < 16; ++lane)
+  }
+  if constexpr (Stochastic) {
+    for (int lane = 0; lane < 16; ++lane) {
       input.v[2][lane] = lane % 2 ? UINT32_MAX : 0;
+    }
+  }
   uint64_t modifiers = RJ_ARITH_ALU_ABS_A | RJ_ARITH_ALU_NEG_A |
                        (Stochastic ? RJ_ARITH_CVT_BYTE_3
                                    : RJ_ARITH_ALU_ABS_B | RJ_ARITH_ALU_NEG_B | RJ_ARITH_ALU_HIGH_D);

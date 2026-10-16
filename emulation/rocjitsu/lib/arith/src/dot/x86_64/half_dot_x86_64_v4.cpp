@@ -41,10 +41,11 @@ void dot(bool saturate, uint32_t exec_mask, uint32_t mode, uint32_t *d, const ui
 // Requires the named CPU features and validated instruction controls.
 void half_dot_x86_64_v4(bool bf16, bool saturate, uint32_t exec_mask, uint32_t mode, uint32_t *d,
                         const uint32_t *a, const uint32_t *b, const uint32_t *c) {
-  if (bf16)
+  if (bf16) {
     dot<true>(saturate, exec_mask, mode, d, a, b, c);
-  else
+  } else {
     dot<false>(saturate, exec_mask, mode, d, a, b, c);
+  }
 }
 
 } // namespace rocjitsu::arith

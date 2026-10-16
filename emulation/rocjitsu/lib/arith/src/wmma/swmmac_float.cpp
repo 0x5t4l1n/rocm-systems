@@ -18,7 +18,7 @@ namespace rocjitsu::arith {
 void swmmac_float_accumulate(uint32_t mode, SwmmacFloatInputs &input) {
   const uint32_t flip[] = {mode & RJ_ARITH_WMMA_NEG_LO_B ? 0x80000000u : 0,
                            mode & RJ_ARITH_WMMA_NEG_HI_B ? 0x80000000u : 0};
-  for (int row = 0; row < 16; ++row)
+  for (int row = 0; row < 16; ++row) {
     for (int col = 0; col < 16; ++col) {
       float acc = input.acc[row][col];
       for (int ck = 0; ck < 16; ++ck) {
@@ -28,6 +28,7 @@ void swmmac_float_accumulate(uint32_t mode, SwmmacFloatInputs &input) {
       }
       input.acc[row][col] = acc;
     }
+  }
 }
 
 } // namespace rocjitsu::arith

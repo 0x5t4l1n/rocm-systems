@@ -41,17 +41,21 @@ bool parse_options(int argc, char **argv, rocjitsu::arith::bench::Options &optio
   std::set<std::string> seen;
   for (int arg = 1; arg < argc; arg += 2) {
     std::string name = argv[arg];
-    if (arg + 1 == argc || !seen.insert(name).second)
+    if (arg + 1 == argc || !seen.insert(name).second) {
       return false;
+    }
     const char *value = argv[arg + 1];
     if (name == "--min-ms") {
-      if (!parse_duration(value, options.min_ms))
+      if (!parse_duration(value, options.min_ms)) {
         return false;
+      }
     } else if (name == "--repetitions") {
-      if (!parse_positive_integer(value, options.repetitions))
+      if (!parse_positive_integer(value, options.repetitions)) {
         return false;
-    } else
+      }
+    } else {
       return false;
+    }
   }
   return true;
 }
@@ -62,20 +66,24 @@ void print_csv(const std::vector<rocjitsu::arith::bench::Benchmark> &cases) {
   std::puts(
       "Category,Instruction,Wave,Semantics,CPU path,Variant,Non-finite inputs,ns/wave,Speedup");
   std::map<std::string, double> scalar;
-  for (const auto &b : cases)
-    if (b.cpu == "scalar" && !b.samples.empty())
-      scalar[b.instruction + '/' + b.semantics + '/' + b.non_finite_inputs] = b.median;
   for (const auto &b : cases) {
-    if (b.samples.empty())
+    if (b.cpu == "scalar" && !b.samples.empty()) {
+      scalar[b.instruction + '/' + b.semantics + '/' + b.non_finite_inputs] = b.median;
+    }
+  }
+  for (const auto &b : cases) {
+    if (b.samples.empty()) {
       continue;
+    }
     std::printf("%s,%s,%d,%s,%s,%s,%s,", b.category.c_str(), b.instruction.c_str(), b.wave,
                 b.semantics.c_str(), b.cpu.c_str(),
                 rocjitsu::arith::bench::variant_field(b.variants).c_str(),
                 b.non_finite_inputs.c_str());
     std::printf("%.1f,", b.median);
     auto baseline = scalar.find(b.instruction + '/' + b.semantics + '/' + b.non_finite_inputs);
-    if (b.cpu != "scalar" && baseline != scalar.end())
+    if (b.cpu != "scalar" && baseline != scalar.end()) {
       std::printf("%.3f", baseline->second / b.median);
+    }
     std::putchar('\n');
   }
 }

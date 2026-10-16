@@ -31,19 +31,25 @@ inline DivisionScaleResult<Width> division_scale(typename DivisionFormat<Width>:
   using F = DivisionFormat<Width>;
   using T = typename F::Bits;
   constexpr int threshold = Width == 32 ? 96 : 768, scale = Width == 32 ? 64 : 128;
-  if (mode & RJ_ARITH_ALU_NEG_A)
+  if (mode & RJ_ARITH_ALU_NEG_A) {
     a ^= F::sign;
-  if (mode & RJ_ARITH_ALU_NEG_B)
+  }
+  if (mode & RJ_ARITH_ALU_NEG_B) {
     b ^= F::sign;
-  if (mode & RJ_ARITH_ALU_NEG_C)
+  }
+  if (mode & RJ_ARITH_ALU_NEG_C) {
     c ^= F::sign;
+  }
   if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) {
-    if ((a & F::infinity) == 0)
+    if ((a & F::infinity) == 0) {
       a &= F::sign;
-    if ((b & F::infinity) == 0)
+    }
+    if ((b & F::infinity) == 0) {
       b &= F::sign;
-    if ((c & F::infinity) == 0)
+    }
+    if ((c & F::infinity) == 0) {
       c &= F::sign;
+    }
   }
   T bm = b & (F::sign - 1), cm = c & (F::sign - 1);
   int de = int((b & F::infinity) >> F::fraction), ne = int((c & F::infinity) >> F::fraction),
@@ -53,26 +59,29 @@ inline DivisionScaleResult<Width> division_scale(typename DivisionFormat<Width>:
   if (delta >= threshold) {
     adjustment = is_denominator ? scale : 0;
     post_scale = true;
-  } else if (de == 0)
+  } else if (de == 0) {
     adjustment = scale;
-  else if (de >= 2 * F::bias - 1) {
+  } else if (de >= 2 * F::bias - 1) {
     post_scale = delta <= -threshold;
     adjustment = post_scale && !is_denominator ? 0 : -scale;
   } else if (delta <= -threshold) {
     adjustment = is_denominator ? 0 : scale;
     post_scale = true;
-  } else if (ne <= F::fraction + 1)
+  } else if (ne <= F::fraction + 1) {
     adjustment = scale;
+  }
   const unsigned rounding = unsigned((flags & RJ_ARITH_FP_ROUND_MASK) >> 24);
   T value;
-  if (!bm || !cm)
+  if (!bm || !cm) {
     value = F::sign | F::infinity | F::quiet;
-  else if (!quiet_nan && (a & (F::sign - 1)) > F::infinity)
+  } else if (!quiet_nan && (a & (F::sign - 1)) > F::infinity) {
     value = a;
-  else
+  } else {
     value = division_scale_bits<Width>(a, adjustment, rounding);
-  if ((flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) && (value & F::infinity) == 0)
+  }
+  if ((flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) && (value & F::infinity) == 0) {
     value &= F::sign;
+  }
   return {division_output<Width>(value, mode,
                                  division_overflow<Width>((value & F::sign) != 0, rounding)),
           post_scale};

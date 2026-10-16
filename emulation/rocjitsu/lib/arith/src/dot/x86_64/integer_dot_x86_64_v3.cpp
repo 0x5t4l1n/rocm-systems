@@ -64,15 +64,17 @@ void dot(uint32_t exec_mask, uint32_t modifiers, uint32_t *d, const uint32_t *a,
 void integer_dot_x86_64_v3(int bits, bool unsigned_acc, uint32_t exec_mask, uint32_t modifiers,
                            uint32_t *d, const uint32_t *a, const uint32_t *b, const uint32_t *c) {
   if (bits == 8) {
-    if (unsigned_acc)
+    if (unsigned_acc) {
       dot<8, true>(exec_mask, modifiers, d, a, b, c);
-    else
+    } else {
       dot<8, false>(exec_mask, modifiers, d, a, b, c);
+    }
   } else {
-    if (unsigned_acc)
+    if (unsigned_acc) {
       dot<4, true>(exec_mask, modifiers, d, a, b, c);
-    else
+    } else {
       dot<4, false>(exec_mask, modifiers, d, a, b, c);
+    }
   }
 }
 

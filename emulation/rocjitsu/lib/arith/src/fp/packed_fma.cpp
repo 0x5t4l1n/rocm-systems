@@ -30,10 +30,12 @@ int run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
                                                 RJ_ARITH_ALU_CLAMP | RJ_ARITH_ALU_OMOD_HALF
                                           : 0x1fffU;
   if (int error = rocjitsu::arith::validate(flags, mode & ~allowed, true,
-                                            fp_flags | (Rdna3 ? RJ_ARITH_FP_DX10_CLAMP_OFF : 0)))
+                                            fp_flags | (Rdna3 ? RJ_ARITH_FP_DX10_CLAMP_OFF : 0))) {
     return error;
-  if (exec_mask == 0)
+  }
+  if (exec_mask == 0) {
     return RJ_ARITH_SUCCESS;
+  }
   uint32_t modes[2];
   if constexpr (Accumulate) {
     // Packed F16 ignores OMOD on both RDNA3 and RDNA4. ABS/NEG apply to
@@ -48,15 +50,17 @@ int run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
   if ((rocjitsu::arith::is_exact(flags) || (flags & RJ_ARITH_FP_ROUND_MASK)) &&
       (flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V4 &&
       rocjitsu::arith::packed_fma_exact_x86_64_v4(flags, exec_mask, modes, d[0], a[0], b[0], c[0],
-                                                  excp_flag_user, Rdna3))
+                                                  excp_flag_user, Rdna3)) {
     return RJ_ARITH_SUCCESS;
+  }
 #endif
 #if defined(RJ_ARITH_HAVE_X86_64_V3)
   if ((rocjitsu::arith::is_exact(flags) || (flags & RJ_ARITH_FP_ROUND_MASK)) &&
       (flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V3 &&
       rocjitsu::arith::packed_fma_exact_x86_64_v3(flags, exec_mask, modes, d[0], a[0], b[0], c[0],
-                                                  excp_flag_user, Rdna3))
+                                                  excp_flag_user, Rdna3)) {
     return RJ_ARITH_SUCCESS;
+  }
 #endif
 #if defined(RJ_ARITH_HAVE_X86_64_V3)
   bool exact = rocjitsu::arith::is_exact(flags);
@@ -84,11 +88,14 @@ int run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
           << (16 * half);
     }
   }
-  for (int lane = 0; lane < 32; ++lane)
-    if ((exec_mask >> lane) & 1)
+  for (int lane = 0; lane < 32; ++lane) {
+    if ((exec_mask >> lane) & 1) {
       d[0][lane] = result[lane];
-  if (report)
+    }
+  }
+  if (report) {
     *excp_flag_user |= exceptions;
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -100,22 +107,26 @@ int run_wave64(uint64_t flags, uint64_t exec_mask, uint32_t mode, uint32_t *cons
                uint32_t *excp_flag_user) {
   // Validate before either Wave64 half can modify outputs, even when EXEC is empty.
   if (int error = run<Rdna3, Accumulate>(flags, 0, mode, nullptr, nullptr, nullptr, nullptr,
-                                         excp_flag_user))
+                                         excp_flag_user)) {
     return error;
-  if (!exec_mask)
+  }
+  if (!exec_mask) {
     return RJ_ARITH_SUCCESS;
+  }
   bool report = rocjitsu::arith::reports_fp_status(flags);
   uint32_t exceptions = 0;
   for (int half = 0; half < 2; ++half) {
     uint32_t *dest = d[0] + half * 32;
     const uint32_t *x = a[0] + half * 32, *y = b[0] + half * 32, *z = c[0] + half * 32;
     if (int error = run<Rdna3, Accumulate>(flags, uint32_t(exec_mask >> (half * 32)), mode, &dest,
-                                           &x, &y, &z, report ? &exceptions : nullptr))
+                                           &x, &y, &z, report ? &exceptions : nullptr)) {
       return error;
+    }
   }
   // Delay the scalar output so it may alias any source, including the upper half.
-  if (report)
+  if (report) {
     *excp_flag_user |= exceptions;
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -130,13 +141,16 @@ int rj_arith_v_pk_fma_f16_w32_gfx12(uint64_t flags, uint32_t exec_mask, uint64_t
                                     uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   if (rocjitsu::arith::reports_fp_status(flags) &&
-      rocjitsu::arith::half_fma_reporting_unsupported(flags, false))
+      rocjitsu::arith::half_fma_reporting_unsupported(flags, false)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (mode >> 32)
+  }
+  if (mode >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run<false>(flags, exec_mask, mode, d, a, b, c, excp_flag_user);
 }
 
@@ -148,13 +162,16 @@ int rj_arith_v_pk_fmac_f16_w32_gfx12(uint64_t flags, uint32_t exec_mask, uint64_
                                      const uint32_t *const *b, uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   if (rocjitsu::arith::reports_fp_status(flags) &&
-      rocjitsu::arith::half_fma_reporting_unsupported(flags, false))
+      rocjitsu::arith::half_fma_reporting_unsupported(flags, false)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (mode >> 32)
+  }
+  if (mode >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run<false, true>(flags, exec_mask, mode, d, a, b, d, excp_flag_user);
 }
 
@@ -167,13 +184,16 @@ int rj_arith_v_pk_fma_f16_w64_gfx12(uint64_t flags, uint64_t exec_mask, uint64_t
                                     uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   if (rocjitsu::arith::reports_fp_status(flags) &&
-      rocjitsu::arith::half_fma_reporting_unsupported(flags, false))
+      rocjitsu::arith::half_fma_reporting_unsupported(flags, false)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (mode >> 32)
+  }
+  if (mode >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run_wave64<false>(flags, exec_mask, mode, d, a, b, c, excp_flag_user);
 }
 
@@ -185,13 +205,16 @@ int rj_arith_v_pk_fmac_f16_w64_gfx12(uint64_t flags, uint64_t exec_mask, uint64_
                                      const uint32_t *const *b, uint32_t *excp_flag_user) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   if (rocjitsu::arith::reports_fp_status(flags) &&
-      rocjitsu::arith::half_fma_reporting_unsupported(flags, false))
+      rocjitsu::arith::half_fma_reporting_unsupported(flags, false)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (mode >> 32)
+  }
+  if (mode >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run_wave64<false, true>(flags, exec_mask, mode, d, a, b, d, excp_flag_user);
 }
 
@@ -203,13 +226,16 @@ int rj_arith_v_pk_fma_f16_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode,
                               const uint32_t *const *c, uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   if (rocjitsu::arith::reports_fp_status(flags) &&
-      rocjitsu::arith::half_fma_reporting_unsupported(flags, true))
+      rocjitsu::arith::half_fma_reporting_unsupported(flags, true)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (mode >> 32)
+  }
+  if (mode >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run<true>(flags, exec_mask, mode, d, a, b, c, trapsts);
 }
 
@@ -221,13 +247,16 @@ int rj_arith_v_pk_fmac_f16_w32(uint64_t flags, uint32_t exec_mask, uint64_t mode
                                const uint32_t *const *b, uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   if (rocjitsu::arith::reports_fp_status(flags) &&
-      rocjitsu::arith::half_fma_reporting_unsupported(flags, true))
+      rocjitsu::arith::half_fma_reporting_unsupported(flags, true)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (mode >> 32)
+  }
+  if (mode >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run<true, true>(flags, exec_mask, mode, d, a, b, d, trapsts);
 }
 
@@ -239,13 +268,16 @@ int rj_arith_v_pk_fma_f16_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode,
                               const uint32_t *const *c, uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   if (rocjitsu::arith::reports_fp_status(flags) &&
-      rocjitsu::arith::half_fma_reporting_unsupported(flags, true))
+      rocjitsu::arith::half_fma_reporting_unsupported(flags, true)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (mode >> 32)
+  }
+  if (mode >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run_wave64<true>(flags, exec_mask, mode, d, a, b, c, trapsts);
 }
 
@@ -257,12 +289,15 @@ int rj_arith_v_pk_fmac_f16_w64(uint64_t flags, uint64_t exec_mask, uint64_t mode
                                const uint32_t *const *b, uint32_t *trapsts) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   if (rocjitsu::arith::reports_fp_status(flags) &&
-      rocjitsu::arith::half_fma_reporting_unsupported(flags, true))
+      rocjitsu::arith::half_fma_reporting_unsupported(flags, true)) {
     return RJ_ARITH_ERROR_UNSUPPORTED_FP_STATUS;
-  if (mode >> 32)
+  }
+  if (mode >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run_wave64<true, true>(flags, exec_mask, mode, d, a, b, d, trapsts);
 }

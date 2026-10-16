@@ -36,8 +36,9 @@ template <int Lanes, bool Half, bool Gfx12, class Call> void check_trig(Call cal
     uint64_t hash = capture_hash_seed;
     Registers<2, Lanes> r;
     for (int base = 0; base < 65536; base += Lanes) {
-      for (int lane = 0; lane < Lanes; ++lane)
+      for (int lane = 0; lane < Lanes; ++lane) {
         r.v[0][lane] = base + lane;
+      }
       ASSERT_EQ(call(RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS | RJ_ARITH_FP_IEEE_MODE,
                      WaveMask<Lanes>(~WaveMask<Lanes>(0)), 0, r.v + 1, r.v, nullptr),
                 RJ_ARITH_SUCCESS);
@@ -50,33 +51,41 @@ template <int Lanes, bool Half, bool Gfx12, class Call> void check_trig(Call cal
   }
   Registers<2, Lanes> random_input;
   std::minstd_rand random;
-  for (int reg = 0; reg < 2; ++reg)
-    for (int lane = 0; lane < Lanes; ++lane)
+  for (int reg = 0; reg < 2; ++reg) {
+    for (int lane = 0; lane < Lanes; ++lane) {
       random_input.v[reg][lane] =
           Half ? random_word(random)
                : bit_cast<uint32_t>(float(int(random() >> 7) - int(1U << 23)) / float(1U << 23));
-  for (auto cpu : supported_cpu_levels())
-    for (auto semantics : semantics_modes())
-      for (int scenario = 0; scenario < 40; ++scenario)
+    }
+  }
+  for (auto cpu : supported_cpu_levels()) {
+    for (auto semantics : semantics_modes()) {
+      for (int scenario = 0; scenario < 40; ++scenario) {
         for (int d : {0, 1}) {
           SCOPED_TRACE(::testing::Message()
                        << cpu << '/' << semantics << '/' << scenario << '/' << d);
           bool exact = semantics != RJ_ARITH_SEMANTICS_LOOSE;
           auto input = random_input;
           int golden_count = int(sizeof(trig_golden) / sizeof(trig_golden[0]));
-          if constexpr (!Half)
-            if (exact)
-              for (int lane = 0; lane < Lanes; ++lane)
+          if constexpr (!Half) {
+            if (exact) {
+              for (int lane = 0; lane < Lanes; ++lane) {
                 input.v[0][lane] = trig_golden[(lane + scenario) % golden_count][0];
+              }
+            }
+          }
           uint64_t mode = ((uint64_t(scenario) & 3) << 6) | (scenario & 4 ? RJ_ARITH_ALU_CLAMP : 0);
-          if (Half || !exact)
+          if (Half || !exact) {
             mode |=
                 (scenario & 8 ? RJ_ARITH_ALU_NEG_A : 0) | (scenario & 16 ? RJ_ARITH_ALU_ABS_A : 0);
-          if (Half)
+          }
+          if (Half) {
             mode |=
                 (scenario & 1 ? RJ_ARITH_ALU_HIGH_A : 0) | (scenario & 2 ? RJ_ARITH_ALU_HIGH_D : 0);
-          if (scenario >= 33)
+          }
+          if (scenario >= 33) {
             mode |= dpp_modes[scenario - 33];
+          }
           auto actual = input;
           auto exec_mask = exec_mask_for_case<Lanes>(scenario);
           uint32_t status = 0x80000000U;
@@ -108,34 +117,41 @@ template <int Lanes, bool Half, bool Gfx12, class Call> void check_trig(Call cal
             double expected;
             if constexpr (Half) {
               uint16_t h = uint16_t(raw >> (mode & RJ_ARITH_ALU_HIGH_A ? 16 : 0));
-              if (mode & RJ_ARITH_ALU_ABS_A)
+              if (mode & RJ_ARITH_ALU_ABS_A) {
                 h &= 0x7fffU;
-              if (mode & RJ_ARITH_ALU_NEG_A)
+              }
+              if (mode & RJ_ARITH_ALU_NEG_A) {
                 h ^= 0x8000U;
+              }
               expected = half_value(half_table[h]);
-            } else if (exact)
+            } else if (exact) {
               expected = bit_cast<float>(
                   source < 0 ? (cosine ? 0x3f800000U : 0)
                              : trig_golden[(source + scenario) % golden_count][cosine ? 2 : 1]);
-            else {
+            } else {
               double x = bit_cast<float>(raw);
-              if (mode & RJ_ARITH_ALU_ABS_A)
+              if (mode & RJ_ARITH_ALU_ABS_A) {
                 x = std::abs(x);
-              if (mode & RJ_ARITH_ALU_NEG_A)
+              }
+              if (mode & RJ_ARITH_ALU_NEG_A) {
                 x = -x;
+              }
               double angle = x * 0x1.921fb54442d18p+2;
               expected = cosine ? std::cos(angle) : std::sin(angle);
             }
             int omod = Gfx12 || !Half ? int((mode >> 6) & 3) : 0;
             if (omod) {
-              if (std::abs(expected) < (Half ? 0x1p-14 : 0x1p-126))
+              if (std::abs(expected) < (Half ? 0x1p-14 : 0x1p-126)) {
                 expected = 0;
+              }
               expected = std::ldexp(expected, omod == 3 ? -1 : omod);
-              if (std::abs(expected) < (Half ? 0x1p-14 : 0x1p-126))
+              if (std::abs(expected) < (Half ? 0x1p-14 : 0x1p-126)) {
                 expected = 0;
+              }
             }
-            if (mode & RJ_ARITH_ALU_CLAMP)
+            if (mode & RJ_ARITH_ALU_CLAMP) {
               expected = !(expected > 0) ? 0 : expected > 1 ? 1 : expected;
+            }
             if constexpr (Half) {
               EXPECT_EQ(actual.v[d][lane] & ~(0xffffU << shift),
                         input.v[d][lane] & ~(0xffffU << shift));
@@ -145,14 +161,18 @@ template <int Lanes, bool Half, bool Gfx12, class Call> void check_trig(Call cal
                          exact ? RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS
                                : RJ_ARITH_SEMANTICS_LOOSE,
                          /*atol=*/0.0005f, /*rtol=*/0.0f);
-            } else
+            } else {
               expect_f32(actual.v[d][lane], float(expected),
                          exact ? RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS
                                : RJ_ARITH_SEMANTICS_LOOSE,
                          /*atol=*/8e-7f, /*rtol=*/0.0f);
+            }
           }
           actual.expect_preserved(input, d, 1);
         }
+      }
+    }
+  }
   auto unchanged = random_input;
   expect_alu_invalid_flags<true>(
       [&](auto flags, auto mode) {
@@ -170,8 +190,9 @@ template <int Lanes, bool Half, bool Gfx12, class Call> void check_trig(Call cal
     // sign/exponent/mantissa corpus. Inactive signaling NaNs contribute nothing.
     uint64_t hash = capture_hash_seed;
     Registers<2, Lanes> r;
-    for (int lane = 0; lane < Lanes; ++lane)
+    for (int lane = 0; lane < Lanes; ++lane) {
       r.v[0][lane] = Half ? 0x7c01 : 0x7f800001;
+    }
     for (int i = 0; i < 65536; ++i) {
       r.v[0][0] = Half ? uint32_t(i) : (uint32_t(i) << 16) | ((uint32_t(i) * 0x9e37U) & 0xffffU);
       uint32_t status = 0xffffff80U;

@@ -41,28 +41,33 @@ inline uint32_t packed_integer_reference(HalfBinary operation, uint32_t a, uint3
     int64_t y = (b >> (high_b ? 16 : 0)) & 65535;
     bool sign = op == 0 || op == 1 || op == 4 || op == 5;
     if (sign) {
-      if (x >= 32768)
+      if (x >= 32768) {
         x -= 65536;
-      if (y >= 32768)
+      }
+      if (y >= 32768) {
         y -= 65536;
+      }
     }
     int64_t value = op < 4     ? ((op & 1) ? x - y : x + y)
                     : op == 8  ? x * y
                     : (op & 1) ? (x > y ? x : y)
                                : (x < y ? x : y);
     if (op >= 9) {
-      if (op == 11 && y >= 32768)
+      if (op == 11 && y >= 32768) {
         y -= 65536;
+      }
       const int64_t power = 1LL << (x % 16);
       // Arithmetic right shift rounds negative quotients down, unlike C++ division.
       value = op == 9 ? y * power : (y >= 0 ? y / power : -((-y + power - 1) / power));
     }
     if (op < 4 && (mode & RJ_ARITH_PK_CLAMP)) {
       int64_t low = sign ? -32768 : 0, high = sign ? 32767 : 65535;
-      if (value < low)
+      if (value < low) {
         value = low;
-      if (value > high)
+      }
+      if (value > high) {
         value = high;
+      }
     }
     result |= (uint32_t(value) & 65535) << (16 * half);
   }

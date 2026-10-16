@@ -23,12 +23,14 @@ inline uint32_t narrow_fp8(uint32_t raw, uint32_t seed, bool saturate) {
   // Keep sign separate while rounding magnitude; E4M3FN and E5M2 have different terminal
   // encodings.
   uint32_t magnitude = raw & 0x7fffffff, sign = (raw >> 24) & 128;
-  if (magnitude > 0x7f800000)
+  if (magnitude > 0x7f800000) {
     return Bf8 ? 0xfe : 0xff;
+  }
   unsigned limit = terminal - (saturate && magnitude != 0x7f800000);
   int exponent = int(magnitude >> 23) - (Bf8 ? 112 : 120);
-  if (exponent >= (Bf8 ? 31 : 16))
+  if (exponent >= (Bf8 ? 31 : 16)) {
     return sign | limit;
+  }
   uint32_t significand = (magnitude & 0x7fffff) | 0x800000, result;
   if constexpr (Stochastic) {
     // Align to the minimum normal exponent before adding the high seed bits.
@@ -38,12 +40,14 @@ inline uint32_t narrow_fp8(uint32_t raw, uint32_t seed, bool saturate) {
     result = (significand + (seed >> (9 + fraction_bits))) >> (23 - fraction_bits);
   } else {
     unsigned shift = 23 - fraction_bits + (exponent < 1 ? unsigned(1 - exponent) : 0);
-    if (shift > 24)
+    if (shift > 24) {
       return sign;
+    }
     result = (significand + (1u << (shift - 1)) - 1 + ((significand >> shift) & 1)) >> shift;
   }
-  if (exponent > 0)
+  if (exponent > 0) {
     result += unsigned(exponent - 1) << fraction_bits;
+  }
   return sign | (result < limit ? result : limit);
 }
 

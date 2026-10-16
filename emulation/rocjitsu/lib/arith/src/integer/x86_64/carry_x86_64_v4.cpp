@@ -43,8 +43,9 @@ uint32_t carry_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
       }
     }
     output_carry |= uint32_t(co) << lane;
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       result = _mm512_mask_mov_epi32(result, co, _mm512_set1_epi32(Op == CarryOp::Add ? -1 : 0));
+    }
     _mm512_mask_storeu_epi32(d[0] + lane, __mmask16(exec_mask >> lane), result);
   }
   return output_carry & exec_mask;

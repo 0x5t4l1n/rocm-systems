@@ -14,12 +14,14 @@ namespace {
 
 // Extract the selected narrow factor and sign- or zero-extend it to 32-bit lanes.
 template <int Bits, bool Signed> __m256i input(__m256i value, int shift) {
-  if constexpr (Bits == 16)
+  if constexpr (Bits == 16) {
     value = _mm256_srlv_epi32(value, _mm256_set1_epi32(shift));
-  if constexpr (Signed)
+  }
+  if constexpr (Signed) {
     return _mm256_srai_epi32(_mm256_slli_epi32(value, 32 - Bits), 32 - Bits);
-  else
+  } else {
     return _mm256_and_si256(value, _mm256_set1_epi32((1 << Bits) - 1));
+  }
 }
 
 // Return selected even/odd multiply-add lanes clamped to the signed/unsigned 32-bit range.
@@ -31,8 +33,9 @@ template <bool Signed, bool Odd> __m256i saturated(__m256i a, __m256i b, __m256i
   }
   const auto low_word = _mm256_set1_epi64x(INT64_C(0xffffffff));
   auto addend = _mm256_and_si256(c, low_word);
-  if constexpr (Signed)
+  if constexpr (Signed) {
     addend = _mm256_or_si256(addend, _mm256_slli_epi64(_mm256_srai_epi32(c, 31), 32));
+  }
   auto product = Signed ? _mm256_mul_epi32(a, b) : _mm256_mul_epu32(a, b);
   auto value = _mm256_add_epi64(product, addend);
   if constexpr (Signed) {

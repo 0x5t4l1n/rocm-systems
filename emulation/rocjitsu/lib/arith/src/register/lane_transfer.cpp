@@ -16,8 +16,9 @@ namespace {
 
 // Validate the instruction's accepted flags before operand access or output writes.
 int validate(uint64_t flags, uint64_t mode) {
-  if (mode >> 32)
+  if (mode >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return rocjitsu::arith::validate(flags, uint32_t(mode), true);
 }
 
@@ -29,10 +30,12 @@ int rj_arith_v_readfirstlane_b32_w32(uint64_t flags, uint32_t exec_mask, uint64_
                                      uint32_t *d, const uint32_t *const *a) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   int lane = exec_mask ? rocjitsu::arith::bit_count_zero<true>(exec_mask) : 0;
   *d = a[0][lane];
   return RJ_ARITH_SUCCESS;
@@ -44,10 +47,12 @@ int rj_arith_v_readlane_b32_w32(uint64_t flags, uint64_t instruction_flags, uint
                                 const uint32_t *const *a, uint32_t lane) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   *d = a[0][lane & 31];
   return RJ_ARITH_SUCCESS;
 }
@@ -58,10 +63,12 @@ int rj_arith_v_writelane_b32_w32(uint64_t flags, uint64_t instruction_flags, uin
                                  uint32_t a, uint32_t lane) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   d[0][lane & 31] = a;
   return RJ_ARITH_SUCCESS;
 }
@@ -72,10 +79,12 @@ int rj_arith_v_readfirstlane_b32_w64(uint64_t flags, uint64_t exec_mask, uint64_
                                      uint32_t *d, const uint32_t *const *a) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   int lane = exec_mask ? rocjitsu::arith::bit_count_zero<true>(exec_mask) : 0;
   *d = a[0][lane];
   return RJ_ARITH_SUCCESS;
@@ -87,10 +96,12 @@ int rj_arith_v_readlane_b32_w64(uint64_t flags, uint64_t instruction_flags, uint
                                 const uint32_t *const *a, uint32_t lane) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   *d = a[0][lane & 63];
   return RJ_ARITH_SUCCESS;
 }
@@ -101,10 +112,12 @@ int rj_arith_v_writelane_b32_w64(uint64_t flags, uint64_t instruction_flags, uin
                                  uint32_t a, uint32_t lane) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (int error = validate(flags, instruction_flags))
+  }
+  if (int error = validate(flags, instruction_flags)) {
     return error;
+  }
   d[0][lane & 63] = a;
   return RJ_ARITH_SUCCESS;
 }

@@ -26,25 +26,29 @@ void run(uint32_t exec_mask, uint32_t modifiers, uint32_t *d, const uint32_t *a,
     __m256 value = _mm256_castsi256_ps(_mm256_xor_si256(
         _mm256_and_si256(_mm256_loadu_si256(reinterpret_cast<const __m256i *>(a + lane)), keep),
         flip));
-    if constexpr (unary_flushes_f32<Op>)
+    if constexpr (unary_flushes_f32<Op>) {
       value = flush_denorm_f32(value);
-    else {
-      if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)
+    } else {
+      if (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS) {
         value = flush_denorm_f32(value);
+      }
     }
     value = unary_value<Op>(value);
-    if constexpr (unary_flushes_f32<Op>)
+    if constexpr (unary_flushes_f32<Op>) {
       value = flush_denorm_f32(value);
+    }
     if (modifiers & RJ_ARITH_ALU_OMOD_HALF) {
       value = prepare_omod_f32(value, modifiers);
       value = _mm256_mul_ps(value, scale);
     } else if constexpr (Op == Unary::Fract) {
       // OMOD already enforces output flushing, independently of guest policy.
-      if (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)
+      if (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) {
         value = flush_denorm_f32(value);
+      }
     }
-    if (modifiers & RJ_ARITH_ALU_CLAMP)
+    if (modifiers & RJ_ARITH_ALU_CLAMP) {
       value = clamp_f32(value, flags & RJ_ARITH_FP_DX10_CLAMP_OFF);
+    }
     __m256i lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                                _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));
     _mm256_maskstore_epi32(reinterpret_cast<int *>(d + lane), lane_exec_mask,

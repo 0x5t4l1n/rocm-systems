@@ -22,12 +22,15 @@ void shift_x86_64_v3(uint32_t exec_mask, uint32_t *const *d, const uint32_t *a,
     const __m256i lo = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(b[0] + lane));
     __m256i low, high;
     if constexpr (Bits == 32) {
-      if constexpr (Op == Shift::Left)
+      if constexpr (Op == Shift::Left) {
         low = _mm256_sllv_epi32(lo, count);
-      if constexpr (Op == Shift::LogicalRight)
+      }
+      if constexpr (Op == Shift::LogicalRight) {
         low = _mm256_srlv_epi32(lo, count);
-      if constexpr (Op == Shift::ArithmeticRight)
+      }
+      if constexpr (Op == Shift::ArithmeticRight) {
         low = _mm256_srav_epi32(lo, count);
+      }
     } else {
       const __m256i hi = _mm256_loadu_si256(reinterpret_cast<const __m256i *>(b[1] + lane));
       const __m256i complement = _mm256_sub_epi32(_mm256_set1_epi32(32), count);
@@ -58,8 +61,9 @@ void shift_x86_64_v3(uint32_t exec_mask, uint32_t *const *d, const uint32_t *a,
         _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                           _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));
     _mm256_maskstore_epi32(reinterpret_cast<int *>(d[0] + lane), lane_exec_mask, low);
-    if constexpr (Bits == 64)
+    if constexpr (Bits == 64) {
       _mm256_maskstore_epi32(reinterpret_cast<int *>(d[1] + lane), lane_exec_mask, high);
+    }
   }
 }
 

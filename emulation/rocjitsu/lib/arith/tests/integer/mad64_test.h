@@ -50,8 +50,8 @@ template <int Lanes, class Call> void check_mad64(Call call, bool is_signed) {
       },
       RJ_ARITH_ALU_CLAMP);
   const auto cpu_levels = supported_cpu_levels();
-  for (uint64_t cpu : cpu_levels)
-    for (uint64_t semantics : semantics_modes())
+  for (uint64_t cpu : cpu_levels) {
+    for (uint64_t semantics : semantics_modes()) {
       for (int scenario = 0; scenario < 7; ++scenario) {
         uint64_t mode = scenario >= 5 ? RJ_ARITH_ALU_CLAMP : 0;
         Mask exec_mask = exec_mask_for_case<Lanes>(scenario < 5 ? scenario : scenario % 2 ? 0 : 3);
@@ -67,21 +67,24 @@ template <int Lanes, class Call> void check_mad64(Call call, bool is_signed) {
           auto r = input, expected = input;
           Mask carry = ~Mask(0), want_carry = 0;
           for (int lane = 0; lane < Lanes; ++lane) {
-            if (!((exec_mask >> lane) & 1))
+            if (!((exec_mask >> lane) & 1)) {
               continue;
+            }
             auto result = mad64_reference(is_signed, input.v[0][lane], input.v[2][lane],
                                           input.v[4][lane] | (uint64_t(input.v[5][lane]) << 32),
                                           mode & RJ_ARITH_ALU_CLAMP);
             expected.v[offset][lane] = uint32_t(result.value);
             expected.v[offset + !repeated][lane] = uint32_t(result.value >> 32);
-            if (result.carry)
+            if (result.carry) {
               want_carry |= Mask(1) << lane;
+            }
           }
           bool carry_alias = alias == 4 || alias == 5;
           void *storage =
               carry_alias ? static_cast<void *>(r.v[0] + 1) : static_cast<void *>(&carry);
-          if (carry_alias)
+          if (carry_alias) {
             std::memcpy(expected.v[0] + 1, &want_carry, sizeof want_carry);
+          }
           uint32_t *dest[] = {r.v[offset], r.v[offset + !repeated]};
           ASSERT_EQ(call(cpu | semantics, exec_mask, mode, exec_mask ? dest : nullptr,
                          static_cast<Mask *>(storage), exec_mask ? r.v : nullptr,
@@ -92,6 +95,8 @@ template <int Lanes, class Call> void check_mad64(Call call, bool is_signed) {
           expect_integer_registers(r, expected);
         }
       }
+    }
+  }
 }
 
 } // namespace rocjitsu::arith::test

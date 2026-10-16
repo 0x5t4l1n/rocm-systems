@@ -22,16 +22,19 @@ int run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d, u
                          RJ_ARITH_ALU_OMOD_HALF | RJ_ARITH_ALU_CLAMP;
 
   // RDNA3 ignores OMOD with preserved output denormals or IEEE enabled.
-  if constexpr (Rdna3)
-    if (!(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) || (flags & RJ_ARITH_FP_IEEE_MODE))
+  if constexpr (Rdna3) {
+    if (!(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS) || (flags & RJ_ARITH_FP_IEEE_MODE)) {
       mode &= ~RJ_ARITH_ALU_OMOD_HALF;
+    }
+  }
 
   // The borrowed RDNA3 model covers unscaled results, not active OMOD.
   if (int error = rocjitsu::arith::validate(
           flags, mode & ~known, !Rdna3 || !(mode & RJ_ARITH_ALU_OMOD_HALF),
           RJ_ARITH_FP_FLUSH_INPUT_DENORMALS | RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS |
-              RJ_ARITH_FP_IEEE_MODE | RJ_ARITH_FP_ROUND_MASK))
+              RJ_ARITH_FP_IEEE_MODE | RJ_ARITH_FP_ROUND_MASK)) {
     return error;
+  }
   if (!exec_mask) {
     *condition = 0;
     return RJ_ARITH_SUCCESS;
@@ -65,10 +68,13 @@ int run(uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d, u
     result[lane] = scaled.value;
     output_mask |= uint32_t(scaled.post_scale) << lane;
   }
-  for (int reg = 0; reg < (Width == 64 ? 2 : 1); ++reg)
-    for (int lane = 0; lane < 32; ++lane)
-      if ((exec_mask >> lane) & 1)
+  for (int reg = 0; reg < (Width == 64 ? 2 : 1); ++reg) {
+    for (int lane = 0; lane < 32; ++lane) {
+      if ((exec_mask >> lane) & 1) {
         d[reg][lane] = uint32_t(result[lane] >> (Width == 64 ? 32 * reg : 0));
+      }
+    }
+  }
   *condition = output_mask & exec_mask;
   return RJ_ARITH_SUCCESS;
 }
@@ -81,8 +87,9 @@ int run_wave64(uint64_t flags, uint64_t exec_mask, uint32_t mode, uint32_t *cons
                const uint32_t *const *c) {
   uint32_t half_condition = 0;
   if (int error =
-          run<Width, Rdna3>(flags, 0, mode, nullptr, &half_condition, nullptr, nullptr, nullptr))
+          run<Width, Rdna3>(flags, 0, mode, nullptr, &half_condition, nullptr, nullptr, nullptr)) {
     return error;
+  }
   uint64_t result_condition = 0;
   if (exec_mask) {
     for (int half = 0; half < 2; ++half) {
@@ -95,8 +102,9 @@ int run_wave64(uint64_t flags, uint64_t exec_mask, uint32_t mode, uint32_t *cons
         cv[reg] = c[reg] + half * 32;
       }
       if (int error = run<Width, Rdna3>(flags, uint32_t(exec_mask >> (half * 32)), mode, dest,
-                                        &half_condition, av, bv, cv))
+                                        &half_condition, av, bv, cv)) {
         return error;
+      }
       result_condition |= uint64_t(half_condition) << (half * 32);
     }
   }
@@ -117,10 +125,12 @@ int rj_arith_v_div_scale_f32_w32_gfx12(uint64_t flags, uint32_t exec_mask,
                                        const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run<32>(flags, exec_mask, instruction_flags, d, condition, a, b, c);
 }
 
@@ -132,10 +142,12 @@ int rj_arith_v_div_scale_f64_w32_gfx12(uint64_t flags, uint32_t exec_mask,
                                        const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run<64>(flags, exec_mask, instruction_flags, d, condition, a, b, c);
 }
 
@@ -147,10 +159,12 @@ int rj_arith_v_div_scale_f32_w64_gfx12(uint64_t flags, uint64_t exec_mask,
                                        const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run_wave64<32>(flags, exec_mask, instruction_flags, d, condition, a, b, c);
 }
 
@@ -162,10 +176,12 @@ int rj_arith_v_div_scale_f64_w64_gfx12(uint64_t flags, uint64_t exec_mask,
                                        const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run_wave64<64>(flags, exec_mask, instruction_flags, d, condition, a, b, c);
 }
 
@@ -179,10 +195,12 @@ int rj_arith_v_div_scale_f64_w32(uint64_t flags, uint32_t exec_mask, uint64_t in
               !(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
                  ? RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS
                  : RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run<64, true>(flags, exec_mask, instruction_flags, d, condition, a, b, c);
 }
 
@@ -196,10 +214,12 @@ int rj_arith_v_div_scale_f64_w64(uint64_t flags, uint64_t exec_mask, uint64_t in
               !(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
                  ? RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS
                  : RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run_wave64<64, true>(flags, exec_mask, instruction_flags, d, condition, a, b, c);
 }
 
@@ -213,10 +233,12 @@ int rj_arith_v_div_scale_f32_w32(uint64_t flags, uint32_t exec_mask, uint64_t in
               !(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
                  ? RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS
                  : RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run<32, true>(flags, exec_mask, instruction_flags, d, condition, a, b, c);
 }
 
@@ -230,9 +252,11 @@ int rj_arith_v_div_scale_f32_w64(uint64_t flags, uint64_t exec_mask, uint64_t in
               !(flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
                  ? RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS
                  : RJ_ARITH_SEMANTICS_LOOSE);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return run_wave64<32, true>(flags, exec_mask, instruction_flags, d, condition, a, b, c);
 }

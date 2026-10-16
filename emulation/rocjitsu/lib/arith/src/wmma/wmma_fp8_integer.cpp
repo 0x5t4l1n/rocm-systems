@@ -32,9 +32,11 @@ template <int Bits, int K = 16> uint32_t element(const uint32_t *const *v, int i
 // Commit a staged FP32/INT32 tile to eight 32-lane destination sections.
 // Ascending stores make the last destination register win if D entries alias.
 void store(uint32_t *const *d, const uint32_t (&result)[8][32]) {
-  for (int reg = 0; reg < 8; ++reg)
-    for (int lane = 0; lane < 32; ++lane)
+  for (int reg = 0; reg < 8; ++reg) {
+    for (int lane = 0; lane < 32; ++lane) {
       d[reg][lane] = result[reg][lane];
+    }
+  }
 }
 
 // Evaluate a gfx12 Wave32 FP8/BF8 tile with resolved semantics. D may alias
@@ -45,11 +47,12 @@ int floating(uint64_t flags, uint32_t modifiers, uint32_t *const *d, const uint3
   // Captured C ABS/NEG bits are ignored aliases. A/B modifiers remain unsupported.
   if (int error =
           rocjitsu::arith::validate(flags, modifiers & ~(RJ_ARITH_WMMA_NEG_C | RJ_ARITH_WMMA_ABS_C),
-                                    true, rocjitsu::arith::matrix_ignored_fp_flags))
+                                    true, rocjitsu::arith::matrix_ignored_fp_flags)) {
     return error;
+  }
   if (rocjitsu::arith::is_exact(flags)) {
     uint32_t result[8][32];
-    for (int row = 0; row < 16; ++row)
+    for (int row = 0; row < 16; ++row) {
       for (int col = 0; col < 16; ++col) {
         int lane = col + 16 * (row / 8), reg = row % 8;
         uint32_t acc = c[reg][lane];
@@ -63,6 +66,7 @@ int floating(uint64_t flags, uint32_t modifiers, uint32_t *const *d, const uint3
         }
         result[reg][lane] = acc;
       }
+    }
     store(d, result);
     return RJ_ARITH_SUCCESS;
   }
@@ -73,16 +77,18 @@ int floating(uint64_t flags, uint32_t modifiers, uint32_t *const *d, const uint3
   }
 #endif
   uint32_t result[8][32];
-  for (int row = 0; row < 16; ++row)
+  for (int row = 0; row < 16; ++row) {
     for (int col = 0; col < 16; ++col) {
       int lane = col + 16 * (row / 8), reg = row % 8;
       uint32_t bits = c[reg][lane];
       float acc = rocjitsu::arith::as_float(bits);
-      for (int k = 0; k < 16; ++k)
+      for (int k = 0; k < 16; ++k) {
         acc = std::fma(rocjitsu::arith::fp8_to_float<Bf8A>(uint8_t(element<8>(a, row, k))),
                        rocjitsu::arith::fp8_to_float<Bf8B>(uint8_t(element<8>(b, col, k))), acc);
+      }
       result[reg][lane] = rocjitsu::arith::as_bits(acc);
     }
+  }
   store(d, result);
   return RJ_ARITH_SUCCESS;
 }
@@ -94,8 +100,9 @@ int floating_wave64(uint64_t flags, uint32_t modifiers, uint32_t *const *d,
                     const uint32_t *const *a, const uint32_t *const *b, const uint32_t *const *c) {
   if (int error =
           rocjitsu::arith::validate(flags, modifiers & ~(RJ_ARITH_WMMA_NEG_C | RJ_ARITH_WMMA_ABS_C),
-                                    true, rocjitsu::arith::matrix_ignored_fp_flags))
+                                    true, rocjitsu::arith::matrix_ignored_fp_flags)) {
     return error;
+  }
   // RDNA4 7.12.2: view upper Wave64 lanes as extra 32-lane registers.
   // The delegated kernel reads all sources before writing these views.
   const uint32_t *av[] = {a[0], a[0] + 32}, *bv[] = {b[0], b[0] + 32};
@@ -116,8 +123,9 @@ int integer(uint64_t flags, uint32_t modifiers, uint32_t *const *d, const uint32
   if (int error = rocjitsu::arith::validate(
           flags,
           modifiers & ~(RJ_ARITH_WMMA_SIGNED_A | RJ_ARITH_WMMA_SIGNED_B | RJ_ARITH_WMMA_CLAMP),
-          true))
+          true)) {
     return error;
+  }
 #if defined(RJ_ARITH_HAVE_AVX512VNNI)
   if ((flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_ZEN4) {
     rocjitsu::arith::integer_wmma_avx512vnni(Bits, K, modifiers, d, a, b, c);
@@ -135,7 +143,7 @@ int integer(uint64_t flags, uint32_t modifiers, uint32_t *const *d, const uint32
     return int64_t(bits) - (is_signed && (bits & (1u << (Bits - 1))) ? (1u << Bits) : 0);
   };
   uint32_t result[8][32];
-  for (int row = 0; row < 16; ++row)
+  for (int row = 0; row < 16; ++row) {
     for (int col = 0; col < 16; ++col) {
       int lane = col + 16 * (row / 8), reg = row % 8;
       uint32_t bits = c[reg][lane];
@@ -149,12 +157,14 @@ int integer(uint64_t flags, uint32_t modifiers, uint32_t *const *d, const uint32
           acc += extend(element<Bits, K>(a, row, k), modifiers & RJ_ARITH_WMMA_SIGNED_A) *
                  extend(element<Bits, K>(b, col, k), modifiers & RJ_ARITH_WMMA_SIGNED_B);
         }
-        if (clamp)
+        if (clamp) {
           acc = std::clamp(acc, -INT64_C(2147483648), INT64_C(2147483647));
+        }
       }
       // Unsigned conversion implements modulo 2^32 without signed overflow.
       result[reg][lane] = uint32_t(acc);
     }
+  }
   store(d, result);
   return RJ_ARITH_SUCCESS;
 }
@@ -167,8 +177,9 @@ int integer_wave64(uint64_t flags, uint32_t modifiers, uint32_t *const *d, const
   if (int error = rocjitsu::arith::validate(
           flags,
           modifiers & ~(RJ_ARITH_WMMA_SIGNED_A | RJ_ARITH_WMMA_SIGNED_B | RJ_ARITH_WMMA_CLAMP),
-          true))
+          true)) {
     return error;
+  }
   // RDNA4 7.12.2: view upper Wave64 lanes as extra 32-lane registers.
   // The delegated kernel reads all sources before writing these views.
   const uint32_t *av[] = {a[0], a[0] + 32}, *bv[] = {b[0], b[0] + 32};
@@ -191,10 +202,12 @@ int rj_arith_v_wmma_f32_16x16x16_fp8_fp8_w32(uint64_t flags, uint64_t instructio
                                              const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return floating<false, false>(flags, instruction_flags, d, a, b, c);
 }
 
@@ -206,10 +219,12 @@ int rj_arith_v_wmma_f32_16x16x16_fp8_bf8_w32(uint64_t flags, uint64_t instructio
                                              const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return floating<false, true>(flags, instruction_flags, d, a, b, c);
 }
 
@@ -221,10 +236,12 @@ int rj_arith_v_wmma_f32_16x16x16_bf8_fp8_w32(uint64_t flags, uint64_t instructio
                                              const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return floating<true, false>(flags, instruction_flags, d, a, b, c);
 }
 
@@ -236,10 +253,12 @@ int rj_arith_v_wmma_f32_16x16x16_bf8_bf8_w32(uint64_t flags, uint64_t instructio
                                              const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return floating<true, true>(flags, instruction_flags, d, a, b, c);
 }
 
@@ -251,10 +270,12 @@ int rj_arith_v_wmma_i32_16x16x16_iu8_w32_gfx12(uint64_t flags, uint64_t instruct
                                                const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return integer<8, 16>(flags, instruction_flags, d, a, b, c);
 }
 
@@ -266,10 +287,12 @@ int rj_arith_v_wmma_i32_16x16x16_iu4_w32_gfx12(uint64_t flags, uint64_t instruct
                                                const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return integer<4, 16>(flags, instruction_flags, d, a, b, c);
 }
 
@@ -281,10 +304,12 @@ int rj_arith_v_wmma_i32_16x16x32_iu4_w32(uint64_t flags, uint64_t instruction_fl
                                          const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return integer<4, 32>(flags, instruction_flags, d, a, b, c);
 }
 
@@ -296,10 +321,12 @@ int rj_arith_v_wmma_f32_16x16x16_fp8_fp8_w64(uint64_t flags, uint64_t instructio
                                              const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return floating_wave64<false, false>(flags, instruction_flags, d, a, b, c);
 }
 
@@ -311,10 +338,12 @@ int rj_arith_v_wmma_f32_16x16x16_fp8_bf8_w64(uint64_t flags, uint64_t instructio
                                              const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return floating_wave64<false, true>(flags, instruction_flags, d, a, b, c);
 }
 
@@ -326,10 +355,12 @@ int rj_arith_v_wmma_f32_16x16x16_bf8_fp8_w64(uint64_t flags, uint64_t instructio
                                              const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return floating_wave64<true, false>(flags, instruction_flags, d, a, b, c);
 }
 
@@ -341,10 +372,12 @@ int rj_arith_v_wmma_f32_16x16x16_bf8_bf8_w64(uint64_t flags, uint64_t instructio
                                              const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return floating_wave64<true, true>(flags, instruction_flags, d, a, b, c);
 }
 
@@ -356,10 +389,12 @@ int rj_arith_v_wmma_i32_16x16x16_iu8_w64_gfx12(uint64_t flags, uint64_t instruct
                                                const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return integer_wave64<8, 16>(flags, instruction_flags, d, a, b, c);
 }
 
@@ -371,10 +406,12 @@ int rj_arith_v_wmma_i32_16x16x16_iu4_w64_gfx12(uint64_t flags, uint64_t instruct
                                                const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return integer_wave64<4, 16>(flags, instruction_flags, d, a, b, c);
 }
 
@@ -386,9 +423,11 @@ int rj_arith_v_wmma_i32_16x16x32_iu4_w64(uint64_t flags, uint64_t instruction_fl
                                          const uint32_t *const *b, const uint32_t *const *c) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
-  if (instruction_flags >> 32)
+  }
+  if (instruction_flags >> 32) {
     return RJ_ARITH_ERROR_INVALID_FLAGS;
+  }
   return integer_wave64<4, 32>(flags, instruction_flags, d, a, b, c);
 }

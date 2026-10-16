@@ -26,8 +26,9 @@ inline uint64_t shift_reference(int bits, Shift operation, uint32_t count, uint6
     bool value = source >= 0 && source < bits ? (input >> source) & 1
                  : source >= bits && op == 2  ? (input >> (bits - 1)) & 1
                                               : false;
-    if (value)
+    if (value) {
       result |= 1ULL << bit;
+    }
   }
   return result;
 }

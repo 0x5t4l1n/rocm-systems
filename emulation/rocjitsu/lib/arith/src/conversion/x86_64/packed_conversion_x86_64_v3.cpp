@@ -17,9 +17,9 @@ template <PackedConversion Op> __m256i narrow(__m256i raw, uint32_t mode) {
   raw = _mm256_and_si256(raw, _mm256_set1_epi32(mode & RJ_ARITH_ALU_ABS_A ? INT32_MAX : -1));
   raw = _mm256_xor_si256(raw, _mm256_set1_epi32(mode & RJ_ARITH_ALU_NEG_A ? INT32_MIN : 0));
   auto value = _mm256_castsi256_ps(raw);
-  if constexpr (Op == PackedConversion::HalfRtz)
+  if constexpr (Op == PackedConversion::HalfRtz) {
     return _mm256_cvtepu16_epi32(_mm256_cvtps_ph(value, _MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC));
-  else if constexpr (Op == PackedConversion::Unsigned) {
+  } else if constexpr (Op == PackedConversion::Unsigned) {
     value = _mm256_min_ps(_mm256_max_ps(value, _mm256_setzero_ps()), _mm256_set1_ps(65535));
     return _mm256_cvttps_epi32(value);
   } else {

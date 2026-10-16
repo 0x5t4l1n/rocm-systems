@@ -33,8 +33,9 @@ void run32(uint64_t flags, uint32_t mode, uint32_t result[2][32], const uint32_t
     adjustment = _mm256_min_epi32(_mm256_max_epi32(adjustment, _mm256_set1_epi32(-4096)),
                                   _mm256_set1_epi32(4096));
     raw = _mm256_xor_si256(_mm256_and_si256(raw, keep), flip);
-    if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS))
+    if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)) {
       raw = _mm256_castps_si256(flush_denorm_f32(_mm256_castsi256_ps(raw)));
+    }
     auto magnitude = _mm256_and_si256(raw, _mm256_set1_epi32(INT32_MAX));
     auto subnormal = _mm256_cmpgt_epi32(_mm256_set1_epi32(0x800000), magnitude);
     auto small = _mm256_and_si256(raw, subnormal);
@@ -85,12 +86,14 @@ void run32(uint64_t flags, uint32_t mode, uint32_t result[2][32], const uint32_t
     }
     if (mode & RJ_ARITH_ALU_CLAMP) {
       auto clamped = _mm256_min_ps(_mm256_max_ps(value, _mm256_setzero_ps()), _mm256_set1_ps(1));
-      if (GuestDenormals && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF))
+      if (GuestDenormals && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF)) {
         clamped = _mm256_blendv_ps(clamped, value, _mm256_cmp_ps(value, value, _CMP_UNORD_Q));
+      }
       value = clamped;
     }
-    if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
+    if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) {
       value = flush_denorm_f32(value);
+    }
     bits = _mm256_castps_si256(value);
     _mm256_storeu_si256(reinterpret_cast<__m256i *>(result[0] + lane), bits);
   }
@@ -113,8 +116,9 @@ void run64(uint64_t flags, uint32_t mode, uint32_t result[2][32], const uint32_t
     power = _mm_min_epi32(_mm_max_epi32(power, _mm_set1_epi32(-4096)), _mm_set1_epi32(4096));
     auto adjustment = _mm256_cvtepi32_epi64(power);
     raw = _mm256_xor_si256(_mm256_and_si256(raw, keep), flip);
-    if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS))
+    if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_INPUT_DENORMALS)) {
       raw = _mm256_castpd_si256(flush_denorm_f64(_mm256_castsi256_pd(raw)));
+    }
     auto magnitude = _mm256_and_si256(raw, _mm256_set1_epi64x(INT64_MAX));
     auto subnormal = _mm256_cmpgt_epi64(_mm256_set1_epi64x(INT64_C(0x10000000000000)), magnitude);
     auto small = _mm256_and_si256(raw, subnormal);
@@ -160,12 +164,14 @@ void run64(uint64_t flags, uint32_t mode, uint32_t result[2][32], const uint32_t
     }
     if (mode & RJ_ARITH_ALU_CLAMP) {
       auto clamped = _mm256_min_pd(_mm256_max_pd(value, _mm256_setzero_pd()), _mm256_set1_pd(1));
-      if (GuestDenormals && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF))
+      if (GuestDenormals && (flags & RJ_ARITH_FP_DX10_CLAMP_OFF)) {
         clamped = _mm256_blendv_pd(clamped, value, _mm256_cmp_pd(value, value, _CMP_UNORD_Q));
+      }
       value = clamped;
     }
-    if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS))
+    if (GuestDenormals && (flags & RJ_ARITH_FP_FLUSH_OUTPUT_DENORMALS)) {
       value = flush_denorm_f64(value);
+    }
     bits = _mm256_castpd_si256(value);
     auto packed = _mm256_permutevar8x32_epi32(bits, _mm256_setr_epi32(0, 2, 4, 6, 1, 3, 5, 7));
     _mm_storeu_si128(reinterpret_cast<__m128i *>(result[0] + lane), _mm256_castsi256_si128(packed));
@@ -180,11 +186,12 @@ template <bool GuestDenormals>
 void run(bool fp64, uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t *const *d,
          const uint32_t *const *a, const uint32_t *b) {
   uint32_t result[2][32];
-  if (fp64)
+  if (fp64) {
     run64<GuestDenormals>(flags, mode, result, a, b);
-  else
+  } else {
     run32<GuestDenormals>(flags, mode, result, a, b);
-  for (int reg = 0; reg < (fp64 ? 2 : 1); ++reg)
+  }
+  for (int reg = 0; reg < (fp64 ? 2 : 1); ++reg) {
     for (int lane = 0; lane < 32; lane += 8) {
       auto lane_exec_mask = _mm256_sllv_epi32(_mm256_set1_epi32(int(exec_mask >> lane)),
                                               _mm256_setr_epi32(31, 30, 29, 28, 27, 26, 25, 24));
@@ -192,6 +199,7 @@ void run(bool fp64, uint64_t flags, uint32_t exec_mask, uint32_t mode, uint32_t 
           reinterpret_cast<int *>(d[reg] + lane), lane_exec_mask,
           _mm256_loadu_si256(reinterpret_cast<const __m256i *>(result[reg] + lane)));
     }
+  }
 }
 
 } // namespace

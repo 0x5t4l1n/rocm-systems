@@ -34,7 +34,7 @@ inline void swmmac_integer_prepare(SwmmacIntegerInputs &input, uint32_t mode, ui
   };
   unsigned key =
       Wave64 && Bits == 8 ? 8 * ((mode >> 7) & 3) : (mode & RJ_ARITH_SWMMAC_INDEX_KEY_1 ? 16 : 0);
-  for (int row = 0; row < 16; ++row)
+  for (int row = 0; row < 16; ++row) {
     for (int ck = 0; ck < K / 2; ++ck) {
       // Keep the accumulator kernels' stage ordering. Wave64 K=64 places
       // consecutive compressed halves in stages 0 and 1, unlike Wave32.
@@ -55,9 +55,10 @@ inline void swmmac_integer_prepare(SwmmacIntegerInputs &input, uint32_t mode, ui
       input.selected[row][ck] =
           uint8_t(4 * (position / 2) + ((index[0][lane] >> (key + 2 * local)) & 3));
     }
+  }
 
   // B remains dense; selected[row][ck] will choose its reduction coordinate.
-  for (int k = 0; k < K; ++k)
+  for (int k = 0; k < K; ++k) {
     for (int col = 0; col < 16; ++col) {
       int lane = col + 16 * ((k / 16) & 1), local = 16 * (k / 32) + k % 16;
       if constexpr (Wave64) {
@@ -68,11 +69,13 @@ inline void swmmac_integer_prepare(SwmmacIntegerInputs &input, uint32_t mode, ui
       uint32_t raw = (b[local * Bits / 32][lane] >> (local * Bits % 32)) & ((1u << Bits) - 1);
       input.b[k][col] = extend(raw, mode & RJ_ARITH_WMMA_SIGNED_B);
     }
-  for (int row = 0; row < 16; ++row)
+  }
+  for (int row = 0; row < 16; ++row) {
     for (int col = 0; col < 16; ++col) {
       uint32_t raw = d[row % 8][col + 16 * (row / 8)];
       input.acc[row][col] = int32_t(int64_t(raw) - ((raw >> 31) ? (INT64_C(1) << 32) : 0));
     }
+  }
 }
 
 // Return the compressed product position within one hardware accumulation stage.

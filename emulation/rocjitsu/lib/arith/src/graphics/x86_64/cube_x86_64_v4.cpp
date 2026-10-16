@@ -47,12 +47,13 @@ __m512i overflow(__m512i sign, unsigned round_mode) {
   auto magnitude = _mm512_set1_epi32(0x7f800000);
   const auto finite = _mm512_set1_epi32(0x7f7fffff);
   const auto zero = _mm512_setzero_si512();
-  if (round_mode == 1)
+  if (round_mode == 1) {
     magnitude = select(invert(equal(sign, zero)), finite, magnitude);
-  else if (round_mode == 2)
+  } else if (round_mode == 2) {
     magnitude = select(equal(sign, zero), finite, magnitude);
-  else if (round_mode == 3)
+  } else if (round_mode == 3) {
     magnitude = finite;
+  }
   return _mm512_or_si512(sign, magnitude);
 }
 
@@ -119,9 +120,9 @@ void cube_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *d, const uint32
       auto exponent = _mm512_and_si512(result, infinity);
       auto output_sign = _mm512_and_si512(result, sign_bit);
       __m512i scaled;
-      if (omod == 3)
+      if (omod == 3) {
         scaled = select(equal(exponent, step), output_sign, _mm512_sub_epi32(result, step));
-      else {
+      } else {
         auto increment = _mm512_set1_epi32(int(omod * 0x00800000));
         scaled = select(less_equal(_mm512_sub_epi32(infinity, increment), exponent),
                         overflow(output_sign, round_mode), _mm512_add_epi32(result, increment));
@@ -133,8 +134,9 @@ void cube_x86_64_v4(uint32_t exec_mask, uint32_t mode, uint32_t *d, const uint32
       auto unclamped = result;
       auto positive = select(greater(result, infinity), zero, result);
       result = _mm512_min_epi32(_mm512_max_epi32(positive, zero), _mm512_set1_epi32(0x3f800000));
-      if (!clamp_nan)
+      if (!clamp_nan) {
         result = select(nan, unclamped, result);
+      }
     }
     _mm512_mask_storeu_epi32(d + lane, __mmask16(exec_mask >> lane), result);
   }

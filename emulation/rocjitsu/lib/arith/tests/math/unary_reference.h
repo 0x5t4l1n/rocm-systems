@@ -19,13 +19,16 @@ namespace rocjitsu::arith::test {
 // binary32 rounding before output scaling.
 inline float unary_reference(int op, float input, uint32_t flags) {
   double x = input;
-  if (flags & RJ_ARITH_ALU_ABS_A)
+  if (flags & RJ_ARITH_ALU_ABS_A) {
     x = std::abs(x);
-  if (flags & RJ_ARITH_ALU_NEG_A)
+  }
+  if (flags & RJ_ARITH_ALU_NEG_A) {
     x = -x;
+  }
   bool flush = op >= 4 && op <= 8;
-  if (flush && std::abs(x) < std::ldexp(1.0, -126))
+  if (flush && std::abs(x) < std::ldexp(1.0, -126)) {
     x = std::copysign(0.0, x);
+  }
   double y = 0;
   switch (op) {
   case 10: {
@@ -64,19 +67,22 @@ inline float unary_reference(int op, float input, uint32_t flags) {
     break;
   case 9:
     y = x - std::floor(x);
-    if (y > double(bit_cast<float>(0x3f7fffff)))
+    if (y > double(bit_cast<float>(0x3f7fffff))) {
       y = bit_cast<float>(0x3f7fffff);
+    }
     break;
   case 8:
     y = std::log2(x);
     break;
   }
   float result = float(y);
-  if (flush && std::abs(result) < std::ldexp(1.0f, -126))
+  if (flush && std::abs(result) < std::ldexp(1.0f, -126)) {
     result = std::copysign(0.0f, result);
+  }
   result = rocjitsu::arith::test::omod_f32_reference(result, flags);
-  if (flags & RJ_ARITH_ALU_CLAMP)
+  if (flags & RJ_ARITH_ALU_CLAMP) {
     result = std::isnan(result) || result <= 0 ? 0 : std::min(result, 1.0f);
+  }
   return result;
 }
 

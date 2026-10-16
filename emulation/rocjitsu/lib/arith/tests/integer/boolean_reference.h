@@ -41,8 +41,9 @@ inline uint32_t boolean_reference(Boolean operation, uint32_t a, uint32_t b, uin
       value = !x;
       break;
     }
-    if (op == 8)
+    if (op == 8) {
       value = x == y;
+    }
     uint32_t mask = uint32_t(1) << (sd + bit);
     result = (result & ~mask) | (value ? mask : 0);
   }

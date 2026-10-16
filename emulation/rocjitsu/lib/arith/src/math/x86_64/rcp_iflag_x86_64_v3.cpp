@@ -38,10 +38,12 @@ uint32_t rcp_iflag_x86_64_v3(uint64_t flags, uint32_t exec_mask, uint32_t mode, 
           bits, zero,
           _mm256_cmpeq_epi32(_mm256_and_si256(bits, _mm256_set1_epi32(0x7fffffff)), zero));
       value = _mm256_mul_ps(_mm256_castsi256_ps(bits), scale);
-    } else
+    } else {
       value = _mm256_castsi256_ps(bits);
-    if (mode & RJ_ARITH_ALU_CLAMP)
+    }
+    if (mode & RJ_ARITH_ALU_CLAMP) {
       value = clamp_f32(value, flags & RJ_ARITH_FP_DX10_CLAMP_OFF);
+    }
     bits = _mm256_castps_si256(value);
     bits = _mm256_blendv_epi8(bits, _mm256_and_si256(bits, sign),
                               _mm256_cmpeq_epi32(_mm256_and_si256(bits, exponent), zero));

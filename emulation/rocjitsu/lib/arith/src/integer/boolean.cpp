@@ -17,23 +17,27 @@ namespace {
 template <rocjitsu::arith::Boolean Op, bool Half>
 int boolean(uint64_t flags, uint32_t exec_mask, uint64_t mode, uint32_t *const *d,
             const uint32_t *const *a, const uint32_t *const *b) {
-  if (mode >> 32)
+  if (mode >> 32) {
     return rocjitsu::arith::execute_dpp(
         flags, exec_mask, mode, a, [&](uint32_t exec_mask, const uint32_t *const *source) {
           return boolean<Op, Half>(flags, exec_mask, uint32_t(mode), d, source, b);
         });
+  }
 
   const uint32_t known = RJ_ARITH_ALU_CLAMP |
                          (Half ? RJ_ARITH_ALU_HIGH_A | RJ_ARITH_ALU_HIGH_D |
                                      (Op == rocjitsu::arith::Boolean::Not ? 0 : RJ_ARITH_ALU_HIGH_B)
                                : 0);
-  if (int error = rocjitsu::arith::validate(flags, mode & ~known, true))
+  if (int error = rocjitsu::arith::validate(flags, mode & ~known, true)) {
     return error;
-  if (!exec_mask)
+  }
+  if (!exec_mask) {
     return RJ_ARITH_SUCCESS;
+  }
   const uint32_t *bp = nullptr;
-  if constexpr (Op != rocjitsu::arith::Boolean::Not)
+  if constexpr (Op != rocjitsu::arith::Boolean::Not) {
     bp = b[0];
+  }
 #if defined(RJ_ARITH_HAVE_X86_64_V4)
   if ((flags & RJ_ARITH_CPU_MASK) >= RJ_ARITH_CPU_X86_64_V4) {
     rocjitsu::arith::boolean_x86_64_v4<Op, Half>(exec_mask, mode, d[0], a[0], bp);
@@ -57,23 +61,31 @@ int boolean(uint64_t flags, uint32_t exec_mask, uint64_t mode, uint32_t *const *
   uint32_t result[32];
   for (int lane = 0; lane < 32; ++lane) {
     uint32_t x = a[0][lane] >> sa, y = bp ? bp[lane] >> sb : 0;
-    if constexpr (Op == rocjitsu::arith::Boolean::And)
+    if constexpr (Op == rocjitsu::arith::Boolean::And) {
       result[lane] = x & y;
-    if constexpr (Op == rocjitsu::arith::Boolean::Or)
+    }
+    if constexpr (Op == rocjitsu::arith::Boolean::Or) {
       result[lane] = x | y;
-    if constexpr (Op == rocjitsu::arith::Boolean::Xor)
+    }
+    if constexpr (Op == rocjitsu::arith::Boolean::Xor) {
       result[lane] = x ^ y;
-    if constexpr (Op == rocjitsu::arith::Boolean::Xnor)
+    }
+    if constexpr (Op == rocjitsu::arith::Boolean::Xnor) {
       result[lane] = ~(x ^ y);
-    if constexpr (Op == rocjitsu::arith::Boolean::Not)
+    }
+    if constexpr (Op == rocjitsu::arith::Boolean::Not) {
       result[lane] = ~x;
-    if constexpr (Half)
+    }
+    if constexpr (Half) {
       result[lane] =
           (d[0][lane] & ~(uint32_t(65535) << sd)) | (uint32_t(uint16_t(result[lane])) << sd);
+    }
   }
-  for (int lane = 0; lane < 32; ++lane)
-    if ((exec_mask >> lane) & 1)
+  for (int lane = 0; lane < 32; ++lane) {
+    if ((exec_mask >> lane) & 1) {
       d[0][lane] = result[lane];
+    }
+  }
   return RJ_ARITH_SUCCESS;
 }
 
@@ -83,10 +95,12 @@ template <rocjitsu::arith::Boolean Op, bool Half>
 int boolean_wave64(uint64_t flags, uint64_t exec_mask, uint64_t mode, uint32_t *const *d,
                    const uint32_t *const *a, const uint32_t *const *b) {
   // Validate before either Wave64 half can modify outputs, even when EXEC is empty.
-  if (int error = boolean<Op, Half>(flags, 0, mode, nullptr, nullptr, nullptr))
+  if (int error = boolean<Op, Half>(flags, 0, mode, nullptr, nullptr, nullptr)) {
     return error;
-  if (!exec_mask)
+  }
+  if (!exec_mask) {
     return RJ_ARITH_SUCCESS;
+  }
 
   // DPP stays within 16-lane rows, so whole-VGPR aliases are safe across halves.
   for (int half = 0; half < 2; ++half) {
@@ -100,11 +114,13 @@ int boolean_wave64(uint64_t flags, uint64_t exec_mask, uint64_t mode, uint32_t *
     uint32_t *dest = d[0] + half * 32;
     const uint32_t *source_a = a[0] + half * 32;
     const uint32_t *source_b = nullptr;
-    if constexpr (Op != rocjitsu::arith::Boolean::Not)
+    if constexpr (Op != rocjitsu::arith::Boolean::Not) {
       source_b = b[0] + half * 32;
+    }
     if (int error = boolean<Op, Half>(flags, uint32_t(exec_mask >> (half * 32)), half_mode, &dest,
-                                      &source_a, &source_b))
+                                      &source_a, &source_b)) {
       return error;
+    }
   }
   return RJ_ARITH_SUCCESS;
 }
@@ -117,8 +133,9 @@ int rj_arith_v_and_b32_w32(uint64_t flags, uint32_t exec_mask, uint64_t instruct
                            uint32_t *const *d, const uint32_t *const *a, const uint32_t *const *b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean<rocjitsu::arith::Boolean::And, false>(flags, exec_mask, instruction_flags, d, a,
                                                        b);
 }
@@ -129,8 +146,9 @@ int rj_arith_v_or_b32_w32(uint64_t flags, uint32_t exec_mask, uint64_t instructi
                           uint32_t *const *d, const uint32_t *const *a, const uint32_t *const *b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean<rocjitsu::arith::Boolean::Or, false>(flags, exec_mask, instruction_flags, d, a, b);
 }
 
@@ -140,8 +158,9 @@ int rj_arith_v_xor_b32_w32(uint64_t flags, uint32_t exec_mask, uint64_t instruct
                            uint32_t *const *d, const uint32_t *const *a, const uint32_t *const *b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean<rocjitsu::arith::Boolean::Xor, false>(flags, exec_mask, instruction_flags, d, a,
                                                        b);
 }
@@ -152,8 +171,9 @@ int rj_arith_v_not_b32_w32(uint64_t flags, uint32_t exec_mask, uint64_t instruct
                            uint32_t *const *d, const uint32_t *const *a) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean<rocjitsu::arith::Boolean::Not, false>(flags, exec_mask, instruction_flags, d, a,
                                                        nullptr);
 }
@@ -164,8 +184,9 @@ int rj_arith_v_and_b16_w32(uint64_t flags, uint32_t exec_mask, uint64_t instruct
                            uint32_t *const *d, const uint32_t *const *a, const uint32_t *const *b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean<rocjitsu::arith::Boolean::And, true>(flags, exec_mask, instruction_flags, d, a, b);
 }
 
@@ -175,8 +196,9 @@ int rj_arith_v_or_b16_w32(uint64_t flags, uint32_t exec_mask, uint64_t instructi
                           uint32_t *const *d, const uint32_t *const *a, const uint32_t *const *b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean<rocjitsu::arith::Boolean::Or, true>(flags, exec_mask, instruction_flags, d, a, b);
 }
 
@@ -186,8 +208,9 @@ int rj_arith_v_xor_b16_w32(uint64_t flags, uint32_t exec_mask, uint64_t instruct
                            uint32_t *const *d, const uint32_t *const *a, const uint32_t *const *b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean<rocjitsu::arith::Boolean::Xor, true>(flags, exec_mask, instruction_flags, d, a, b);
 }
 
@@ -197,8 +220,9 @@ int rj_arith_v_not_b16_w32(uint64_t flags, uint32_t exec_mask, uint64_t instruct
                            uint32_t *const *d, const uint32_t *const *a) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean<rocjitsu::arith::Boolean::Not, true>(flags, exec_mask, instruction_flags, d, a,
                                                       nullptr);
 }
@@ -210,8 +234,9 @@ int rj_arith_v_xnor_b32_w32(uint64_t flags, uint32_t exec_mask, uint64_t instruc
                             const uint32_t *const *b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean<rocjitsu::arith::Boolean::Xnor, false>(flags, exec_mask, instruction_flags, d, a,
                                                         b);
 }
@@ -222,8 +247,9 @@ int rj_arith_v_and_b32_w64(uint64_t flags, uint64_t exec_mask, uint64_t instruct
                            uint32_t *const *d, const uint32_t *const *a, const uint32_t *const *b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean_wave64<rocjitsu::arith::Boolean::And, false>(flags, exec_mask, instruction_flags,
                                                               d, a, b);
 }
@@ -234,8 +260,9 @@ int rj_arith_v_or_b32_w64(uint64_t flags, uint64_t exec_mask, uint64_t instructi
                           uint32_t *const *d, const uint32_t *const *a, const uint32_t *const *b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean_wave64<rocjitsu::arith::Boolean::Or, false>(flags, exec_mask, instruction_flags, d,
                                                              a, b);
 }
@@ -246,8 +273,9 @@ int rj_arith_v_xor_b32_w64(uint64_t flags, uint64_t exec_mask, uint64_t instruct
                            uint32_t *const *d, const uint32_t *const *a, const uint32_t *const *b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean_wave64<rocjitsu::arith::Boolean::Xor, false>(flags, exec_mask, instruction_flags,
                                                               d, a, b);
 }
@@ -258,8 +286,9 @@ int rj_arith_v_not_b32_w64(uint64_t flags, uint64_t exec_mask, uint64_t instruct
                            uint32_t *const *d, const uint32_t *const *a) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean_wave64<rocjitsu::arith::Boolean::Not, false>(flags, exec_mask, instruction_flags,
                                                               d, a, nullptr);
 }
@@ -270,8 +299,9 @@ int rj_arith_v_and_b16_w64(uint64_t flags, uint64_t exec_mask, uint64_t instruct
                            uint32_t *const *d, const uint32_t *const *a, const uint32_t *const *b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean_wave64<rocjitsu::arith::Boolean::And, true>(flags, exec_mask, instruction_flags, d,
                                                              a, b);
 }
@@ -282,8 +312,9 @@ int rj_arith_v_or_b16_w64(uint64_t flags, uint64_t exec_mask, uint64_t instructi
                           uint32_t *const *d, const uint32_t *const *a, const uint32_t *const *b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean_wave64<rocjitsu::arith::Boolean::Or, true>(flags, exec_mask, instruction_flags, d,
                                                             a, b);
 }
@@ -294,8 +325,9 @@ int rj_arith_v_xor_b16_w64(uint64_t flags, uint64_t exec_mask, uint64_t instruct
                            uint32_t *const *d, const uint32_t *const *a, const uint32_t *const *b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean_wave64<rocjitsu::arith::Boolean::Xor, true>(flags, exec_mask, instruction_flags, d,
                                                              a, b);
 }
@@ -306,8 +338,9 @@ int rj_arith_v_not_b16_w64(uint64_t flags, uint64_t exec_mask, uint64_t instruct
                            uint32_t *const *d, const uint32_t *const *a) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean_wave64<rocjitsu::arith::Boolean::Not, true>(flags, exec_mask, instruction_flags, d,
                                                              a, nullptr);
 }
@@ -319,8 +352,9 @@ int rj_arith_v_xnor_b32_w64(uint64_t flags, uint64_t exec_mask, uint64_t instruc
                             const uint32_t *const *b) {
   flags = rocjitsu::arith::resolve_compatibility(
       flags, RJ_ARITH_SEMANTICS_BIT_EXACT_EMPIRICAL_NO_FP_STATUS);
-  if (int error = rocjitsu::arith::validate_semantics(flags))
+  if (int error = rocjitsu::arith::validate_semantics(flags)) {
     return error;
+  }
   return boolean_wave64<rocjitsu::arith::Boolean::Xnor, false>(flags, exec_mask, instruction_flags,
                                                                d, a, b);
 }
