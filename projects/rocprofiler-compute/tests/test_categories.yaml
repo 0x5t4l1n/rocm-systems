@@ -141,6 +141,7 @@ test_categories:
       - test_csv_compression
       - test_inject_roctx_package
       - test_inject_roctx_torch
+      - test_inject_roctx_torch_gpu
       - test_profiler_base
       - test_pc_sampling_profile
       - test_rocprofv3_avail_interface
@@ -240,6 +241,7 @@ test_categories:
       - test_csv_compression
       - test_inject_roctx_package
       - test_inject_roctx_torch
+      - test_inject_roctx_torch_gpu
       - test_profiler_base
       - test_pc_sampling_profile
       - test_rocprofv3_avail_interface
@@ -339,6 +341,7 @@ test_categories:
       - test_csv_compression
       - test_inject_roctx_package
       - test_inject_roctx_torch
+      - test_inject_roctx_torch_gpu
       - test_profiler_base
       - test_pc_sampling_profile
       - test_rocprofv3_avail_interface
