@@ -1929,6 +1929,7 @@ VirtualGPU* Device::createInternalXferQueue() {
       new VirtualGPU(*this, /*profiling=*/amd::IS_HIP, /*cooperative=*/false, defaultCuMask,
                      amd::CommandQueue::Priority::Normal, /*dedicated_queue=*/false);
 
+  virtualDevice->PinQueue();
   if (!virtualDevice->create()) {
     delete virtualDevice;
     return nullptr;
